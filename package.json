@@ -1,0 +1,22 @@
+{
+    "name": "bot",
+    "version": "1.0",
+    "description": "Bot WhatsApp",
+    "main": "index.js",
+    "scripts": {
+        "authhor": "Akmal",
+        "license": "MIT",
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "@whiskeysockets/baileys": "^7.0.0-rc.9",
+        "axios": "^1.13.2",
+        "axios-cookiejar-support": "^6.0.5",
+        "baileys": "6.7.17",
+        "chalk": "^4.1.2",
+        "cheerio": "^1.1.2",
+        "pino": "^8.21.0",
+        "readline": "1.3.0",
+        "tough-cookie": "^6.0.0"
+    }
+}
