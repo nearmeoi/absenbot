@@ -2,7 +2,7 @@
   "cookies": [
     {
       "name": "accessToken",
-      "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJjbGllbnQiOiI3OTIzMDg5MS1jYzAyLTQzYzgtOTY0Yy1iNTI1YmNlMjc4NTciLCJ1c2VyIjoiMDQ3NTU1OTQtNDhhNS00NzE0LWIwNmItN2Q0OWY3ZDY1NzU4IiwidHRsIjoyMTYwMCwic3ViIjoiYzc3NjZmN2ItYjIwNi00ODc1LTk4NDktNWY1M2ExMzYwZjVjIiwiYXVkIjoiNzkyMzA4OTEtY2MwMi00M2M4LTk2NGMtYjUyNWJjZTI3ODU3IiwiZmluZ2VycHJpbnQiOiI4ZDE2NGM4YzdiMGM2Nzg4M2ZlYWU4MTg4NThhNWQ3NmYwZjI3YTQ1In0.k7N_H4T7DK7VPMeKpEYy7m9n7TZUdfcRUQEvdHgfdLvuAbsRshCj5vkYyMPuXo67b4bWnfo7bJbvp1lDi8Fx9q5qAzRqDfWExPOwc2JLQau5dJ3mpU8GrTlhdULCSTsrQpvcmS3gYKbnRmIMgUls_1hnqS2qZdZbZHpqN_Jw3Oqh1hCrZhmSnVO4NN5XAk0EtJCHTnshZHelSwDM1DW5KEWq7t4JyGa9BsA5fLhjYEELmvW58F79m_VtlRiiMRJVn6UCHgUy3QT7jIKdF-gXAEEXfiGCEbqBmhibAHIKPIXDXRPd0Rc8KEpSIi0RSYiI5PPhZZLRionsvDcYG3ZH3CnldFCkneJmXZqNaDRbIAuuqqYhYyPEPHeLoZ5Or5ol7gqpEaAhYOGEcyu7abKFu58UzIceJOHgFbz3-O1OYilyqKsNGSk4OnOvX2FD4K-FsBA1JQLtpucR9eu0Ifl5rx1JybkDaNaUTVCQ22CfXiTUt56wpuNW-PSd8fPtHKA_fw5zO9qrVW_UIYLpbIyNF_9y8HN1z7tR1I7ut_nv6RThq0u8DBwgJfueR_37hxAchC_78hapBH0KUidf89sypfvEg1ue4_3hwPnfvufeHaegZe20tlnCHQ5sGjPdcx9wxaQ_ILxR5W6_gVqOQYQ8TriUi3xl6eT4KYEwvpvCJvE",
+      "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJjbGllbnQiOiI3OTIzMDg5MS1jYzAyLTQzYzgtOTY0Yy1iNTI1YmNlMjc4NTciLCJ1c2VyIjoiMDQ3NTU1OTQtNDhhNS00NzE0LWIwNmItN2Q0OWY3ZDY1NzU4IiwidHRsIjoyMTYwMCwic3ViIjoiMzZkZTliMGEtZTZhMS00YjRhLWI5OTktMzM2NWE2NGMxNDIyIiwiYXVkIjoiNzkyMzA4OTEtY2MwMi00M2M4LTk2NGMtYjUyNWJjZTI3ODU3IiwiZmluZ2VycHJpbnQiOiI4ZDE2NGM4YzdiMGM2Nzg4M2ZlYWU4MTg4NThhNWQ3NmYwZjI3YTQ1In0.FaFN9NYxj09-TijtJpW2RKaXFiRmbDy6PpBNbLJgr1MneklmtTyezwx4iYf6qxyzeSj0V_tNYEb6yCoNw2vfkfTHdBUSazigHEeunJbgAy73XSwInSQkIgIWJwGeRwQASkqIZ_6ZB-W8r_rPwZ5oDUQ95ObyEbeLKck0yf36ncI78nN3ZR_uQ-YBQQ3HqPPxwtXuLdbpwXs4_ChQWNtSXskE48qmpLVzqdh9pCPQHv8k-0325qSPSwB0xQzXeR96D7dRlio0w8o2pSXkyPpGfLcXTdC0D2UDGbcN4MOsVrGL4lMqMZXel0bz6DgWjsi4m8OpzkZhl1sJ7UXiEMNVV8q5VVyMu9YazqhD7S1k6IMKwAP3YKEi37ubjChz958u65IsIEyUrZhN3KeBwLE42yvCytWQ9CMQ8ou8EaZq_UydAiLgYPMKpsyqcoEtZpznsRvEgLIOfmyMIP375Q8ULsV0UFVA6ij466W84aMIP_nfaO0ocnT3CtJK4T8jdJFuLeDL9gUGL2Xo992dOx6eJCQhmFC_UQDdmMc4vImWQi6WKREfOq4_7eTYRwRbiVxz7yhia6P2Cyo5k8pdMJOhPuYKhv3lRBvIiHB3R4jBiB-FrQJ9Au2c-3zhbNlSIpj1FGH-CyQbhFysKMjYn-14g9bhNxfdibhD8oDQ6MhF8UE",
       "domain": "monev.maganghub.kemnaker.go.id",
       "path": "/",
       "expires": -1,
@@ -17,10 +17,10 @@
     },
     {
       "name": "acw_tc",
-      "value": "0a03087f17651284323968453e3605d4e6c58bd1d29e1718f1674acf0f2616",
+      "value": "0a03087f17651338430617357e35fb397868f93a4dce788682839f184dd6a3",
       "domain": "monev.maganghub.kemnaker.go.id",
       "path": "/",
-      "expires": 1765130231.744487,
+      "expires": 1765135642.407132,
       "size": 68,
       "httpOnly": true,
       "secure": false,
@@ -30,6 +30,6 @@
       "sourceScheme": "Secure"
     }
   ],
-  "csrfToken": "8HdYh1px5Ku0wJA595NVDeotsVNFqfpRWD5jt1Ih",
-  "updatedAt": 1765128440883
+  "csrfToken": "",
+  "updatedAt": 1765133849953
 }

@@ -15,23 +15,31 @@ const loadUsers = () => {
     }
 };
 
-// FUNGSI PENCARI PINTAR (Bisa cari pakai Nomor HP atau LID)
+// [PENTING] Fungsi Ambil Semua User untuk !tagall
+const getAllUsers = () => {
+    return loadUsers();
+};
+
 const getUserByPhone = (id) => {
     const users = loadUsers();
-    // Cari user yang nomornya cocok ATAU lid-nya cocok
     return users.find(u => u.phone === id || u.lid === id);
 };
 
-// Fungsi Simpan User Baru
 const saveUser = (phoneNumber, email, password) => {
     const users = loadUsers();
+    
+    // Normalisasi ID
+    if (phoneNumber && !phoneNumber.includes('@')) {
+        phoneNumber = phoneNumber + '@s.whatsapp.net';
+    }
+
     const existingIndex = users.findIndex(u => u.phone === phoneNumber);
 
     const userData = { 
         phone: phoneNumber, 
         email, 
         password,
-        lid: users[existingIndex]?.lid || null // Pertahankan LID lama jika ada
+        lid: users[existingIndex]?.lid || null 
     };
 
     if (existingIndex !== -1) {
@@ -44,19 +52,16 @@ const saveUser = (phoneNumber, email, password) => {
     return true;
 };
 
-// [BARU] Fungsi Khusus Simpan LID
 const updateUserLid = (realPhoneNumber, lid) => {
     const users = loadUsers();
     const index = users.findIndex(u => u.phone === realPhoneNumber);
 
     if (index !== -1) {
-        // Jika user ditemukan, tambahkan data LID ke dia
         users[index].lid = lid;
         fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
-        console.log(`[DB] LID ${lid} berhasil dikaitkan ke ${realPhoneNumber}`);
         return true;
     }
     return false;
 };
 
-module.exports = { getUserByPhone, saveUser, updateUserLid };
+module.exports = { getUserByPhone, saveUser, updateUserLid, getAllUsers };
