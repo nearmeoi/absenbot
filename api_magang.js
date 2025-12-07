@@ -1,207 +1,301 @@
-// PERINTAH INSTALL (Wajib dijalankan di terminal):
-// npm install axios axios-cookiejar-support tough-cookie cheerio
+const puppeteer = require("puppeteer-core");
+const axios = require("axios");
+const fs = require("fs");
+const { execSync } = require("child_process");
 
-const axios = require('axios');
-const { wrapper } = require('axios-cookiejar-support');
-const { CookieJar } = require('tough-cookie');
-const cheerio = require('cheerio');
+const SESSION_DIR = "./sessions";
+if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR);
 
-// --- SETUP CLIENT CANGGIH ---
-const createClient = (jar) => {
-    return wrapper(axios.create({ 
-        jar,
-        withCredentials: true,
-        maxRedirects: 20, 
-        timeout: 30000,
-        headers: { 
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1'
-        }
-    }));
+const USER_AGENT =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36";
+
+const getChromiumPath = () => {
+    return "/data/data/com.termux/files/usr/bin/chromium-browser";
 };
 
-// --- HELPER TANGGAL ---
-function getTodayStr() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+// ============================================================
+// 1. MESIN PUPPETEER: LOGIN & CURI DATA
+// ============================================================
+async function loginAndExtractData(email, password) {
+    console.log(`[BROWSER] 🚀 Memulai Misi: ${email}`);
+    const executablePath = getChromiumPath();
+    if (!fs.existsSync(executablePath))
+        throw new Error("Chromium tidak ditemukan.");
+
+    let browser;
+    let sniffedToken = null;
+
+    try {
+        browser = await puppeteer.launch({
+            headless: "new",
+            executablePath: executablePath,
+            args: [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-gpu",
+                "--single-process",
+                "--no-zygote"
+            ]
+        });
+
+        const page = await browser.newPage();
+        page.setDefaultTimeout(120000);
+        await page.setUserAgent(USER_AGENT);
+
+        await page.setRequestInterception(true);
+        page.on("request", req => {
+            const resourceType = req.resourceType();
+            if (["image", "media", "font"].includes(resourceType)) {
+                req.abort();
+                return;
+            }
+            const headers = req.headers();
+            if (headers["x-csrf-token"]) sniffedToken = headers["x-csrf-token"];
+            req.continue();
+        });
+
+        // A. LOGIN FLOW
+        await page.goto("https://account.kemnaker.go.id/auth/login", {
+            waitUntil: "domcontentloaded"
+        });
+
+        if (
+            page.url().includes("dashboard") ||
+            page.url().includes("siapkerja")
+        ) {
+            await page.goto("https://account.kemnaker.go.id/auth/logout", {
+                waitUntil: "domcontentloaded"
+            });
+            await page.goto("https://account.kemnaker.go.id/auth/login", {
+                waitUntil: "domcontentloaded"
+            });
+        }
+
+        console.log("[BROWSER] Mengetik...");
+        const emailSel = 'input[name="username"]';
+        await page.waitForSelector(emailSel, { visible: true });
+
+        await page.type(emailSel, email, { delay: 10 });
+        await page.type('input[type="password"]', password, { delay: 10 });
+
+        console.log("[BROWSER] Klik Masuk...");
+        await page.click('button[type="submit"]');
+
+        try {
+            await page.waitForFunction(
+                () => !window.location.href.includes("auth/login"),
+                { timeout: 60000 }
+            );
+        } catch {
+            const errorMsg = await page.evaluate(() => {
+                const el = document.querySelector(".alert-danger");
+                return el ? el.innerText : null;
+            });
+            throw new Error(
+                `Login Gagal: ${errorMsg ? errorMsg.trim() : "Timeout"}`
+            );
+        }
+
+        // B. PINDAH KE MONEV
+        console.log("[BROWSER] 🔄 Pindah ke MagangHub...");
+        await page.goto("https://monev.maganghub.kemnaker.go.id/dashboard", {
+            waitUntil: "networkidle2"
+        });
+
+        if (!page.url().includes("monev")) {
+            await page.reload({ waitUntil: "networkidle2" });
+        }
+
+        console.log("[BROWSER] 📸 CEKREK! Login Sukses.");
+        const buktiPath = `bukti_login_${Date.now()}.png`;
+        await page.screenshot({ path: buktiPath });
+
+        // D. KUMPULKAN HASIL CURIAN
+        let cookies = await page.cookies();
+        let finalCsrf = sniffedToken;
+
+        if (!finalCsrf) {
+            finalCsrf = await page.evaluate(() => {
+                const el = document.querySelector('meta[name="csrf-token"]');
+                return el ? el.content : null;
+            });
+        }
+
+        if (!finalCsrf) {
+            const content = await page.content();
+            const match = content.match(/csrf-token"\s*content="([^"]+)"/);
+            if (match) finalCsrf = match[1];
+        }
+
+        await browser.close();
+
+        if (!finalCsrf && cookies.length > 0) {
+            const xsrf = cookies.find(c => c.name === "XSRF-TOKEN");
+            if (xsrf) finalCsrf = decodeURIComponent(xsrf.value);
+        }
+
+        if (!finalCsrf) finalCsrf = "TOKEN_MISSING";
+
+        // SIMPAN KE FILE
+        const finalData = {
+            cookies: cookies,
+            csrfToken: finalCsrf,
+            updatedAt: Date.now()
+        };
+
+        fs.writeFileSync(
+            `${SESSION_DIR}/${email}.json`,
+            JSON.stringify(finalData, null, 2)
+        );
+
+        return { success: true, foto: buktiPath };
+    } catch (error) {
+        if (browser) await browser.close();
+        return { success: false, pesan: error.message };
+    }
 }
 
-// --- HELPER LOGIN SSO (DIPAKAI BERSAMA) ---
-async function executeSSOLogin(client, email, password) {
-    console.log(`[API] 🚀 Login SSO: ${email}`);
+// ============================================================
+// 2. MESIN AXIOS: EKSEKUSI KILAT (PARSING FIX)
+// ============================================================
+async function executeAxios(
+    email,
+    password,
+    action = "CHECK_STATUS",
+    payloadData = null
+) {
+    const sessionPath = `${SESSION_DIR}/${email}.json`;
 
-    // 1. TEMBAK LANGSUNG URL SSO (JANGAN TUNGGU REDIRECT)
-    // URL ini memaksa Kemnaker mengembalikan kita ke Monev setelah login sukses
-    const targetUrl = 'https://account.kemnaker.go.id/auth/login?continue=https://monev.maganghub.kemnaker.go.id';
-    
-    console.log('[API] 1. Membuka Halaman Login...');
-    const pageLogin = await client.get(targetUrl);
-    
-    // Ambil CSRF Token
-    const $ = cheerio.load(pageLogin.data);
-    const csrfToken = $('meta[name="csrf-token"]').attr('content');
-
-    if (!csrfToken) {
-        // Coba cek apakah kita sudah login duluan?
-        if (pageLogin.request.res.responseUrl.includes('monev.maganghub')) {
-            console.log('[API] ✅ Ternyata sudah login sebelumnya.');
-            return true;
-        }
-        throw new Error("Gagal ambil CSRF Token Login.");
+    if (!fs.existsSync(sessionPath)) {
+        console.log("[AXIOS] Kunci tidak ada. Memanggil Browser...");
+        const loginRes = await loginAndExtractData(email, password);
+        if (!loginRes.success) return loginRes;
     }
 
-    // 2. KIRIM PASSWORD
-    console.log('[API] 2. Mengirim Kredensial...');
-    const loginReq = await client.post('https://account.kemnaker.go.id/auth/login', { 
-        username: email, password: password
-    }, {
+    const session = JSON.parse(fs.readFileSync(sessionPath, "utf8"));
+    const cookieHeader = session.cookies
+        .map(c => `${c.name}=${c.value}`)
+        .join("; ");
+
+    const client = axios.create({
+        timeout: 30000,
+        maxRedirects: 0,
         headers: {
-            'X-CSRF-TOKEN': csrfToken,
-            'Referer': targetUrl,
-            'Content-Type': 'application/json',
-            'Origin': 'https://account.kemnaker.go.id'
+            "User-Agent": USER_AGENT,
+            Cookie: cookieHeader,
+            "X-CSRF-TOKEN": session.csrfToken,
+            "X-Requested-With": "XMLHttpRequest",
+            Origin: "https://monev.maganghub.kemnaker.go.id",
+            Referer: "https://monev.maganghub.kemnaker.go.id/dashboard",
+            Accept: "application/json, text/plain, */*",
+            "Content-Type": "application/json"
         }
     });
 
-    // 3. CEK HASIL
-    // Axios akan mengikuti redirect otomatis. Kita cek mendarat dimana.
-    const finalUrl = loginReq.request.res.responseUrl || loginReq.config.url;
-    console.log(`[DEBUG] Mendarat di: ${finalUrl}`);
-    
-    if (finalUrl.includes('auth/login')) {
-        throw new Error("Password Salah atau Gagal Login.");
-    }
-    
-    // Jika mendarat di monev atau dashboard, berarti sukses
-    if (finalUrl.includes('monev.maganghub') || finalUrl.includes('dashboard')) {
-        console.log('[API] ✅ Login Sukses & Redirect Valid.');
-        return true;
-    }
-
-    throw new Error("Login berhasil tapi tidak redirect ke Monev.");
-}
-
-// --- FUNGSI 1: CEK LOGIN SAJA (DAFTAR) ---
-async function cekKredensial(email, password) {
-    const jar = new CookieJar();
-    const client = createClient(jar);
     try {
-        await executeSSOLogin(client, email, password);
-        return { success: true };
-    } catch (error) {
-        return { success: false, pesan: error.message };
-    }
-}
+        const todayStr = new Date().toISOString().split("T")[0];
 
-// --- FUNGSI 2: ABSEN ---
-async function prosesLoginDanAbsen(dataUser) {
-    const { email, password, aktivitas, pembelajaran, kendala } = dataUser;
-    const jar = new CookieJar();
-    const client = createClient(jar);
-
-    try {
-        // 1. Login
-        await executeSSOLogin(client, email, password);
-
-        // 2. Kirim Absen
-        console.log('[API] 📝 Mengirim Laporan Harian...');
-        const todayStr = getTodayStr();
-
-        const payload = {
-            date: todayStr,
-            status: "PRESENT",
-            activity_log: aktivitas,
-            lesson_learned: pembelajaran,
-            obstacles: kendala
+        // --- HELPER PARSING ---
+        // Fungsi ini mencari data tanggal hari ini di dalam tumpukan respon server
+        const findLogForToday = responseData => {
+            // Cek jika responseData.data adalah Array
+            if (responseData.data && Array.isArray(responseData.data)) {
+                return responseData.data.find(log => log.date === todayStr);
+            }
+            return null;
         };
 
-        const responseAbsen = await client.post('https://monev.maganghub.kemnaker.go.id/api/attendances/with-daily-log', payload, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Origin': 'https://monev.maganghub.kemnaker.go.id',
-                'Referer': 'https://monev.maganghub.kemnaker.go.id/dashboard',
-                'X-Requested-With': 'XMLHttpRequest'
+        // --- AKSI: CEK STATUS ---
+        if (action === "CHECK_STATUS") {
+            console.log(`[AXIOS] 🔍 Cek Status: ${email}`);
+
+            // Kita minta data spesifik tanggal ini (walau server kadang kasih semua)
+            const res = await client.get(
+                `https://monev.maganghub.kemnaker.go.id/api/daily-logs?date=${todayStr}`
+            );
+
+            // [FIX UTAMA] Parse Array
+            const logHariIni = findLogForToday(res.data);
+
+            if (logHariIni && logHariIni.id) {
+                return { success: true, sudahAbsen: true, data: logHariIni };
             }
-        });
-
-        console.log(`[API RESPONSE] ${responseAbsen.status} ${responseAbsen.statusText}`);
-
-        if (responseAbsen.status === 200 || responseAbsen.status === 201) {
-            // Verifikasi
-            try {
-                const verifyUrl = `https://monev.maganghub.kemnaker.go.id/api/daily-logs?date=${todayStr}`;
-                const resVerify = await client.get(verifyUrl);
-                if (resVerify.data && resVerify.data.id) {
-                    return { success: true, nama: email, pesan_tambahan: "✅ (Data Terverifikasi Masuk)" };
-                }
-            } catch (e) {}
-            return { success: true, nama: email, pesan_tambahan: "⚠️ (Terkirim, cek web untuk memastikan)" };
-        } else {
-            return { success: false, pesan: `Gagal kirim: Server merespon ${responseAbsen.status}` };
+            return { success: true, sudahAbsen: false };
         }
 
+        // --- AKSI: SUBMIT LAPORAN ---
+        if (action === "SUBMIT") {
+            console.log(`[AXIOS] 📤 Submit Laporan: ${email}`);
+
+            // Cek dulu
+            const cek = await client.get(
+                `https://monev.maganghub.kemnaker.go.id/api/daily-logs?date=${todayStr}`
+            );
+            const logAda = findLogForToday(cek.data);
+
+            if (logAda && logAda.id)
+                return { success: false, pesan: "SUDAH ABSEN HARI INI! 🛑" };
+
+            const payload = {
+                date: todayStr,
+                status: "PRESENT",
+                activity_log: payloadData.aktivitas,
+                lesson_learned: payloadData.pembelajaran,
+                obstacles: payloadData.kendala
+            };
+
+            const resPost = await client.post(
+                "https://monev.maganghub.kemnaker.go.id/api/attendances/with-daily-log",
+                payload
+            );
+
+            if (resPost.status === 200 || resPost.status === 201) {
+                return {
+                    success: true,
+                    nama: email,
+                    pesan_tambahan: "⚡ (API Kilat)"
+                };
+            }
+        }
     } catch (error) {
-        if (error.response) {
-            console.error('[API FAIL]', error.response.status, JSON.stringify(error.response.data));
-            if (error.response.status === 401) return { success: false, pesan: "Sesi Kedaluwarsa (401)." };
-            if (error.response.status === 422) return { success: false, pesan: "Data Ditolak (422). Format tanggal salah atau duplikat." };
+        console.log(`[AXIOS ERROR] ${error.message}`);
+
+        if (
+            error.response &&
+            (error.response.status === 401 ||
+                error.response.status === 419 ||
+                error.response.status === 302)
+        ) {
+            console.log(
+                "[AXIOS] ⚠️ Kunci Kedaluwarsa. Mengambil kunci baru..."
+            );
+            fs.unlinkSync(sessionPath);
+
+            const loginRes = await loginAndExtractData(email, password);
+            if (!loginRes.success) return loginRes;
+
+            return await executeAxios(email, password, action, payloadData);
         }
-        return { success: false, pesan: error.message };
+        return { success: false, pesan: `API Error: ${error.message}` };
     }
+    return { success: false, pesan: "Unknown Error" };
 }
 
-// --- FUNGSI 3: CEK STATUS (Untuk !cekabsen) ---
-async function cekStatusHarian(email, password) {
-    const jar = new CookieJar();
-    const client = createClient(jar);
-
-    try {
-        console.log(`[API CHECK] Cek status harian: ${email}`);
-        
-        // 1. Login
-        await executeSSOLogin(client, email, password);
-
-        // 2. Ambil Data Log Hari Ini
-        const todayStr = getTodayStr();
-        console.log(`[API] Mengambil data tanggal: ${todayStr}`);
-
-        const response = await client.get(`https://monev.maganghub.kemnaker.go.id/api/daily-logs?date=${todayStr}`, {
-            headers: {
-                'Accept': 'application/json, text/plain, */*',
-                'Referer': 'https://monev.maganghub.kemnaker.go.id/dashboard'
-            }
-        });
-
-        // 3. Analisa Data
-        if (response.data && response.data.id) {
-            // Sudah Absen
-            return { 
-                success: true, 
-                sudahAbsen: true, 
-                data: response.data 
-            };
-        } else {
-            // Belum Absen
-            return { 
-                success: true, 
-                sudahAbsen: false 
-            };
-        }
-
-    } catch (error) {
-        console.error('[API CHECK FAIL]', error.message);
-        return { success: false, pesan: error.message };
+module.exports = {
+    cekKredensial: async (e, p) => {
+        if (fs.existsSync(`${SESSION_DIR}/${e}.json`))
+            fs.unlinkSync(`${SESSION_DIR}/${e}.json`);
+        return await loginAndExtractData(e, p);
+    },
+    cekStatusHarian: async (e, p) => {
+        return await executeAxios(e, p, "CHECK_STATUS");
+    },
+    prosesLoginDanAbsen: async dataUser => {
+        return await executeAxios(
+            dataUser.email,
+            dataUser.password,
+            "SUBMIT",
+            dataUser
+        );
     }
-}
-
-module.exports = { prosesLoginDanAbsen, cekKredensial, cekStatusHarian };
+};

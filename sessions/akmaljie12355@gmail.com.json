@@ -1,0 +1,35 @@
+{
+  "cookies": [
+    {
+      "name": "accessToken",
+      "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJjbGllbnQiOiI3OTIzMDg5MS1jYzAyLTQzYzgtOTY0Yy1iNTI1YmNlMjc4NTciLCJ1c2VyIjoiMDQ3NTU1OTQtNDhhNS00NzE0LWIwNmItN2Q0OWY3ZDY1NzU4IiwidHRsIjoyMTYwMCwic3ViIjoiYzc3NjZmN2ItYjIwNi00ODc1LTk4NDktNWY1M2ExMzYwZjVjIiwiYXVkIjoiNzkyMzA4OTEtY2MwMi00M2M4LTk2NGMtYjUyNWJjZTI3ODU3IiwiZmluZ2VycHJpbnQiOiI4ZDE2NGM4YzdiMGM2Nzg4M2ZlYWU4MTg4NThhNWQ3NmYwZjI3YTQ1In0.k7N_H4T7DK7VPMeKpEYy7m9n7TZUdfcRUQEvdHgfdLvuAbsRshCj5vkYyMPuXo67b4bWnfo7bJbvp1lDi8Fx9q5qAzRqDfWExPOwc2JLQau5dJ3mpU8GrTlhdULCSTsrQpvcmS3gYKbnRmIMgUls_1hnqS2qZdZbZHpqN_Jw3Oqh1hCrZhmSnVO4NN5XAk0EtJCHTnshZHelSwDM1DW5KEWq7t4JyGa9BsA5fLhjYEELmvW58F79m_VtlRiiMRJVn6UCHgUy3QT7jIKdF-gXAEEXfiGCEbqBmhibAHIKPIXDXRPd0Rc8KEpSIi0RSYiI5PPhZZLRionsvDcYG3ZH3CnldFCkneJmXZqNaDRbIAuuqqYhYyPEPHeLoZ5Or5ol7gqpEaAhYOGEcyu7abKFu58UzIceJOHgFbz3-O1OYilyqKsNGSk4OnOvX2FD4K-FsBA1JQLtpucR9eu0Ifl5rx1JybkDaNaUTVCQ22CfXiTUt56wpuNW-PSd8fPtHKA_fw5zO9qrVW_UIYLpbIyNF_9y8HN1z7tR1I7ut_nv6RThq0u8DBwgJfueR_37hxAchC_78hapBH0KUidf89sypfvEg1ue4_3hwPnfvufeHaegZe20tlnCHQ5sGjPdcx9wxaQ_ILxR5W6_gVqOQYQ8TriUi3xl6eT4KYEwvpvCJvE",
+      "domain": "monev.maganghub.kemnaker.go.id",
+      "path": "/",
+      "expires": -1,
+      "size": 1071,
+      "httpOnly": false,
+      "secure": false,
+      "session": true,
+      "sameSite": "Lax",
+      "priority": "Medium",
+      "sameParty": false,
+      "sourceScheme": "Secure"
+    },
+    {
+      "name": "acw_tc",
+      "value": "0a03087f17651284323968453e3605d4e6c58bd1d29e1718f1674acf0f2616",
+      "domain": "monev.maganghub.kemnaker.go.id",
+      "path": "/",
+      "expires": 1765130231.744487,
+      "size": 68,
+      "httpOnly": true,
+      "secure": false,
+      "session": false,
+      "priority": "Medium",
+      "sameParty": false,
+      "sourceScheme": "Secure"
+    }
+  ],
+  "csrfToken": "8HdYh1px5Ku0wJA595NVDeotsVNFqfpRWD5jt1Ih",
+  "updatedAt": 1765128440883
+}

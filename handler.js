@@ -6,15 +6,15 @@ module.exports = async (sock, msg) => {
     try {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
-        if (msgObj.key.fromMe) return; 
-
-        // Helper text
+        
         const getMsgText = (m) => {
             if (!m) return "";
             return m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || "";
         };
         const textMessage = getMsgText(msgObj.message);
-        
+
+        if (msgObj.key.fromMe && !textMessage.startsWith('!')) return;
+
         const HEADER_LAPORAN = "[LAPORAN MAGANGHUB]";
         const isCommand = textMessage.trim().startsWith('!');
         const isLaporanContent = textMessage.includes(HEADER_LAPORAN);
@@ -25,7 +25,7 @@ module.exports = async (sock, msg) => {
         const isGroup = sender.endsWith('@g.us');
         let senderNumber = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
 
-        // LID Logic
+        // LID Logic (Sama seperti sebelumnya)
         if (isGroup && senderNumber.includes('@lid')) {
             const userByLid = getUserByPhone(senderNumber); 
             if (userByLid) senderNumber = userByLid.phone;
@@ -47,92 +47,52 @@ module.exports = async (sock, msg) => {
         const command = textMessage.trim().split(/\s+/)[0].toLowerCase();
         const args = textMessage.trim().substring(command.length).trim();
 
-        // ----------------------------------------------------
-        // !HAI / MENU
-        // ----------------------------------------------------
-        if (command === '!hai' || command === '!menu' || command === '!help') {
-            const info = `🤖 *BOT MAGANGHUB v1.1*
-Halo sobat POLTEKPAR! 🌈
-
-🔹 *!daftar email|pass*
-(Wajib di Chat Pribadi)
-
-🔹 *!absen*
-(Kirim Laporan Harian)
-
-🔹 *!cekabsen*
-(Cek apakah hari ini sudah absen?)
-
-🔹 *!cek*
-(Cek status pendaftaran)`;
-            await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+        // !HAI
+        if (command === '!hai' || command === '!menu') {
+            await sock.sendMessage(sender, { text: `🤖 *BOT MAGANGHUB v4.0 (Visual)*\n\n1️⃣ !daftar email|pass\n2️⃣ !absen (Kirim Laporan)` }, { quoted: msgObj });
             return;
         }
 
-        // ----------------------------------------------------
-        // !CEKABSEN (FITUR BARU)
-        // ----------------------------------------------------
-        if (command === '!cekabsen') {
-            const user = getUserByPhone(senderNumber);
-            if (!user) {
-                await sock.sendMessage(sender, { text: '⚠️ Kamu belum terdaftar. Ketik *!daftar email|pass* di PC dulu.' }, { quoted: msgObj });
-                return;
-            }
-
-            await sock.sendMessage(sender, { text: `⏳ Mengecek data di server MagangHub...` }, { quoted: msgObj });
-
-            const status = await cekStatusHarian(user.email, user.password);
-
-            if (status.success) {
-                if (status.sudahAbsen) {
-                    const log = status.data;
-                    let reply = `✅ *SUDAH ABSEN HARI INI*\n\n`;
-                    reply += `📅 Tanggal: ${log.date}\n`;
-                    reply += `📝 Aktivitas: ${log.activity_log.substring(0, 50)}...\n`;
-                    reply += `Status: TERKIRIM ke Server`;
-                    await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
-                } else {
-                    await sock.sendMessage(sender, { text: `❌ *BELUM ABSEN HARI INI*\n\nSilakan ketik *!absen* untuk mengisi laporan.` }, { quoted: msgObj });
-                }
-            } else {
-                await sock.sendMessage(sender, { text: `⚠️ Gagal cek status: ${status.pesan}` }, { quoted: msgObj });
-            }
-            return;
-        }
-
-        // ----------------------------------------------------
-        // !DAFTAR
-        // ----------------------------------------------------
+        // !DAFTAR (DENGAN BUKTI FOTO)
         if (command === '!daftar') {
             if (args.includes('emailmu@gmail.com')) return; 
-            if (isGroup) {
-                await sock.sendMessage(sender, { text: `⚠️ *BAHAYA!* Chat Pribadi (PC) saya untuk daftar.` }, { quoted: msgObj });
+            if (isGroup && !msgObj.key.fromMe) {
+                await sock.sendMessage(sender, { text: `⚠️ Daftar lewat Chat Pribadi (PC) ya.` }, { quoted: msgObj });
                 return;
             }
             if (args.split('|').length < 2) {
-                await sock.sendMessage(sender, { text: '❌ Format salah! Gunakan: *!daftar email|pass*' }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: '❌ Format: *!daftar email|pass*' }, { quoted: msgObj });
                 return;
             }
-
             const [email, password] = args.split('|').map(s => s.trim());
-            await sock.sendMessage(sender, { text: '⏳ Verifikasi akun...' }, { quoted: msgObj });
-
+            
+            await sock.sendMessage(sender, { text: '⏳ Verifikasi akun (Bot sedang login)...' }, { quoted: msgObj });
+            
             const cekLogin = await cekKredensial(email, password);
+            
             if (cekLogin.success) {
                 saveUser(senderNumber, email, password);
-                await sock.sendMessage(sender, { text: `✅ *BERHASIL DAFTAR!*\nAkun: ${email}` }, { quoted: msgObj });
+                
+                // [FITUR BARU] KIRIM BUKTI FOTO DASHBOARD
+                let caption = `✅ *BERHASIL LOGIN!*\nAkun: ${email}\nData tersimpan aman.`;
+                
+                if (cekLogin.foto && fs.existsSync(cekLogin.foto)) {
+                    await sock.sendMessage(sender, { 
+                        image: { url: cekLogin.foto }, 
+                        caption: caption 
+                    }, { quoted: msgObj });
+                    try { fs.unlinkSync(cekLogin.foto); } catch(e){}
+                } else {
+                    await sock.sendMessage(sender, { text: caption }, { quoted: msgObj });
+                }
             } else {
-                await sock.sendMessage(sender, { text: `❌ *GAGAL:*\n${cekLogin.pesan}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `❌ *Gagal:* ${cekLogin.pesan}` }, { quoted: msgObj });
             }
             return;
         }
 
-        // ----------------------------------------------------
         // !ABSEN
-        // ----------------------------------------------------
         if (command === '!absen' || isLaporanContent) {
-            
-            // A. KASIH TEMPLATE
             if (!textMessage.includes('Aktivitas:')) {
                 const template = `!absen ${HEADER_LAPORAN}
 (Salin, Isi, dan Kirim Balik)
@@ -148,14 +108,11 @@ _(Tips: Isi minimal 100 karakter per kolom)_`;
                 return;
             }
 
-            // B. PROSES
             const user = getUserByPhone(senderNumber);
             if (!user) {
                 await sock.sendMessage(sender, { text: `⚠️ Kamu belum terdaftar.` }, { quoted: msgObj });
                 return;
             }
-
-            await sock.sendMessage(sender, { text: `⏳ Memproses laporan milik @${senderNumber.split('@')[0]}...`, mentions: [senderNumber] }, { quoted: msgObj });
 
             const aktMatch = textMessage.match(/Aktivitas:\s*([\s\S]*?)(?=Pembelajaran:|$)/i);
             const pembMatch = textMessage.match(/Pembelajaran:\s*([\s\S]*?)(?=Kendala:|$)/i);
@@ -167,30 +124,47 @@ _(Tips: Isi minimal 100 karakter per kolom)_`;
             if (kendala.includes('_(Tips:')) kendala = kendala.split('_(Tips:')[0].trim();
 
             if (aktivitas.length < 100 || pembelajaran.length < 100 || kendala.length < 100) {
-                await sock.sendMessage(sender, { text: `⚠️ *Laporan Ditolak*\nSemua kolom wajib minimal 100 karakter.` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `⚠️ *Laporan Ditolak* (Milik @${senderNumber.split('@')[0]})\nSemua kolom wajib min 100 karakter.`, mentions: [senderNumber] }, { quoted: msgObj });
                 return;
             }
 
-            const hasil = await prosesLoginDanAbsen({
-                email: user.email, password: user.password, aktivitas, pembelajaran, kendala
-            });
+            await sock.sendMessage(sender, { text: `🚀 Memproses laporan @${senderNumber.split('@')[0]}...`, mentions: [senderNumber] }, { quoted: msgObj });
 
-            if (hasil.success) {
-                let reply = `✅ *SUKSES ABSEN*\n👤 Nama: @${senderNumber.split('@')[0]}\n📅 Tanggal: ${new Date().toLocaleDateString()}\n${hasil.pesan_tambahan}`;
-                await sock.sendMessage(sender, { text: reply, mentions: [senderNumber] }, { quoted: msgObj });
-            } else {
-                await sock.sendMessage(sender, { text: `❌ *Gagal:* ${hasil.pesan}` }, { quoted: msgObj });
-            }
+            // Jalankan
+            prosesLoginDanAbsen({
+                email: user.email, password: user.password, aktivitas, pembelajaran, kendala
+            }).then(hasil => {
+                if (hasil.success) {
+                    let reply = `✅ *SUKSES ABSEN* ${hasil.pesan_tambahan}\n👤 Nama: @${senderNumber.split('@')[0]}\n📅 Tanggal: ${new Date().toLocaleDateString()}`;
+                    sock.sendMessage(sender, { text: reply, mentions: [senderNumber] }, { quoted: msgObj });
+                } else {
+                    sock.sendMessage(sender, { text: `❌ *Gagal Absen:* ${hasil.pesan}` }, { quoted: msgObj });
+                }
+            });
         }
 
-        // !CEK (Status Lokal)
-        if (command === '!cek') {
+        // !CEKABSEN
+        if (command === '!cekabsen' || command === '!cek') {
             const user = getUserByPhone(senderNumber);
-            if (user) {
-                const masked = user.email.replace(/(.{2})(.*)(@.*)/, "$1***$3");
-                await sock.sendMessage(sender, { text: `👤 *TERDAFTAR*\nEmail: ${masked}\n✅ Siap Absen.` }, { quoted: msgObj });
-            } else {
+            if (!user) {
                 await sock.sendMessage(sender, { text: '❌ Belum terdaftar.' }, { quoted: msgObj });
+                return;
+            }
+
+            await sock.sendMessage(sender, { text: `⏳ Cek Data di Server...` }, { quoted: msgObj });
+            
+            const status = await cekStatusHarian(user.email, user.password);
+
+            if (status.success) {
+                if (status.sudahAbsen) {
+                    const log = status.data;
+                    let reply = `✅ *SUDAH ABSEN HARI INI*\n📅 ${log.date}\n📝 ${log.activity_log.substring(0, 50)}...`;
+                    sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+                } else {
+                    sock.sendMessage(sender, { text: `❌ *BELUM ABSEN HARI INI*` }, { quoted: msgObj });
+                }
+            } else {
+                sock.sendMessage(sender, { text: `⚠️ Error: ${status.pesan}` }, { quoted: msgObj });
             }
         }
 
