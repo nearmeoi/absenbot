@@ -1,1 +1,5 @@
 node_modules
+SesiWA
+sessions
+user.json
+nodemon.json

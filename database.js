@@ -1,5 +1,5 @@
-const fs = require('fs');
-const filePath = './users.json';
+const fs = require("fs");
+const filePath = "./users.json";
 
 // Cek apakah file database ada
 if (!fs.existsSync(filePath)) {
@@ -8,7 +8,7 @@ if (!fs.existsSync(filePath)) {
 
 const loadUsers = () => {
     try {
-        const data = fs.readFileSync(filePath, 'utf8');
+        const data = fs.readFileSync(filePath, "utf8");
         return JSON.parse(data);
     } catch (e) {
         return [];
@@ -20,26 +20,26 @@ const getAllUsers = () => {
     return loadUsers();
 };
 
-const getUserByPhone = (id) => {
+const getUserByPhone = id => {
     const users = loadUsers();
     return users.find(u => u.phone === id || u.lid === id);
 };
 
 const saveUser = (phoneNumber, email, password) => {
     const users = loadUsers();
-    
+
     // Normalisasi ID
-    if (phoneNumber && !phoneNumber.includes('@')) {
-        phoneNumber = phoneNumber + '@s.whatsapp.net';
+    if (phoneNumber && !phoneNumber.includes("@")) {
+        phoneNumber = phoneNumber + "@s.whatsapp.net";
     }
 
     const existingIndex = users.findIndex(u => u.phone === phoneNumber);
 
-    const userData = { 
-        phone: phoneNumber, 
-        email, 
+    const userData = {
+        phone: phoneNumber,
+        email,
         password,
-        lid: users[existingIndex]?.lid || null 
+        lid: users[existingIndex]?.lid || null
     };
 
     if (existingIndex !== -1) {

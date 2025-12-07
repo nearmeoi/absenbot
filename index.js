@@ -1,147 +1,147 @@
-/* FILE 1: index.js (FIX BACA PESAN [OBJECT OBJECT]) */
+const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason } = require("@whiskeysockets/baileys")
+const pino = require("pino")
+const chalk = require("chalk")
+const readline = require("readline")
+const cron = require('node-cron'); // LIBRARY JADWAL
+const fs = require('fs');
 
-const {
-    makeWASocket,
-    useMultiFileAuthState,
-    fetchLatestBaileysVersion,
-    DisconnectReason
-} = require("@whiskeysockets/baileys");
-const pino = require("pino");
-const chalk = require("chalk");
-const readline = require("readline");
+// Import Fungsi Cek Masal dari database/api (Kita reuse logika handler)
+const { getAllUsers } = require('./database');
+const { cekStatusHarian } = require('./api_magang');
 
-const usePairingCode = true;
+const usePairingCode = true
 
-const question = text => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    return new Promise(resolve =>
-        rl.question(text, ans => {
-            rl.close();
-            resolve(ans);
-        })
-    );
-};
+const question = (text) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    return new Promise((resolve) => rl.question(text, (ans) => { rl.close(); resolve(ans) }))
+}
 
-// --- FUNGSI PINTAR BACA PESAN (REVISI TOTAL) ---
 function getMessageContent(msg) {
     if (!msg.message) return "";
-
     const m = msg.message;
-
-    // 1. Cek Teks Biasa (Conversation)
     if (m.conversation) return m.conversation;
-
-    // 2. Cek Extended Text (Reply/Link/Mention)
-    if (m.extendedTextMessage && m.extendedTextMessage.text)
-        return m.extendedTextMessage.text;
-
-    // 3. Cek Caption Media (Gambar/Video)
+    if (m.extendedTextMessage && m.extendedTextMessage.text) return m.extendedTextMessage.text;
     if (m.imageMessage && m.imageMessage.caption) return m.imageMessage.caption;
-    if (m.videoMessage && m.videoMessage.caption) return m.videoMessage.caption;
-
-    // 4. Cek Pesan Sementara (Ephemeral) - Bungkusan 1
     if (m.ephemeralMessage && m.ephemeralMessage.message) {
         const sub = m.ephemeralMessage.message;
         if (sub.conversation) return sub.conversation;
         if (sub.extendedTextMessage) return sub.extendedTextMessage.text;
-        if (sub.imageMessage) return sub.imageMessage.caption;
+    }
+    return "";
+}
+
+// --- FUNGSI ALARM OTOMATIS ---
+async function runAutoReminder(sock) {
+    console.log(chalk.magenta('[SCHEDULER] Menjalankan Alarm Otomatis...'));
+    
+    // Cek apakah ada file ID Grup
+    if (!fs.existsSync('./group_id.txt')) {
+        console.log(chalk.red('[SCHEDULER] Gagal: Belum ada grup yang diset. Ketik !setgroup di WA.'));
+        return;
     }
 
-    // 5. Cek View Once - Bungkusan 2
-    if (m.viewOnceMessage && m.viewOnceMessage.message) {
-        const sub = m.viewOnceMessage.message;
-        if (sub.imageMessage) return sub.imageMessage.caption;
-        if (sub.videoMessage) return sub.videoMessage.caption;
+    const groupId = fs.readFileSync('./group_id.txt', 'utf8').trim();
+    const allUsers = getAllUsers();
+    
+    if (allUsers.length === 0) return;
+
+    await sock.sendMessage(groupId, { text: `🔔 *ALARM OTOMATIS*\nSedang mengecek status absensi seluruh peserta...` });
+
+    let belumAbsen = [];
+    for (const user of allUsers) {
+        try {
+            // Cek status via API (Cepat)
+            const status = await cekStatusHarian(user.email, user.password);
+            if (status.success && !status.sudahAbsen) {
+                belumAbsen.push(user.phone);
+            } else if (!status.success) {
+                belumAbsen.push(user.phone); // Asumsi belum
+            }
+        } catch (e) { console.error(e); }
     }
 
-    return ""; // Jika tidak ada teks sama sekali
+    if (belumAbsen.length > 0) {
+        let msgAlert = `🚨 *PERINGATAN UPAH (AUTO)* 🚨\n\n`;
+        msgAlert += `Halo teman-teman, sekarang sudah malam.\nNama-nama di bawah ini *BELUM ABSEN*:\n\n`;
+        belumAbsen.forEach(num => msgAlert += `👉 @${num.split('@')[0]}\n`);
+        msgAlert += `\n💡 _Segera isi laporan sebelum jam 23:59!_`;
+
+        await sock.sendMessage(groupId, { 
+            text: msgAlert, 
+            mentions: belumAbsen 
+        });
+    } else {
+        await sock.sendMessage(groupId, { text: `✅ *SEMUA AMAN!* Seluruh peserta sudah absen.` });
+    }
 }
 
 async function connectToWhatsApp() {
-    const { state, saveCreds } = await useMultiFileAuthState("./LenwySesi");
-    const { version } = await fetchLatestBaileysVersion();
+  const { state, saveCreds } = await useMultiFileAuthState('SesiWA')
+  const { version } = await fetchLatestBaileysVersion()
+  
+  console.log(chalk.cyan(`🤖 Memulai Bot (v${version.join('.')}) + SCHEDULER`))
 
-    console.log(
-        chalk.cyan(
-            `🤖 Memulai Bot (v${version.join(".")}) - Fix [Object Object]`
-        )
-    );
+  const sock = makeWASocket({
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: !usePairingCode,
+    auth: state,
+    browser: ['Ubuntu', 'Chrome', '20.0.04'],
+    version,
+    generateHighQualityLinkPreview: true,
+  })
 
-    const sock = makeWASocket({
-        logger: pino({ level: "silent" }),
-        printQRInTerminal: !usePairingCode,
-        auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
-        version,
-        generateHighQualityLinkPreview: true
-    });
+  if (usePairingCode && !sock.authState.creds.registered) {
+    const phoneNumber = await question(chalk.green('Nomor WA (628xxx): '))
+    const code = await sock.requestPairingCode(phoneNumber.trim())
+    console.log(chalk.green(`Kode Pairing: `) + chalk.yellow.bold(code))
+  }
 
-    if (usePairingCode && !sock.authState.creds.registered) {
-        const phoneNumber = await question(chalk.green("Nomor WA (628xxx): "));
-        const code = await sock.requestPairingCode(phoneNumber.trim());
-        console.log(chalk.green(`Kode Pairing: `) + chalk.yellow.bold(code));
-    }
+  sock.ev.on("creds.update", saveCreds)
 
-    sock.ev.on("creds.update", saveCreds);
+  sock.ev.on("connection.update", (update) => {
+      const { connection, lastDisconnect } = update
+      if ( connection === "close") {
+          const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut
+          if(shouldReconnect) connectToWhatsApp()
+      } else if ( connection === "open") {
+          console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
+          
+          // --- SET JADWAL CRON ---
+          // Format Cron: Menit Jam * * *
+          
+          // Jam 18:00 (6 Sore)
+          cron.schedule('0 18 * * *', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
+          
+          // Jam 20:00 (8 Malam)
+          cron.schedule('0 20 * * *', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
 
-    sock.ev.on("connection.update", update => {
-        const { connection, lastDisconnect } = update;
-        if (connection === "close") {
-            const shouldReconnect =
-                lastDisconnect.error?.output?.statusCode !==
-                DisconnectReason.loggedOut;
-            if (shouldReconnect) connectToWhatsApp();
-        } else if (connection === "open") {
-            console.log(chalk.green("✅ KONEKSI STABIL. Silakan tes !hai"));
-        }
-    });
+          // Jam 22:00 (10 Malam)
+          cron.schedule('0 22 * * *', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
 
-    sock.ev.on("messages.upsert", async m => {
-        const msg = m.messages[0];
-        if (!msg.message) return;
+          console.log(chalk.blue('📅 Jadwal Alarm: 18:00, 20:00, 22:00 WIB'));
+      }
+  })
 
-        const sender = msg.key.remoteJid;
+  sock.ev.on("messages.upsert", async (m) => {
+      const msg = m.messages[0]
+      if (!msg.message) return
+      
+      // ABAIKAN STATUS
+      if (msg.key.remoteJid === 'status@broadcast') return;
 
-        // ABAIKAN STATUS WA
-        if (sender === "status@broadcast") return;
+      const text = getMessageContent(msg);
+      if (!text) return;
 
-        const isMe = msg.key.fromMe;
+      const isMe = msg.key.fromMe;
+      console.log(chalk.blue(`📩 ${isMe ? 'ME' : 'USER'}: ${text.substring(0,20)}...`));
 
-        // GUNAKAN FUNGSI BARU DI SINI
-        const text = getMessageContent(msg);
-
-        console.log(
-            chalk.gray(`------------------------------------------------`)
-        );
-        console.log(
-            chalk.blue(
-                `📩 Dari: ${isMe ? "SAYA (TEST)" : sender.split("@")[0]}`
-            )
-        );
-
-        // Tampilkan isi pesan (jika kosong berarti media tanpa caption)
-        console.log(
-            chalk.yellow(
-                `💬 Isi: "${text.substring(0, 50)}${
-                    text.length > 50 ? "..." : ""
-                }"`
-            )
-        );
-
-        if (isMe) {
-            console.log(chalk.magenta(`⚠️  Self-Test Mode...`));
-        }
-
-        try {
-            msg.bodyTeks = text; // Oper hasil bacaan ke handler
-            require("./handler")(sock, msg);
-        } catch (e) {
-            console.error(chalk.bgRed(" ERROR HANDLER "), e);
-        }
-    });
+      try {
+        msg.bodyTeks = text; 
+        require("./handler")(sock, msg)
+      } catch (e) {
+        console.error(chalk.bgRed(" HANDLER ERROR "), e)
+      }
+  })
 }
 
-connectToWhatsApp();
+connectToWhatsApp()
