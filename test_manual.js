@@ -1,85 +1,136 @@
-const axios = require("axios");
-const fs = require("fs");
-const { wrapper } = require("axios-cookiejar-support");
-const { CookieJar } = require("tough-cookie");
+/**
+ * Manual Test Script untuk Login MagangHub
+ * 
+ * Usage: node test_manual.js <email> <password>
+ * 
+ * Contoh: node test_manual.js user@email.com password123
+ */
 
-const email = "akmaljie12355@gmail.com"; // Pastikan email benar
-const SESSION_DIR = "./sessions";
-const sessionPath = `${SESSION_DIR}/${email}.json`;
+const chalk = require("chalk");
 
-if (!fs.existsSync(sessionPath)) {
-    console.log("❌ Session tidak ditemukan. Jalankan !daftar dulu.");
+// Import services
+const magang = require("./src/services/magang");
+const apiService = require("./src/services/apiService");
+
+// Get command line arguments
+const args = process.argv.slice(2);
+
+if (args.length < 2) {
+    console.log(chalk.yellow(`
+========================================
+  MANUAL TEST SCRIPT - MagangHub Bot
+========================================
+
+Usage: node test_manual.js <email> <password>
+
+Contoh: 
+  node test_manual.js akmaljie12355@gmail.com Akmaljhi123@
+
+Test yang dilakukan:
+  1. Clear session lama
+  2. Login via Puppeteer
+  3. Check session tersimpan
+  4. Test API dengan session baru
+  5. Cek status absen hari ini
+========================================
+`));
     process.exit(1);
 }
 
-const session = JSON.parse(fs.readFileSync(sessionPath, "utf8"));
-// Rakit cookie manual
-const cookieHeader = session.cookies
-    .map(c => `${c.name}=${c.value}`)
-    .join("; ");
+const [email, password] = args;
 
-const client = axios.create({
-    headers: {
-        "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Cookie: cookieHeader,
-        Origin: "https://monev.maganghub.kemnaker.go.id",
-        Referer: "https://monev.maganghub.kemnaker.go.id/dashboard",
-        Accept: "application/json",
-        // Kita coba kirim token dummy jika null, atau kosongkan
-        "X-CSRF-TOKEN": session.csrfToken || "",
-        "X-Requested-With": "XMLHttpRequest"
-    }
-});
+async function runTest() {
+    console.log(chalk.cyan("\n========================================"));
+    console.log(chalk.cyan("  MEMULAI TEST MANUAL"));
+    console.log(chalk.cyan("========================================\n"));
+    console.log(chalk.white(`Email: ${email}`));
+    console.log(chalk.white(`Password: ${'*'.repeat(password.length)}\n`));
 
-(async () => {
-    console.log("🔍 MENGAMBIL SELURUH DATA DARI SERVER...");
     try {
-        // Tembak API tanpa parameter tanggal (biasanya akan return semua/bulan ini)
-        const res = await client.get(
-            "https://monev.maganghub.kemnaker.go.id/api/daily-logs"
-        );
+        // Step 1: Clear old session
+        console.log(chalk.yellow("\n[STEP 1] Menghapus session lama..."));
+        apiService.clearSession(email);
+        console.log(chalk.green("✓ Session lama dihapus\n"));
 
-        console.log(`\n📡 Status Server: ${res.status} ${res.statusText}`);
+        // Step 2: Login via Puppeteer
+        console.log(chalk.yellow("[STEP 2] Login via Puppeteer (akan membuka browser)..."));
+        console.log(chalk.gray("Mohon tunggu, proses ini bisa memakan waktu 30-60 detik...\n"));
 
-        const logs = res.data.data; // Biasanya array ada di dalam properti .data
+        const startTime = Date.now();
+        const loginResult = await magang.cekKredensial(email, password);
+        const loginDuration = ((Date.now() - startTime) / 1000).toFixed(1);
 
-        if (Array.isArray(logs)) {
-            console.log(`✅ TOTAL DATA DITEMUKAN: ${logs.length} LAPORAN`);
-            console.log("--------------------------------------------------");
-
-            // Tampilkan 3 data terbaru
-            logs.slice(0, 3).forEach(log => {
-                console.log(`📅 TANGGAL: ${log.date}`);
-                console.log(`🆔 ID: ${log.id}`);
-                console.log(
-                    `📝 Isi: ${log.activity_log
-                        .replace(/\n/g, " ")
-                        .substring(0, 50)}...`
-                );
-                console.log(
-                    "--------------------------------------------------"
-                );
-            });
-
-            // Cek spesifik tanggal hari ini (Waktu Server)
-            const today = new Date().toISOString().split("T")[0];
-            const hariIni = logs.find(l => l.date === today);
-
-            if (hariIni) {
-                console.log(`🎯 HARI INI (${today}) SUDAH ADA DATA!`);
-            } else {
-                console.log(`⚠️ HARI INI (${today}) BELUM ADA DATA DI SERVER.`);
+        if (loginResult.success) {
+            console.log(chalk.green(`✓ Login berhasil! (${loginDuration} detik)`));
+            if (loginResult.foto) {
+                console.log(chalk.gray(`  Screenshot: ${loginResult.foto}`));
             }
         } else {
-            console.log("⚠️ Format data aneh (Bukan Array):");
-            console.log(JSON.stringify(res.data, null, 2));
+            console.log(chalk.red(`✗ Login GAGAL: ${loginResult.pesan}`));
+            process.exit(1);
         }
-    } catch (e) {
-        console.log("❌ REQUEST GAGAL:", e.message);
-        if (e.response) {
-            console.log("Status:", e.response.status);
-            console.log("Response:", JSON.stringify(e.response.data));
+
+        // Step 3: Check session file
+        console.log(chalk.yellow("\n[STEP 3] Mengecek session yang tersimpan..."));
+        const session = apiService.loadSession(email);
+
+        if (session) {
+            console.log(chalk.green(`✓ Session ditemukan!`));
+            console.log(chalk.gray(`  Jumlah cookies: ${session.cookies?.length || 0}`));
+            console.log(chalk.gray(`  CSRF Token: ${session.csrfToken ? 'Ada' : 'Tidak ada'}`));
+            console.log(chalk.gray(`  Timestamp: ${new Date(session.timestamp).toLocaleString()}`));
+
+            // List cookie names
+            if (session.cookies && session.cookies.length > 0) {
+                console.log(chalk.gray(`  Cookies: ${session.cookies.map(c => c.name).join(', ')}`));
+            }
+        } else {
+            console.log(chalk.red(`✗ Session tidak ditemukan atau tidak valid!`));
         }
+
+        // Step 4: Wait a moment then test API
+        console.log(chalk.yellow("\n[STEP 4] Menunggu 2 detik lalu test API..."));
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Step 5: Check attendance status via API
+        console.log(chalk.yellow("\n[STEP 5] Test API - Cek status absen hari ini..."));
+        const statusResult = await magang.cekStatusHarian(email, password);
+
+        if (statusResult.success) {
+            if (statusResult.sudahAbsen) {
+                console.log(chalk.green(`✓ API BERHASIL! Status: SUDAH ABSEN hari ini`));
+                if (statusResult.data) {
+                    console.log(chalk.gray(`  Data: ${JSON.stringify(statusResult.data, null, 2)}`));
+                }
+            } else {
+                console.log(chalk.green(`✓ API BERHASIL! Status: BELUM ABSEN hari ini`));
+            }
+        } else {
+            console.log(chalk.red(`✗ API GAGAL: ${statusResult.pesan}`));
+        }
+
+        // Summary
+        console.log(chalk.cyan("\n========================================"));
+        console.log(chalk.cyan("  HASIL TEST"));
+        console.log(chalk.cyan("========================================"));
+        console.log(chalk.white(`Login:        ${loginResult.success ? chalk.green('SUKSES') : chalk.red('GAGAL')}`));
+        console.log(chalk.white(`Session:      ${session ? chalk.green('TERSIMPAN') : chalk.red('TIDAK ADA')}`));
+        console.log(chalk.white(`API Check:    ${statusResult.success ? chalk.green('SUKSES') : chalk.red('GAGAL')}`));
+        console.log(chalk.white(`Status Absen: ${statusResult.sudahAbsen ? chalk.green('SUDAH') : chalk.yellow('BELUM')}`));
+        console.log(chalk.cyan("========================================\n"));
+
+    } catch (error) {
+        console.error(chalk.red("\n✗ ERROR FATAL:"), error.message);
+        console.error(chalk.gray(error.stack));
+        process.exit(1);
     }
-})();
+}
+
+// Run the test
+runTest().then(() => {
+    console.log(chalk.green("Test selesai!"));
+    process.exit(0);
+}).catch(err => {
+    console.error(chalk.red("Test gagal:"), err);
+    process.exit(1);
+});

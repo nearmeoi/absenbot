@@ -1,8 +1,22 @@
 {
   "cookies": [
     {
+      "name": "acw_tc",
+      "value": "0a03087f17652694225072947e3604448c63f01823ff8e5ad1f0f9a76240a9",
+      "domain": "siapkerja.kemnaker.go.id",
+      "path": "/",
+      "expires": 1765271222.924284,
+      "size": 68,
+      "httpOnly": true,
+      "secure": false,
+      "session": false,
+      "priority": "Medium",
+      "sameParty": false,
+      "sourceScheme": "Secure"
+    },
+    {
       "name": "accessToken",
-      "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJjbGllbnQiOiI3OTIzMDg5MS1jYzAyLTQzYzgtOTY0Yy1iNTI1YmNlMjc4NTciLCJ1c2VyIjoiMDQ3NTU1OTQtNDhhNS00NzE0LWIwNmItN2Q0OWY3ZDY1NzU4IiwidHRsIjoyMTYwMCwic3ViIjoiZjJmMDhmYzctZTk3OC00OTQzLWFiODEtNjY4ZTg2ODhiOTg3IiwiYXVkIjoiNzkyMzA4OTEtY2MwMi00M2M4LTk2NGMtYjUyNWJjZTI3ODU3IiwiZmluZ2VycHJpbnQiOiI4ZDE2NGM4YzdiMGM2Nzg4M2ZlYWU4MTg4NThhNWQ3NmYwZjI3YTQ1In0.IFka3PsKTH5KtsGq64KuTQeUHs4LJJ2PkPHqn_CM_KaBnDDTg55KQd4_glC5IYUYsjwNuE_0zZyi1DcS0lqRmuGPpWNJ8T-ERfOH6Jx2P-a-dB4ya_1ZimBSiJ8rZ7GVeGPlN-EHXDpXk45GPo-6b5Rw8Ue_pejVWt17l6SqUJJKsCrg-JaMzkBZPzseADRZx-B2kevmfqEWyl2lzT-hgQ_HK5v8d5v8LySp_BkrB-UMyBcnl-uFuDKNn1CCrrlhiewZxU7hiuU9G8B_KQrECeUk1JTRLOHfqQSrRqnxBhjIdJbH88hxBO7_M82EHOcJhSVc7EEWIpE7Ov3P_AS5Z7dKKHxHMsAfYsWHUPsy6-FLr5XG-CUKuHgaVlQ29wBfbd2del8J20xbgJJlfyMEYMSdT43b0amAWxdpxvFswSdrAZf6ZWSsPujyJwowVqhBk7Wn6Xltaia6ne2efLAOet2GVnMYgRZcMTDcrAOxdgRtPbL-7TUJ6cfOosuBA8Kavvil4GvdY_riJ18Q4eypjs4gsO4z5Y1tM1OnWLxGgYconMqYuDheHva9sIzIVr23Vx9e0DT16xi8cfzQ36lOkuZ2S57Z9mhIw5k5TKDebEkvfnntcli4EEBFSWThNdTCTq0jYxphfUB0Aw3KSXS69wFQAtJMalHywN1jucQSCOE",
+      "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzUxMiJ9.eyJjbGllbnQiOiI3OTIzMDg5MS1jYzAyLTQzYzgtOTY0Yy1iNTI1YmNlMjc4NTciLCJ1c2VyIjoiMDQ3NTU1OTQtNDhhNS00NzE0LWIwNmItN2Q0OWY3ZDY1NzU4IiwidHRsIjoyMTYwMCwic3ViIjoiYjg2MzljZmMtMTc5ZC00YTZjLWI2NWYtZTFjNzQxNmM0OGRmIiwiYXVkIjoiNzkyMzA4OTEtY2MwMi00M2M4LTk2NGMtYjUyNWJjZTI3ODU3IiwiZmluZ2VycHJpbnQiOiIwN2NhYjkxMDljNjQ4MTRlNzUyMzdkOGRhYWYxYWY3MzAzN2U0YmZjIn0.ZimXb5cE8Netw50iqZrJxLZ0yADgQZfGnK8esxoehGIlT_aur2LbYK_19HuZJCgx-M-n8l--BGhB9UPFi_0oJqeXrcxK_9ciD-W-UcKkfNgzPVa43nRJwGMMU8E4h5MkYwxMl374d8u9IFnNreaz3N3nJqPJ-YKz2mUepEj69gMtJVgiq-4vVB2e_-ZgXBORMDhdB_WRynosfEwhnIqLCVm1AIq_wddgnA5L37uKqzsGRi84nLQIRCwPB97caQgCHoe_vI1-J18JXPKVgXEdFuN8hCUKIArbzYhaertKXtcmSqdineUSdKNq6uYlUfuFav-y9QYdLe9UxD8hTURuNxfv41kI4rCuj7Er6mdLTcvSoLiEGp2S0Szbj2VX71oikG6ygA0zXZ7w0F4AsXq8-M26Z1qBkeTasgaGHFG0YGeUpQVudT2xXTmksmHmMCclBPsoHthXj4HXWRtg9X-C5Q-gw2vfTsakRh3AyXSsjLhZsjMW79DpGJp7HFAPLFr7yZPoMSDqXkPMDPwsZYYwZnnuoiuFqgGkkK88QX40WKzFtN8KnA7UT8iNhUwWpAl7hDLqt28X9Xr6nEK_tnjqte14DfOkHN4i9PLHlxHYub0R3XlH99-bSWyloVlcUAEmhLyQ6TfPukT86Ie8h9W39kC5koHOdoise51-AV2p6HI",
       "domain": "monev.maganghub.kemnaker.go.id",
       "path": "/",
       "expires": -1,
@@ -17,10 +31,10 @@
     },
     {
       "name": "acw_tc",
-      "value": "0a03087517651345225676910e2b1acb6ca7c513e82c5fa5310e04e553d455",
+      "value": "0a03087517652694395392317e2b1504a0e3d9b7a73d36e35b251ef554283f",
       "domain": "monev.maganghub.kemnaker.go.id",
       "path": "/",
-      "expires": 1765136321.928207,
+      "expires": 1765271239.766802,
       "size": 68,
       "httpOnly": true,
       "secure": false,
@@ -30,6 +44,6 @@
       "sourceScheme": "Secure"
     }
   ],
-  "csrfToken": "",
-  "updatedAt": 1765134528993
+  "csrfToken": null,
+  "timestamp": 1765269443260
 }

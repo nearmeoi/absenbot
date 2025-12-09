@@ -1,15 +1,13 @@
-const { prosesLoginDanAbsen, cekKredensial, cekStatusHarian } = require('./api_magang'); 
-const { saveUser, getUserByPhone, updateUserLid, getAllUsers } = require('./database'); 
+const { prosesLoginDanAbsen, cekKredensial, cekStatusHarian } = require('../services/magang');
+const { saveUser, getUserByPhone, updateUserLid, getAllUsers } = require('../services/database');
+const { GROUP_ID_FILE } = require('../config/constants');
 const fs = require('fs');
-
-// Simpan ID Grup target ke file
-const GROUP_ID_FILE = './group_id.txt';
 
 module.exports = async (sock, msg) => {
     try {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
-        
+
         const getMsgText = (m) => {
             if (!m) return "";
             return m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || "";
@@ -23,14 +21,14 @@ module.exports = async (sock, msg) => {
         const isCommand = textMessage.trim().startsWith('!');
         const isLaporanContent = textMessage.includes(HEADER_LAPORAN);
 
-        if (!isCommand && !isLaporanContent) return; 
+        if (!isCommand && !isLaporanContent) return;
 
         const sender = msgObj.key.remoteJid;
         const isGroup = sender.endsWith('@g.us');
         let senderNumber = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
 
         if (isGroup && senderNumber.includes('@lid')) {
-            const userByLid = getUserByPhone(senderNumber); 
+            const userByLid = getUserByPhone(senderNumber);
             if (userByLid) senderNumber = userByLid.phone;
             else {
                 try {
@@ -40,7 +38,7 @@ module.exports = async (sock, msg) => {
                         updateUserLid(userAsli.phoneNumber, senderNumber);
                         senderNumber = userAsli.phoneNumber;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
         }
 
@@ -55,7 +53,6 @@ module.exports = async (sock, msg) => {
         // ----------------------------------------------------
         if (command === '!hai' || command === '!menu') {
             const info = `🤖 *BOT MAGANGHUB v6.0 (Auto-Schedule)*
-
 1️⃣ *!daftar email|pass* (PC Only)
 2️⃣ *!absen* (Kirim Laporan)
 3️⃣ *!cekabsen* (Cek Status)
@@ -98,7 +95,7 @@ module.exports = async (sock, msg) => {
             await sock.sendMessage(sender, { text: `🔍 *Mengecek status ${allUsers.length} peserta...*` }, { quoted: msgObj });
 
             let belumAbsen = [];
-            
+
             for (const user of allUsers) {
                 try {
                     const status = await cekStatusHarian(user.email, user.password);
@@ -107,7 +104,7 @@ module.exports = async (sock, msg) => {
                     } else if (!status.success) {
                         belumAbsen.push(user.phone); // Yg error juga ditag
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
 
             if (belumAbsen.length > 0) {
@@ -115,19 +112,15 @@ module.exports = async (sock, msg) => {
                 belumAbsen.forEach(num => msgAlert += `👉 @${num.split('@')[0]}\n`);
                 msgAlert += `\n💡 _Segera ketik *!absen*!_`;
 
-                await sock.sendMessage(sender, { text: msgAlert, mentions: belumAbsen }); // Tanpa quote biar notif masuk
+                await sock.sendMessage(sender, { text: msgAlert, mentions: belumAbsen });
             } else {
                 await sock.sendMessage(sender, { text: `✅ *AMAZING!* Semua sudah absen hari ini.` }, { quoted: msgObj });
             }
             return;
         }
 
-        // ... (COMMAND !DAFTAR, !ABSEN, !CEKABSEN, !CEK SAMA SEPERTI SEBELUMNYA) ...
-        // ... (Paste sisa kode handler yang lama di sini, tidak ada perubahan) ...
-        
-        // --- COPY PASTE DARI FILE LAMA MULAI DARI SINI KE BAWAH ---
         if (command === '!daftar') {
-            if (args.includes('emailmu@gmail.com')) return; 
+            if (args.includes('emailmu@gmail.com')) return;
             if (isGroup && !msgObj.key.fromMe) {
                 await sock.sendMessage(sender, { text: `⚠️ Daftar lewat Chat Pribadi (PC) ya.` }, { quoted: msgObj });
                 return;
@@ -141,11 +134,11 @@ module.exports = async (sock, msg) => {
             const cekLogin = await cekKredensial(email, password);
             if (cekLogin.success) {
                 saveUser(senderNumber, email, password);
-                
+
                 let caption = `✅ *BERHASIL DAFTAR!*\nAkun: ${email}`;
                 if (cekLogin.foto && fs.existsSync(cekLogin.foto)) {
                     await sock.sendMessage(sender, { image: { url: cekLogin.foto }, caption: caption }, { quoted: msgObj });
-                    try { fs.unlinkSync(cekLogin.foto); } catch(e){}
+                    try { fs.unlinkSync(cekLogin.foto); } catch (e) { }
                 } else {
                     await sock.sendMessage(sender, { text: caption }, { quoted: msgObj });
                 }
@@ -153,7 +146,7 @@ module.exports = async (sock, msg) => {
                 let errMsg = `❌ *Gagal:* ${cekLogin.pesan}`;
                 if (cekLogin.foto && fs.existsSync(cekLogin.foto)) {
                     await sock.sendMessage(sender, { image: { url: cekLogin.foto }, caption: errMsg }, { quoted: msgObj });
-                    try { fs.unlinkSync(cekLogin.foto); } catch(e){}
+                    try { fs.unlinkSync(cekLogin.foto); } catch (e) { }
                 } else {
                     await sock.sendMessage(sender, { text: errMsg }, { quoted: msgObj });
                 }
@@ -206,7 +199,7 @@ _(Tips: Isi minimal 100 karakter per kolom)_`;
                     let reply = `✅ *SUKSES ABSEN* ${hasil.pesan_tambahan}\n👤 Nama: @${senderNumber.split('@')[0]}\n📅 Tanggal: ${new Date().toLocaleDateString()}`;
                     if (hasil.foto && fs.existsSync(hasil.foto)) {
                         sock.sendMessage(sender, { image: { url: hasil.foto }, caption: reply, mentions: [senderNumber] }, { quoted: msgObj });
-                        try { fs.unlinkSync(hasil.foto); } catch(e){}
+                        try { fs.unlinkSync(hasil.foto); } catch (e) { }
                     } else {
                         sock.sendMessage(sender, { text: reply, mentions: [senderNumber] }, { quoted: msgObj });
                     }
@@ -224,7 +217,7 @@ _(Tips: Isi minimal 100 karakter per kolom)_`;
             }
 
             await sock.sendMessage(sender, { text: `⏳ Cek Data di Server...` }, { quoted: msgObj });
-            
+
             const status = await cekStatusHarian(user.email, user.password);
 
             if (status.success) {
@@ -239,7 +232,6 @@ _(Tips: Isi minimal 100 karakter per kolom)_`;
                 sock.sendMessage(sender, { text: `⚠️ Error: ${status.pesan}` }, { quoted: msgObj });
             }
         }
-        // ----------------------------------------------------
 
     } catch (e) {
         console.error("Handler Error:", e);

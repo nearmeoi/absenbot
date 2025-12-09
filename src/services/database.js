@@ -1,14 +1,14 @@
 const fs = require("fs");
-const filePath = "./users.json";
+const { USERS_FILE } = require('../config/constants');
 
 // Cek apakah file database ada
-if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, JSON.stringify([]));
+if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify([]));
 }
 
 const loadUsers = () => {
     try {
-        const data = fs.readFileSync(filePath, "utf8");
+        const data = fs.readFileSync(USERS_FILE, "utf8");
         return JSON.parse(data);
     } catch (e) {
         return [];
@@ -48,7 +48,7 @@ const saveUser = (phoneNumber, email, password) => {
         users.push(userData);
     }
 
-    fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
     return true;
 };
 
@@ -58,7 +58,7 @@ const updateUserLid = (realPhoneNumber, lid) => {
 
     if (index !== -1) {
         users[index].lid = lid;
-        fs.writeFileSync(filePath, JSON.stringify(users, null, 2));
+        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
         return true;
     }
     return false;
