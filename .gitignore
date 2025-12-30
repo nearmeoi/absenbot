@@ -1,5 +1,34 @@
-node_modules
-SesiWA
-sessions
+# Dependencies
+node_modules/
+
+# WhatsApp Session (PENTING! Jangan di-push)
+SesiWA/
+
+# User data & sessions (sensitif)
+sessions/
+users.json
 user.json
+group_id.txt
+
+# Environment
+.env
 nodemon.json
+
+# Logs & temp files
+logs/
+temp/
+*.log
+
+# Test files (tidak perlu di VPS)
+test_*.js
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+.DS_Store
+
+# Old/unused files
+kemnaker.css

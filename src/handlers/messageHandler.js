@@ -1,6 +1,7 @@
 const { prosesLoginDanAbsen, cekKredensial, cekStatusHarian } = require('../services/magang');
 const { saveUser, getUserByPhone, updateUserLid, getAllUsers } = require('../services/database');
 const { GROUP_ID_FILE } = require('../config/constants');
+const { generateAuthUrl, initAuthServer } = require('../services/secureAuth');
 const fs = require('fs');
 
 module.exports = async (sock, msg) => {
@@ -172,48 +173,46 @@ Adapun tujuan dibuat bot ini agar terhindar dari musibah lupa absen, dan juga un
                 );
                 return;
             }
-            if (args.split("|").length < 2) {
+
+            // Check if user is already registered
+            const existingUser = getUserByPhone(senderNumber);
+            if (existingUser) {
                 await sock.sendMessage(
                     sender,
-                    { text: "❌ Format: *!daftar email|pass*" },
+                    {
+                        text: "⚠️ Kamu sudah terdaftar sebelumnya. Gunakan !absen untuk absen atau !cek untuk cek status."
+                    },
                     { quoted: msgObj }
                 );
                 return;
             }
-            const [email, password] = args.split("|").map(s => s.trim());
+
+            // Generate secure authentication URL
+            const authUrl = generateAuthUrl(senderNumber, async (result) => {
+                if (result.success) {
+                    await sock.sendMessage(
+                        sender,
+                        {
+                            text: `✅ *BERHASIL DAFTAR!*\n\nKamu sudah berhasil terdaftar dan bisa langsung menggunakan bot.\n\nGunakan *!absen* untuk mengirim laporan.`
+                        }
+                    );
+                } else {
+                    await sock.sendMessage(
+                        sender,
+                        {
+                            text: `❌ *Gagal Mendaftar:*\n${result.message || 'Terjadi kesalahan saat registrasi'}`
+                        }
+                    );
+                }
+            });
+
             await sock.sendMessage(
                 sender,
-                { text: "⏳ Verifikasi akun..." },
+                {
+                    text: `🔐 *REGISTRASI AMAN*\n\nUntuk mendaftar, silakan buka link berikut di browser:\n\n${authUrl}\n\n🔒 *Keamanan:* Email dan passwordmu tidak akan dikirim melalui WhatsApp.\n\n*Catatan:* Link hanya berlaku 10 menit.`
+                },
                 { quoted: msgObj }
             );
-            const cekLogin = await cekKredensial(email, password);
-            if (cekLogin.success) {
-                saveUser(senderNumber, email, password);
-
-                let caption = `✅ *BERHASIL DAFTAR!*\nAkun: ${email}`;
-                if (cekLogin.foto && fs.existsSync(cekLogin.foto)) {
-                    await sock.sendMessage(sender, { image: { url: cekLogin.foto }, caption: caption }, { quoted: msgObj });
-                    try { fs.unlinkSync(cekLogin.foto); } catch (e) { }
-                } else {
-                    await sock.sendMessage(
-                        sender,
-                        { text: caption },
-                        { quoted: msgObj }
-                    );
-                }
-            } else {
-                let errMsg = `❌ *Gagal:* ${cekLogin.pesan}`;
-                if (cekLogin.foto && fs.existsSync(cekLogin.foto)) {
-                    await sock.sendMessage(sender, { image: { url: cekLogin.foto }, caption: errMsg }, { quoted: msgObj });
-                    try { fs.unlinkSync(cekLogin.foto); } catch (e) { }
-                } else {
-                    await sock.sendMessage(
-                        sender,
-                        { text: errMsg },
-                        { quoted: msgObj }
-                    );
-                }
-            }
             return;
         }
 

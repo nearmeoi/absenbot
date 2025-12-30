@@ -7,12 +7,11 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk");
-const { SESSION_DIR, API_ENDPOINTS, SESSION_TIMEOUT_MS } = require("../config/constants");
+const { SESSION_DIR, API_ENDPOINTS, SESSION_TIMEOUT_MS, LOGS_DIR } = require("../config/constants");
 
-// Ensure session directory exists
-if (!fs.existsSync(SESSION_DIR)) {
-    fs.mkdirSync(SESSION_DIR, { recursive: true });
-}
+// Ensure directories exist
+if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -65,17 +64,18 @@ function loadSession(email) {
 /**
  * Save session cookies to file
  */
-function saveSession(email, cookies, csrfToken = null) {
+function saveSession(email, cookies, csrfToken = null, accessToken = null) {
     const sessionPath = path.join(SESSION_DIR, `${email}.json`);
 
     const session = {
         cookies,
         csrfToken,
+        accessToken,
         timestamp: Date.now()
     };
 
     fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
-    console.log(chalk.green(`[API] Session saved for ${email}`));
+    console.log(chalk.green(`[API] Session saved for ${email}${accessToken ? ' (with token)' : ''}`));
 }
 
 /**
@@ -86,17 +86,25 @@ function createApiClient(session) {
         .map(c => `${c.name}=${c.value}`)
         .join("; ");
 
+    const headers = {
+        "User-Agent": USER_AGENT,
+        "Cookie": cookieHeader,
+        "Origin": "https://monev.maganghub.kemnaker.go.id",
+        "Referer": "https://monev.maganghub.kemnaker.go.id/dashboard",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-CSRF-TOKEN": session.csrfToken || "",
+        "X-Requested-With": "XMLHttpRequest"
+    };
+
+    // Add Bearer token if available
+    if (session.accessToken) {
+        headers["Authorization"] = `Bearer ${session.accessToken}`;
+        console.log(chalk.cyan(`[API] Using Bearer token for authentication`));
+    }
+
     return axios.create({
-        headers: {
-            "User-Agent": USER_AGENT,
-            "Cookie": cookieHeader,
-            "Origin": "https://monev.maganghub.kemnaker.go.id",
-            "Referer": "https://monev.maganghub.kemnaker.go.id/dashboard",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": session.csrfToken || "",
-            "X-Requested-With": "XMLHttpRequest"
-        },
+        headers,
         timeout: 30000
     });
 }
@@ -243,6 +251,52 @@ async function submitAttendanceReport(email, reportData) {
 }
 
 /**
+ * Scrape all daily logs and save to user's log file
+ * @returns {Object} { success: boolean, count: number, path: string, pesan: string }
+ */
+async function scrapeAndSaveDailyLogs(email) {
+    console.log(chalk.cyan(`[API] Scraping daily logs for ${email}...`));
+
+    const session = loadSession(email);
+    if (!session) {
+        return { success: false, needsLogin: true, pesan: "Session tidak ditemukan" };
+    }
+
+    try {
+        const client = createApiClient(session);
+        const response = await client.get(API_ENDPOINTS.DAILY_LOGS);
+
+        if (response.status === 200 && response.data?.data) {
+            const logs = response.data.data;
+
+            // Save to logs/email_logs.json
+            // Sanitize email for filename
+            const safeEmail = email.replace(/[^a-z0-9]/gi, '_');
+            const logPath = path.join(LOGS_DIR, `${safeEmail}_logs.json`);
+
+            fs.writeFileSync(logPath, JSON.stringify(logs, null, 2));
+            console.log(chalk.green(`[API] ✅ Saved ${logs.length} logs for ${email}`));
+
+            return {
+                success: true,
+                count: logs.length,
+                path: logPath,
+                pesan: `Berhasil menyimpan ${logs.length} log`
+            };
+        } else {
+            return { success: false, pesan: `Gagal mengambil log. Status: ${response.status}` };
+        }
+
+    } catch (error) {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            return { success: false, needsLogin: true, pesan: "Session expired" };
+        }
+        console.error(chalk.red(`[API] Scrape Error:`), error.message);
+        return { success: false, pesan: error.message };
+    }
+}
+
+/**
  * Check if session is valid (quick ping test)
  */
 async function isSessionValid(email) {
@@ -274,6 +328,7 @@ module.exports = {
     saveSession,
     checkAttendanceStatus,
     submitAttendanceReport,
+    scrapeAndSaveDailyLogs,
     isSessionValid,
     clearSession
 };

@@ -4,6 +4,7 @@ const chalk = require("chalk")
 const readline = require("readline")
 const { AUTH_STATE_DIR } = require('./config/constants');
 const { initScheduler } = require('./services/scheduler');
+const { initAuthServer } = require('./services/secureAuth');
 const messageHandler = require('./handlers/messageHandler');
 
 const usePairingCode = true;
@@ -59,6 +60,9 @@ async function connectToWhatsApp() {
             if (shouldReconnect) connectToWhatsApp()
         } else if (connection === "open") {
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
+
+            // INIT AUTH SERVER (only once)
+            initAuthServer();
 
             // INIT SCHEDULER (only once)
             if (!schedulerInitialized) {

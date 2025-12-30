@@ -106,16 +106,34 @@ const ENVIRONMENT_CONFIGS = {
         ],
         defaultProjectRoot: process.cwd(),
         puppeteerArgs: [
+            // Essential for VPS
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-gpu',
             '--disable-dev-shm-usage',
+            '--single-process',
+            '--no-zygote',
+            // GPU & Rendering (save memory)
+            '--disable-gpu',
+            '--disable-accelerated-2d-canvas',
+            '--disable-canvas-aa',
+            '--disable-2d-canvas-clip-aa',
+            '--disable-gl-drawing-for-tests',
+            '--disable-software-rasterizer',
+            // Features off
             '--disable-background-networking',
             '--disable-default-apps',
             '--disable-extensions',
             '--disable-sync',
-            '--no-first-run',
             '--disable-translate',
+            '--disable-features=TranslateUI,BlinkGenPropertyTrees,IsolateOrigins,site-per-process',
+            '--disable-ipc-flooding-protection',
+            '--disable-renderer-backgrounding',
+            '--disable-backgrounding-occluded-windows',
+            // Memory optimization
+            '--js-flags=--max-old-space-size=128',
+            '--memory-pressure-off',
+            // UI
+            '--no-first-run',
             '--hide-scrollbars',
             '--mute-audio'
         ],
@@ -261,6 +279,7 @@ module.exports = {
     USERS_FILE: path.join(PROJECT_ROOT, 'users.json'),
     GROUP_ID_FILE: path.join(PROJECT_ROOT, 'group_id.txt'),
     AUTH_STATE_DIR: path.join(PROJECT_ROOT, 'SesiWA'),
+    LOGS_DIR: path.join(PROJECT_ROOT, 'logs'), // Directory for individual user logs
 
     // Puppeteer config
     CHROMIUM_PATH: getChromiumPath(),
