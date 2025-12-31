@@ -170,41 +170,7 @@ Bot ini membantu absensi harian MagangHub.`;
             return;
         }
 
-        // ----------------------------------------------------
-        // !BROADCAST (KIRIM PESAN MASSAL)
-        // ----------------------------------------------------
-        if (command === "!broadcast" || command === "!bc") {
-            if (!args) {
-                await sock.sendMessage(sender, { text: "Gunakan: !broadcast [pesan]" }, { quoted: msgObj });
-                return;
-            }
 
-            const allUsers = getAllUsers();
-            if (allUsers.length === 0) {
-                await sock.sendMessage(sender, { text: "Belum ada user terdaftar." }, { quoted: msgObj });
-                return;
-            }
-
-            await sock.sendMessage(sender, { text: `Mengirim pesan ke ${allUsers.length} user...` }, { quoted: msgObj });
-
-            // Kirim pesan satu per satu
-            let successCount = 0;
-            for (const user of allUsers) {
-                try {
-                    await sock.sendMessage(user.phone, {
-                        text: `*📢 PESAN DARI ADMIN*\n\n${args}`
-                    });
-                    successCount++;
-                    // Delay biar ga kena spam detect
-                    await new Promise(r => setTimeout(r, 1000));
-                } catch (e) {
-                    console.error(`Gagal kirim ke ${user.phone}:`, e.message);
-                }
-            }
-
-            await sock.sendMessage(sender, { text: `✅ Berhasil mengirim ke ${successCount}/${allUsers.length} user.` }, { quoted: msgObj });
-            return;
-        }
 
         // ----------------------------------------------------
         // !HAPUS (HAPUS AKUN DARI SISTEM)
