@@ -309,7 +309,7 @@ Bot ini membantu absensi harian MagangHub.`;
                 await sock.sendMessage(
                     originalSenderId,
                     {
-                        text: `*PENDAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
+                        text: `*PENDADAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
                     }
                 );
             } else {
