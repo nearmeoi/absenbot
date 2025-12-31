@@ -37,31 +37,27 @@ async function generateAttendanceReport(previousLogs = []) {
         });
     }
 
-    const systemPrompt = `Kamu membantu membuat laporan magang harian SINGKAT.
-Setiap bagian WAJIB 100-125 karakter saja. JANGAN LEBIH PANJANG!
-Tulis santai tapi sopan, tanpa sudut pandang orang pertama (aku/saya).
+    const systemPrompt = `Kamu membantu membuat laporan magang harian. 
+TUGAS UTAMA: 
+1. Analisis gaya bahasa, kosakata, dan kata-kata yang sering digunakan user dari riwayat laporan yang diberikan.
+2. Tiru gaya penulisan tersebut agar laporan terasa natural (seperti ditulis oleh user sendiri).
+3. Pastikan setiap bagian (AKTIVITAS, PEMBELAJARAN, KENDALA) WAJIB minimal 100 karakter dan maksimal 200 karakter.
 
 ATURAN:
-- JANGAN sebut pak/bu, sebut "co mentor"
-- JANGAN sebut meeting (kerja sendiri/2 orang)
-- Tulis langsung aksinya: "Mengerjakan..." bukan "Aku mengerjakan..."
-- AKTIVITAS: pakai 2-3 poin pendek
-- PEMBELAJARAN & KENDALA: 1 kalimat singkat saja`;
+- Jika user sering menggunakan istilah teknis tertentu, gunakan kembali.
+- Sebut pembimbing sebagai "co mentor" kecuali user punya sebutan khusus di riwayatnya.
+- Tulis santai tapi sopan, tanpa menggunakan kata ganti orang pertama (aku/saya).
+- Pastikan kalimatnya panjang dan deskriptif agar memenuhi syarat minimal 100 karakter.`;
 
     const userPrompt = `${context}
 
-Buatkan laporan magang dengan gaya santai. Minimal 100 karakter per bagian!
+Berdasarkan riwayat di atas, buatkan laporan magang hari ini dengan GAYA PENULISAN YANG SAMA. 
+Ingat: MINIMAL 100 KARAKTER PER BAGIAN!
 
-AKTIVITAS:
-1. [kegiatan utama hari ini]
-2. [kegiatan lain]
-3. [tambahan jika perlu]
-
-PEMBELAJARAN:
-[Tulis dalam 1 paragraf singkat tanpa poin, minimal 100 karakter]
-
-KENDALA:
-[Tulis dalam 1 paragraf singkat tanpa poin, minimal 100 karakter]`;
+Format balasan:
+AKTIVITAS: [isi minimal 100 karakter]
+PEMBELAJARAN: [isi minimal 100 karakter]
+KENDALA: [isi minimal 100 karakter]`;
 
     try {
         console.log(chalk.cyan('[GROQ] Generating attendance report...'));
@@ -88,46 +84,42 @@ KENDALA:
             return { success: false, error: 'Response kosong dari Groq' };
         }
 
-        // Parse response
-        const aktivitasMatch = content.match(/AKTIVITAS:\s*([\s\S]*?)(?=PEMBELAJARAN:|$)/i);
-        const pembelajaranMatch = content.match(/PEMBELAJARAN:\s*([\s\S]*?)(?=KENDALA:|$)/i);
-        const kendalaMatch = content.match(/KENDALA:\s*([\s\S]*?)$/i);
+        // Parse response with more flexible regex
+        const parseSection = (label, text) => {
+            const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
+            const match = text.match(regex);
+            return match ? match[1].trim() : '';
+        };
 
-        let aktivitas = aktivitasMatch ? aktivitasMatch[1].trim() : '';
-        let pembelajaran = pembelajaranMatch ? pembelajaranMatch[1].trim() : '';
-        let kendala = kendalaMatch ? kendalaMatch[1].trim() : '';
+        let aktivitas = parseSection('AKTIVITAS', content);
+        let pembelajaran = parseSection('PEMBELAJARAN', content);
+        let kendala = parseSection('KENDALA', content);
 
-        console.log(chalk.gray(`[GROQ] Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
+        console.log(chalk.gray(`[GROQ] Raw Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
 
-        // Validate minimum 100 characters per section
+        // Robust Padding Logic
         const MIN_CHARS = 100;
-
-        if (aktivitas.length < MIN_CHARS || pembelajaran.length < MIN_CHARS || kendala.length < MIN_CHARS) {
-            console.log(chalk.yellow('[GROQ] Content too short, padding...'));
-
-            // Pad sections that are too short
-            if (aktivitas.length < MIN_CHARS) {
-                aktivitas = aktivitas + ' Melakukan koordinasi dengan tim terkait pekerjaan yang dilakukan hari ini.';
-            }
-            if (pembelajaran.length < MIN_CHARS) {
-                pembelajaran = pembelajaran + ' Memahami lebih dalam tentang proses dan alur kerja di tempat magang.';
-            }
-            if (kendala.length < MIN_CHARS) {
-                kendala = kendala + ' Perlu waktu untuk adaptasi dengan sistem dan prosedur yang berlaku.';
-            }
-
-            console.log(chalk.gray(`[GROQ] After padding: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
-        }
-
-        // Final check - must be at least 100
-        if (aktivitas.length < MIN_CHARS || pembelajaran.length < MIN_CHARS || kendala.length < MIN_CHARS) {
-            return {
-                success: false,
-                error: `Gagal generate minimal 100 karakter. A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`
+        
+        const pad = (text, type) => {
+            let padded = text;
+            const extra = {
+                A: " Selain itu juga melakukan koordinasi intensif dengan tim terkait untuk memastikan semua tugas berjalan sesuai dengan rencana yang telah ditetapkan.",
+                P: " Hal ini memberikan wawasan baru mengenai bagaimana cara menangani masalah teknis secara efektif dan efisien dalam lingkungan kerja profesional.",
+                K: " Namun kendala tersebut dapat diatasi dengan baik melalui diskusi bersama rekan tim sehingga tidak menghambat produktivitas kerja hari ini."
             };
-        }
+            
+            while (padded.length < MIN_CHARS) {
+                padded += extra[type];
+                if (padded.length > 500) break; // Safety break
+            }
+            return padded;
+        };
 
-        console.log(chalk.green('[GROQ] Successfully generated report'));
+        if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
+        if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');
+        if (kendala.length < MIN_CHARS) kendala = pad(kendala, 'K');
+
+        console.log(chalk.gray(`[GROQ] Final Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
 
         return {
             success: true,
@@ -145,4 +137,85 @@ KENDALA:
     }
 }
 
-module.exports = { generateAttendanceReport };
+/**
+ * Process free text input into a structured attendance report
+ * @param {string} userText - Raw text from user
+ * @param {Array} previousLogs - History for style context
+ */
+async function processFreeTextToReport(userText, previousLogs = []) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return { success: false, error: 'GROQ_API_KEY tidak dikonfigurasi' };
+
+    let context = '';
+    if (previousLogs.length > 0) {
+        context = 'Riwayat gaya bahasa user:\n' + previousLogs.slice(0, 5).map(log => log.activity_log).join('\n') + '\n\n';
+    }
+
+    const systemPrompt = `Kamu adalah asisten MagangHub. 
+TUGAS: Mengubah cerita singkat user menjadi laporan magang formal (AKTIVITAS, PEMBELAJARAN, KENDALA).
+SYARAT MUTLAK: 
+1. Setiap bagian WAJIB 100 - 200 karakter. 
+2. Jika cerita user terlalu pendek, kembangkan dengan kalimat deskriptif yang relevan dan profesional.
+3. Tiru kosakata dan gaya bahasa user dari riwayat yang diberikan.
+4. Gunakan sudut pandang orang ketiga (jangan pakai "aku/saya"). Sebut pembimbing "co mentor".`;
+
+    const userPrompt = `${context}
+Cerita User: "${userText}"
+
+Buatkan laporan berdasarkan cerita di atas. Ingat: MINIMAL 100 KARAKTER PER BAGIAN!
+
+Format:
+AKTIVITAS: [isi]
+PEMBELAJARAN: [isi]
+KENDALA: [isi]`;
+
+    try {
+        const response = await axios.post(GROQ_API_URL, {
+            model: GROQ_MODEL,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7
+        }, {
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+            timeout: 30000
+        });
+
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) return { success: false, error: 'AI tidak merespon' };
+
+        const parseSection = (label, text) => {
+            const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
+            const match = text.match(regex);
+            return match ? match[1].trim() : '';
+        };
+
+        let aktivitas = parseSection('AKTIVITAS', content);
+        let pembelajaran = parseSection('PEMBELAJARAN', content);
+        let kendala = parseSection('KENDALA', content);
+
+        // Smart Padding logic (reuse logic from existing generate function)
+        const MIN_CHARS = 100;
+        const pad = (text, type) => {
+            let padded = text;
+            const extra = {
+                A: " Selain itu juga melakukan koordinasi intensif dengan tim terkait untuk memastikan semua tugas berjalan sesuai dengan rencana.",
+                P: " Hal ini memberikan wawasan baru mengenai bagaimana cara menangani masalah teknis secara efektif dalam lingkungan kerja.",
+                K: " Namun kendala tersebut dapat diatasi dengan baik melalui diskusi bersama rekan tim sehingga tidak menghambat produktivitas."
+            };
+            while (padded.length < MIN_CHARS) { padded += extra[type]; }
+            return padded;
+        };
+
+        if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
+        if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');
+        if (kendala.length < MIN_CHARS) kendala = pad(kendala, 'K');
+
+        return { success: true, aktivitas, pembelajaran, kendala };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+module.exports = { generateAttendanceReport, processFreeTextToReport };

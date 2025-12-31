@@ -331,124 +331,70 @@ Bot ini membantu absensi harian MagangHub.`;
         }
 
         // ----------------------------------------------------
-        // !ABSEN
+        // !ABSEN (Sistem Ketik Bebas / AI Power)
         // ----------------------------------------------------
-        if (command === "!absen" || isLaporanContent) {
-            if (!textMessage.includes("Aktivitas:")) {
-                const template = `!absen ${HEADER_LAPORAN}
-(Salin, isi, dan kirim kembali di sini)
-
-Aktivitas: 
-
-Pembelajaran: 
-
-Kendala: 
-
-Catatan: Minimal 100 karakter per kolom.`;
-
-                // Tentukan target JID untuk Private Chat (gunakan ID asli agar aman)
-                const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-                console.log(chalk.yellow(`[DEBUG] Mengirim template !absen ke: ${targetJid}`));
-
-                if (isGroup) {
-                    // Jika di grup, arahkan ke PC
-                    await sock.sendMessage(
-                        sender,
-                        { text: "📩 Template laporan telah dikirim ke chat pribadi Anda. Silakan isi di sana agar tidak memenuhi grup." },
-                        { quoted: msgObj, ephemeralExpiration: 86400 }
-                    );
-                    
-                    // Kirim template ke PC
-                    await sock.sendMessage(
-                        targetJid,
-                        { text: template },
-                        { ephemeralExpiration: 86400 }
-                    );
-                } else {
-                    // Jika sudah di PC, langsung kirim template
-                    await sock.sendMessage(
-                        sender,
-                        { text: template },
-                        { quoted: msgObj, ephemeralExpiration: 86400 }
-                    );
-                }
-                return;
-            }
-
+        if (command === "!absen") {
             const user = getUserByPhone(senderNumber);
             if (!user) {
-                await sock.sendMessage(
-                    sender,
-                    { text: `Anda belum terdaftar. Gunakan !daftar terlebih dahulu.` },
-                    { quoted: msgObj }
-                );
+                await sock.sendMessage(sender, { text: "Anda belum terdaftar. Ketik !daftar dulu ya." }, { quoted: msgObj });
                 return;
             }
 
-            const aktMatch = textMessage.match(
-                /Aktivitas:\s*([\s\S]*?)(?=Pembelajaran:|$)/i
-            );
-            const pembMatch = textMessage.match(
-                /Pembelajaran:\s*([\s\S]*?)(?=Kendala:|$)/i
-            );
-            const kenMatch = textMessage.match(/Kendala:\s*([\s\S]*)/i);
-
-            const aktivitas = aktMatch ? aktMatch[1].trim() : "";
-            const pembelajaran = pembMatch ? pembMatch[1].trim() : "";
-            let kendala = kenMatch ? kenMatch[1].trim() : "Tidak ada kendala";
-            if (kendala.includes("Catatan:"))
-                kendala = kendala.split("Catatan:")[0].trim();
-
-            if (
-                aktivitas.length < 100 ||
-                pembelajaran.length < 100 ||
-                kendala.length < 100
-            ) {
-                await sock.sendMessage(
-                    sender,
-                    {
-                        text: `*Laporan Ditolak*\nSemua kolom wajib diisi minimal 100 karakter.\n\nPengirim: @${senderNumber.split("@")[0]}`,
-                        mentions: [senderNumber]
-                    },
-                    { quoted: msgObj }
-                );
+            // Jika cuma ketik !absen tanpa isi
+            if (!args || args.trim().length < 5) {
+                const guide = `*CARA LAPOR CEPAT*\n\nKetik *!absen* diikuti cerita singkat kegiatanmu hari ini.\n\nContoh:\n_!absen tadi saya bantu instalasi windows di lab dan belajar setting mikrotik._\n\nNanti saya yang rapikan laporannya otomatis!`;
+                
+                // Kirim ke PC agar tidak nyepam grup
+                const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+                if (isGroup) await sock.sendMessage(sender, { text: "Instruksi sudah saya kirim ke Chat Pribadi ya." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                await sock.sendMessage(targetJid, { text: guide }, { ephemeralExpiration: 86400 });
                 return;
             }
 
-            // React dengan jam pasir saat memproses
+            // React loading
             await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
+            // 1. Cek status dulu agar tidak double
+            const statusCheck = await cekStatusHarian(user.email, user.password);
+            if (statusCheck.success && statusCheck.sudahAbsen) {
+                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
+                await sock.sendMessage(sender, { text: "Anda sudah absen hari ini. Tidak perlu lapor lagi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                return;
+            }
+
+            // 2. Proses cerita user lewat AI
+            const riwayatResult = await getRiwayat(user.email, user.password, 5);
+            const aiResult = await processFreeTextToReport(args, riwayatResult.success ? riwayatResult.logs : []);
+
+            if (!aiResult.success) {
+                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
+                await sock.sendMessage(sender, { text: "Gagal memproses cerita Anda. Coba lagi nanti." }, { quoted: msgObj });
+                return;
+            }
+
+            // 3. Submit ke MagangHub
             prosesLoginDanAbsen({
                 email: user.email,
                 password: user.password,
-                aktivitas,
-                pembelajaran,
-                kendala
+                aktivitas: aiResult.aktivitas,
+                pembelajaran: aiResult.pembelajaran,
+                kendala: aiResult.kendala
             }).then(async hasil => {
                 if (hasil.success) {
-                    // React sukses
                     await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                    let reply = `*ABSENSI BERHASIL* ${hasil.pesan_tambahan || ''}\nNama: @${senderNumber.split("@")[0]}\nTanggal: ${new Date().toLocaleDateString('id-ID')}`;
-                    if (hasil.foto && fs.existsSync(hasil.foto)) {
-                        sock.sendMessage(sender, { image: { url: hasil.foto }, caption: reply, mentions: [senderNumber] }, { quoted: msgObj, ephemeralExpiration: 86400 });
-                        try { fs.unlinkSync(hasil.foto); } catch (e) { }
-                    } else {
-                        sock.sendMessage(
-                            sender,
-                            { text: reply, mentions: [senderNumber] },
-                            { quoted: msgObj, ephemeralExpiration: 86400 }
-                        );
-                    }
+                    let reply = `✅ *LAPORAN SUKSES TERKIRIM*\n\n`;
+                    reply += `*Hasil Olahan AI:*\n${aiResult.aktivitas}\n\n`;
+                    reply += `_Laporan sudah rapi & masuk ke web Kemnaker._`;
+                    
+                    // Kirim ke target (PC jika dari grup)
+                    const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+                    await sock.sendMessage(targetJid, { text: reply }, { ephemeralExpiration: 86400 });
                 } else {
-                    // React gagal
                     await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                    sock.sendMessage(
-                        sender,
-                        { text: `*ABSENSI GAGAL*\n${hasil.pesan}` },
-                        { quoted: msgObj, ephemeralExpiration: 86400 }
-                    );
+                    await sock.sendMessage(sender, { text: `Gagal mengirim: ${hasil.pesan}` }, { quoted: msgObj });
                 }
             });
+            return;
         }
 
         // ----------------------------------------------------
