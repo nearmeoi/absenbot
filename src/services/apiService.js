@@ -212,7 +212,7 @@ async function submitAttendanceReport(email, reportData) {
             obstacles: reportData.kendala || "Tidak ada kendala"
         };
 
-        const response = await client.post(API_ENDPOINTS.DAILY_LOGS, payload);
+        const response = await client.post(API_ENDPOINTS.SUBMIT_ATTENDANCE, payload);
 
         if (response.status === 200 || response.status === 201) {
             console.log(chalk.green(`[API] ✅ Attendance submitted successfully`));
