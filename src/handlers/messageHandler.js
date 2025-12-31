@@ -6,6 +6,7 @@ const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = r
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
+const chalk = require('chalk');
 const { TEMP_DIR } = require('../config/constants');
 
 // ... (kode lainnya tetap sama)
