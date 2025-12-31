@@ -87,16 +87,16 @@ module.exports = async (sock, msg) => {
             const info = `*BOT MAGANGHUB v7.0 (AI Edition)*
 
 Daftar Perintah:
-1️⃣ *!daftar* - Registrasi akun
-2️⃣ *!absen* - Kirim laporan manual
-3️⃣ *!preview* - Preview laporan AI
-4️⃣ *!buatkan* - Submit laporan AI
-5️⃣ *!cekabsen* - Cek status hari ini
-6️⃣ *!riwayat* [hari] - Riwayat absen
-7️⃣ *!ingatkan* - Tag yang belum absen
-8️⃣ *!listuser* - Daftar user
-9️⃣ *!hapus* - Hapus akun
-🔔 *!broadcast* [pesan] - Admin only
+1️⃣ *!daftar* - Sambungkan akun dulu (Wajib)
+2️⃣ *!preview* - Minta dibuatin laporan otomatis
+3️⃣ *!buatkan* - Kirim laporan otomatis ke web
+4️⃣ *!absen* - Tulis laporan sendiri (Manual)
+5️⃣ *!cek* - Cek laporan sudah masuk belum
+6️⃣ *!riwayat* - Lihat laporan hari kemarin
+7️⃣ *!ingatkan* - Tag teman yang belum lapor
+8️⃣ *!listuser* - Lihat daftar peserta
+9️⃣ *!hapus* - Hapus akun dari bot
+🔔 *!broadcast* - Kirim info ke semua (Admin)
 
 Bot ini membantu absensi harian MagangHub.`;
 
