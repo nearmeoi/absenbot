@@ -27,50 +27,65 @@ Menggunakan kombinasi cerdas:
 
 ---
 
-## 📱 Panduan Pengguna (User Guide)
+## 🗺️ Alur Penggunaan Lengkap (User Journey)
 
-### 1️⃣ Registrasi (Pertama Kali)
-Sebelum menggunakan bot, Anda wajib mendaftarkan akun SiapKerja Anda.
+Jika kamu baru pertama kali menggunakan bot ini, ikuti langkah-langkah berikut:
 
-1.  Ketik **`!daftar`** di chat pribadi bot atau grup.
-2.  Bot akan mengirimkan **Link Registrasi Aman** ke chat pribadi Anda.
-3.  Buka link tersebut, masukkan **Email** dan **Password** (Akun SiapKerja/MagangHub).
-4.  Jika sukses, Anda akan mendapat notifikasi di WhatsApp.
+### **Langkah 1: Registrasi Akun (`!daftar`)**
+Ini adalah tahap awal agar bot mengenali akun MagangHub milikmu.
+1.  **Ketik `!daftar`** di grup atau chat pribadi bot.
+2.  Bot akan mengirimkan **Link Khusus** ke Chat Pribadi (PC) kamu.
+3.  **Buka link tersebut** di browser HP/Laptop. Kamu akan melihat halaman login yang aman.
+4.  Masukkan **Email** dan **Password** yang kamu gunakan di website MagangHub/SiapKerja.
+5.  Klik **Login**. Bot akan memverifikasi akunmu. Jika berhasil, bot akan mengirim pesan: *"Registrasi Berhasil!"*
 
-> **Catatan:** Password Anda disimpan hanya untuk keperluan login otomatis bot ke website MagangHub.
+### **Langkah 2: Memilih Cara Absen**
+Setelah terdaftar, kamu punya dua pilihan cara untuk absen setiap harinya:
 
-### 2️⃣ Cara Absen Harian
-Ada dua cara untuk melakukan absen:
+#### **Opsi A: Cara Manual (Jika ingin menulis sendiri)**
+1.  Ketik **`!absen`**.
+2.  Bot akan mengirimkan **Template Laporan**.
+3.  **Salin (Copy)** template tersebut, lalu isi bagian Aktivitas, Pembelajaran, dan Kendala.
+4.  **Kirim (Send)** kembali template yang sudah diisi.
+    *   *Penting:* Setiap kolom harus diisi minimal **100 karakter** (sekitar 2-3 kalimat panjang).
+5.  Bot akan memproses. Jika sukses, bot akan mengirimkan tanda centang (✅) atau foto bukti screenshot.
 
-#### 🅰️ Cara Manual (Ketik Sendiri)
-Gunakan format berikut (Copy-Paste dari pesan bot):
-```text
-!absen [LAPORAN MAGANGHUB]
+#### **Opsi B: Cara AI (Jika sedang malas mikir/sibuk)**
+1.  Ketik **`!preview`**.
+2.  Bot akan berpikir sejenak (menggunakan AI) dan membuatkan draf laporan berdasarkan apa yang sering kamu kerjakan sebelumnya.
+3.  **Baca drafnya.** Jika kamu merasa laporannya sudah pas:
+4.  Ketik **`!buatkan`**.
+5.  Bot akan langsung mengirimkan laporan tersebut ke website MagangHub secara otomatis.
 
-Aktivitas: 
-(Isi detail aktivitas hari ini, minimal 100 karakter)
+### **Langkah 3: Memastikan Keberhasilan (`!cekabsen`)**
+Untuk memastikan laporanmu benar-benar sudah masuk ke server Kemnaker:
+1.  Ketik **`!cekabsen`**.
+2.  Bot akan mengecek langsung ke website.
+3.  Jika sudah masuk, bot akan menampilkan ringkasan laporanmu hari ini. Jika belum, bot akan memberitahu bahwa kamu belum absen.
 
-Pembelajaran: 
-(Apa yang dipelajari, minimal 100 karakter)
+### **Langkah 4: Melihat Riwayat (`!riwayat`)**
+Jika kamu ingin melihat apa saja yang sudah kamu kerjakan di hari-hari sebelumnya:
+1.  Ketik **`!riwayat 3`** (untuk melihat 3 hari terakhir).
+2.  Bot akan menampilkan daftar aktivitasmu secara rapi.
 
-Kendala: 
-(Jika ada kendala, atau tulis tidak ada, minimal 100 karakter)
-```
-⚠️ **Penting:** Pastikan setiap kolom berisi minimal **100 karakter** agar tidak ditolak sistem MagangHub.
+### **Fitur Penyelamat: Jika Kamu Lupa Total**
+Bot ini punya "Safety Net" (Jaring Pengaman):
+*   **Jam 18:00, 20:00, & 22:00:** Bot akan men-tag namamu di grup jika kamu belum absen.
+*   **Jam 23:50 (Emergency):** Jika sampai jam ini kamu masih belum absen, bot akan secara otomatis melakukan **Langkah 2 (Opsi B)** untukmu. Bot akan men-generate laporan AI dan men-submit-nya agar uang sakumu tidak terpotong. Kamu akan mendapat notifikasi bahwa bot telah "menyelamatkan" absenmu.
 
-#### 🅱️ Cara AI (Otomatis & Santai)
-Biarkan AI yang berpikir untuk Anda.
-1. Ketik **`!preview`**
-   Bot akan membuatkan draf laporan berdasarkan riwayat kerja Anda.
-2. Baca drafnya. Jika sudah oke, ketik **`!buatkan`**
-3. Selesai! Laporan terkirim.
+---
 
-### 3️⃣ Perintah Lainnya
+## 📱 Referensi Perintah Cepat
+
 | Perintah | Fungsi |
 | :--- | :--- |
-| `!cekabsen` | Mengecek apakah hari ini sudah absen atau belum (langsung ke server). |
-| `!riwayat [hari]` | Melihat riwayat laporan Anda (contoh: `!riwayat 3` untuk 3 hari terakhir). |
-| `!ingatkan` | (Grup Only) Men-tag semua peserta yang belum absen hari ini. |
+| `!daftar` | Registrasi akun awal. |
+| `!absen` | Minta template absen manual. |
+| `!preview` | Minta AI buatkan draf laporan. |
+| `!buatkan` | Setujui dan kirim draf dari AI. |
+| `!cekabsen` | Cek status apakah laporan sudah masuk server. |
+| `!riwayat [hari]` | Lihat riwayat laporan (contoh: `!riwayat 3`). |
+| `!ingatkan` | (Grup Only) Men-tag semua peserta yang belum absen. |
 | `!listuser` | Melihat daftar peserta yang terdaftar di bot ini. |
 | `!hapus` | Menghapus akun Anda dari database bot. |
 
@@ -126,12 +141,6 @@ Bot ini mendukung **Termux (Android)**, **Windows**, **Linux**, dan **macOS** se
 
 5. **Scan QR Code**
    Scan QR code yang muncul di terminal menggunakan WhatsApp Anda (Tautkan Perangkat).
-
-### Struktur Folder Penting
-- `SesiWA/` : Menyimpan sesi login WhatsApp (JANGAN DIHAPUS jika tidak ingin scan ulang).
-- `sessions/` : Menyimpan cookies login MagangHub user.
-- `users.json` : Database user (Email/Pass). **Jaga kerahasiaan file ini.**
-- `logs/` : Log aktivitas harian user hasil scraping.
 
 ---
 
