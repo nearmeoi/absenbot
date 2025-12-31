@@ -94,9 +94,8 @@ function initAuthServer() {
 
     // Debug Route: Preview UI without token
     app.get('/auth/preview', (req, res) => {
-        // Redirect to a debug token URL which will serve the login page
-        // and allow simulation of success via the submit handler
-        res.redirect('/auth/debug-preview-token');
+        // Directly serve the login page for testing/preview
+        res.sendFile(path.join(__dirname, '../../public/login.html'));
     });
 
     // Simple HTML page for login
@@ -135,42 +134,20 @@ function initAuthServer() {
 
         // Import the magang service to verify credentials
         const { cekKredensial } = require('./magang');
+        const { saveUser } = require('./database');
 
         try {
             const result = await cekKredensial(email, password);
 
             if (result.success) {
-                // Save user credentials securely
-                const usersFile = USERS_FILE;
-                let users = [];
+                // Save user using database module (handles multi-identifier auto-linking)
+                saveUser(authRequest.phone, email, password);
 
-                if (fs.existsSync(usersFile)) {
-                    users = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
+
+                // Call the WhatsApp notification callback
+                if (authRequest.callback) {
+                    authRequest.callback({ success: true, message: 'Registrasi berhasil!' });
                 }
-
-                // Check if user already exists
-                const existingUserIndex = users.findIndex(u => u.phone === authRequest.phone);
-
-                if (existingUserIndex !== -1) {
-                    // Update existing user
-                    users[existingUserIndex] = {
-                        ...users[existingUserIndex],
-                        email,
-                        password,
-                        lastLogin: new Date().toISOString()
-                    };
-                } else {
-                    // Add new user
-                    users.push({
-                        phone: authRequest.phone,
-                        email,
-                        password,
-                        registeredAt: new Date().toISOString(),
-                        lastLogin: new Date().toISOString()
-                    });
-                }
-
-                fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
 
                 // Clean up the token
                 pendingAuths.delete(token);

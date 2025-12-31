@@ -1,11 +1,11 @@
 {
-    "name": "bot",
-    "version": "1.0",
-    "description": "Bot WhatsApp",
+    "name": "absenbot",
+    "version": "6.1.0",
+    "description": "Bot WhatsApp untuk absensi MagangHub",
     "main": "index.js",
+    "author": "Akmal",
+    "license": "MIT",
     "scripts": {
-        "authhor": "Akmal",
-        "license": "MIT",
         "start": "node index.js"
     },
     "dependencies": {

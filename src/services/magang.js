@@ -449,8 +449,35 @@ async function prosesLoginDanAbsen(dataUser) {
     return await puppeteerSubmit(email, password, { aktivitas, pembelajaran, kendala });
 }
 
+async function getRiwayat(email, password, days = 1) {
+    // Try API first
+    const apiResult = await apiService.getAttendanceHistory(email, days);
+
+    if (apiResult.success) {
+        return apiResult;
+    }
+
+    // If session expired, try to login and retry
+    if (apiResult.needsLogin) {
+        const loginResult = await puppeteerLogin(email, password, false);
+        if (!loginResult.success) {
+            return { success: false, logs: [], pesan: loginResult.pesan };
+        }
+
+        await new Promise(r => setTimeout(r, 1000));
+
+        const retryResult = await apiService.getAttendanceHistory(email, days);
+        if (retryResult.success) {
+            return retryResult;
+        }
+    }
+
+    return { success: false, logs: [], pesan: apiResult.pesan || "Gagal mengambil riwayat" };
+}
+
 module.exports = {
     prosesLoginDanAbsen,
     cekKredensial,
-    cekStatusHarian
+    cekStatusHarian,
+    getRiwayat
 };

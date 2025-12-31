@@ -323,6 +323,71 @@ function clearSession(email) {
     }
 }
 
+/**
+ * Get attendance history for specified number of days
+ * @param {string} email - User email
+ * @param {number} days - Number of days to fetch (default: 1 = yesterday)
+ * @returns {Object} { success: boolean, logs: array, pesan: string }
+ */
+async function getAttendanceHistory(email, days = 1) {
+    console.log(chalk.cyan(`[API] Getting ${days} day(s) attendance history for ${email}...`));
+
+    const session = loadSession(email);
+    if (!session) {
+        return { success: false, needsLogin: true, logs: [], pesan: "Session tidak ditemukan" };
+    }
+
+    try {
+        const client = createApiClient(session);
+        const response = await client.get(API_ENDPOINTS.DAILY_LOGS, {
+            maxRedirects: 0,
+            validateStatus: status => status >= 200 && status < 400
+        });
+
+        if (response.status !== 200) {
+            return { success: false, needsLogin: true, logs: [], pesan: `HTTP Error: ${response.status}` };
+        }
+
+        const contentType = response.headers?.['content-type'] || '';
+        if (contentType.includes('text/html')) {
+            return { success: false, needsLogin: true, logs: [], pesan: "Session expired" };
+        }
+
+        const allLogs = response.data?.data;
+        if (!Array.isArray(allLogs)) {
+            return { success: false, logs: [], pesan: "Format response tidak valid" };
+        }
+
+        // Filter logs for the last N days
+        const today = new Date();
+        const filteredLogs = [];
+
+        for (let i = 1; i <= days; i++) {
+            const targetDate = new Date(today);
+            targetDate.setDate(today.getDate() - i);
+            const dateStr = targetDate.toISOString().split("T")[0];
+
+            const log = allLogs.find(l => l.date === dateStr);
+            if (log) {
+                filteredLogs.push(log);
+            } else {
+                // Add placeholder for missing days
+                filteredLogs.push({ date: dateStr, activity_log: null, missing: true });
+            }
+        }
+
+        console.log(chalk.green(`[API] Found ${filteredLogs.filter(l => !l.missing).length}/${days} days of history`));
+        return { success: true, logs: filteredLogs };
+
+    } catch (error) {
+        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+            return { success: false, needsLogin: true, logs: [], pesan: "Session expired" };
+        }
+        console.error(chalk.red(`[API] Error getting history:`), error.message);
+        return { success: false, logs: [], pesan: error.message };
+    }
+}
+
 module.exports = {
     loadSession,
     saveSession,
@@ -330,5 +395,6 @@ module.exports = {
     submitAttendanceReport,
     scrapeAndSaveDailyLogs,
     isSessionValid,
-    clearSession
+    clearSession,
+    getAttendanceHistory
 };
