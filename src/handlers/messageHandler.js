@@ -346,17 +346,21 @@ Kendala:
 
 Catatan: Minimal 100 karakter per kolom.`;
 
+                // Tentukan target JID untuk Private Chat (gunakan ID asli agar aman)
+                const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+                console.log(chalk.yellow(`[DEBUG] Mengirim template !absen ke: ${targetJid}`));
+
                 if (isGroup) {
                     // Jika di grup, arahkan ke PC
                     await sock.sendMessage(
                         sender,
-                        { text: "Template laporan telah dikirim ke chat pribadi Anda. Silakan isi di sana agar tidak memenuhi grup." },
+                        { text: "📩 Template laporan telah dikirim ke chat pribadi Anda. Silakan isi di sana agar tidak memenuhi grup." },
                         { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                     
                     // Kirim template ke PC
                     await sock.sendMessage(
-                        senderNumber,
+                        targetJid,
                         { text: template },
                         { ephemeralExpiration: 86400 }
                     );
