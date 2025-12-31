@@ -82,38 +82,18 @@ module.exports = async (sock, msg) => {
         // !HAI / !MENU
         // ----------------------------------------------------
         if (command === '!hai' || command === '!menu') {
-            const coverPath = require('path').join(__dirname, '../../public/img/cover.png');
+            const info = `🤖 *ASISTEN MAGANGHUB*
 
-            const info = `👋 *Halo! Saya Asisten Absen MagangHub.*
+*DAFTAR* : !daftar
+*ABSEN AI* : !preview -> !buatkan
+*ABSEN MANUAL* : !absen
+*CEK STATUS* : !cek
+*RIWAYAT* : !riwayat
+*TAG GRUP* : !ingatkan
 
-Bingung hari ini mau lapor apa? Tenang, saya bisa bantu!
+_Otomatis terhapus dalam 24 jam._`;
 
-🚀 *LANGKAH PERTAMA*
-👉 *!daftar*
-(Wajib klik ini dulu biar saya kenal akunmu)
-
-📝 *CARA ABSEN (Pilih Satu)*
-👉 *!preview*  🔥 *(Rekomendasi)*
-(Biarkan AI yang tuliskan laporanmu otomatis. Terima beres!)
-👉 *!absen*
-(Kalau kamu mau tulis laporan sendiri secara manual)
-
-✅ *PENGECEKAN*
-👉 *!cek*
-(Cek apakah laporan hari ini sudah masuk ke web atau belum)
-👉 *!riwayat*
-(Lihat apa yang kamu kerjakan hari-hari sebelumnya)
-
-📢 *FITUR GRUP*
-👉 *!ingatkan* : Tag teman yang belum absen hari ini.
-
-_Pesan ini akan hilang otomatis dalam 24 jam._`;
-
-            if (fs.existsSync(coverPath)) {
-                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            } else {
-                await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            }
+            await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
             return;
         }
 
@@ -317,7 +297,7 @@ _Pesan ini akan hilang otomatis dalam 24 jam._`;
                 // Notify in group
                 await sock.sendMessage(
                     sender,
-                    { text: `📩 Link pendaftaran sudah saya kirim ke Chat Pribadi (Japri) ya. Cek dulu..` },
+                    { text: `📩 Cek chat pribadi ya!` },
                     { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
                 // Send link to private chat
