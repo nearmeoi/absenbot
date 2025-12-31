@@ -341,7 +341,7 @@ Bot ini membantu absensi harian MagangHub.`;
         if (command === "!absen" || isLaporanContent) {
             if (!textMessage.includes("Aktivitas:")) {
                 const template = `!absen ${HEADER_LAPORAN}
-(Salin, isi, dan kirim kembali)
+(Salin, isi, dan kirim kembali di sini)
 
 Aktivitas: 
 
@@ -350,11 +350,28 @@ Pembelajaran:
 Kendala: 
 
 Catatan: Minimal 100 karakter per kolom.`;
-                await sock.sendMessage(
-                    sender,
-                    { text: template },
-                    { quoted: msgObj }
-                );
+
+                if (isGroup) {
+                    // Jika di grup, arahkan ke PC
+                    await sock.sendMessage(
+                        sender,
+                        { text: "📩 Template laporan telah dikirim ke chat pribadi Anda. Silakan isi di sana agar tidak memenuhi grup." },
+                        { quoted: msgObj }
+                    );
+                    
+                    // Kirim template ke PC
+                    await sock.sendMessage(
+                        senderNumber,
+                        { text: template }
+                    );
+                } else {
+                    // Jika sudah di PC, langsung kirim template
+                    await sock.sendMessage(
+                        sender,
+                        { text: template },
+                        { quoted: msgObj }
+                    );
+                }
                 return;
             }
 
