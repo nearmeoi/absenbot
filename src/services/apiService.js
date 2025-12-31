@@ -87,20 +87,22 @@ function createApiClient(session) {
         .join("; ");
 
     const headers = {
-        "User-Agent": USER_AGENT,
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
         "Cookie": cookieHeader,
         "Origin": "https://monev.maganghub.kemnaker.go.id",
         "Referer": "https://monev.maganghub.kemnaker.go.id/dashboard",
         "Accept": "application/json",
         "Content-Type": "application/json",
         "X-CSRF-TOKEN": session.csrfToken || "",
-        "X-Requested-With": "XMLHttpRequest"
+        "X-Requested-With": "XMLHttpRequest",
+        "sec-ch-ua": '"Chromium";v="137", "Not/A)Brand";v="24"',
+        "sec-ch-ua-mobile": "?1",
+        "sec-ch-ua-platform": '"Android"'
     };
 
     // Add Bearer token if available
     if (session.accessToken) {
         headers["Authorization"] = `Bearer ${session.accessToken}`;
-        console.log(chalk.cyan(`[API] Using Bearer token for authentication`));
     }
 
     return axios.create({
