@@ -135,14 +135,15 @@ async function runEmergencyAutoSubmit(sock) {
 
 function initScheduler(sock) {
     // Regular reminders (Monday-Friday)
-    cron.schedule('0 18 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
-    cron.schedule('0 20 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
-    cron.schedule('0 22 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
+    // Jadwal WITA (Waktu Indonesia Tengah)
+    cron.schedule('0 18 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
+    cron.schedule('0 20 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
+    cron.schedule('0 22 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
 
     // EMERGENCY: Auto-submit at 23:50 (Monday-Friday)
-    cron.schedule('50 23 * * 1-5', () => runEmergencyAutoSubmit(sock), { timezone: "Asia/Jakarta" });
+    cron.schedule('50 23 * * 1-5', () => runEmergencyAutoSubmit(sock), { timezone: "Asia/Makassar" });
 
-    console.log(chalk.blue('[SCHEDULER] Alarm: 18:00, 20:00, 22:00, 23:50 (emergency) WIB'));
+    console.log(chalk.blue('[SCHEDULER] Alarm: 18:00, 20:00, 22:00, 23:50 (emergency) WITA'));
 }
 
 module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit };

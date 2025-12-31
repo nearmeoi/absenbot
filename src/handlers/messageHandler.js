@@ -531,9 +531,6 @@ Catatan: Minimal 100 karakter per kolom.`;
                     if (log.missing || !log.activity_log) {
                         historyText += `(Tidak ada data absen)\n`;
                     } else {
-                        // Debug: log semua field yang ada
-                        console.log('[RIWAYAT] Fields available:', Object.keys(log));
-
                         // Aktivitas
                         historyText += `\n*Aktivitas:*\n${log.activity_log || '-'}\n`;
 
@@ -553,7 +550,15 @@ Catatan: Minimal 100 karakter per kolom.`;
 
                 historyText += `\n━━━━━━━━━━━━━━━━━━\nGunakan !riwayat [jumlah] untuk melihat lebih banyak hari.`;
 
-                await sock.sendMessage(sender, { text: historyText }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                // Tentukan target pengiriman (PC)
+                const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+
+                if (isGroup) {
+                    await sock.sendMessage(sender, { text: "📩 Riwayat absensi dikirim ke chat pribadi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                }
+                
+                await sock.sendMessage(targetJid, { text: historyText }, { ephemeralExpiration: 86400 });
+
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
                 await sock.sendMessage(sender, { text: `Gagal mengambil riwayat: ${result.pesan || 'Tidak ada data'}` }, { quoted: msgObj, ephemeralExpiration: 86400 });
@@ -698,7 +703,14 @@ Catatan: Minimal 100 karakter per kolom.`;
             preview += `----------------------------------\n\n`;
             preview += `Ketik *!buatkan* untuk kirim.\nKetik *!preview* lagi untuk ganti laporan.`;
 
-            await sock.sendMessage(sender, { text: preview }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            // Tentukan target pengiriman (PC)
+            const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+
+            if (isGroup) {
+                await sock.sendMessage(sender, { text: "📩 Draf laporan AI dikirim ke chat pribadi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            }
+
+            await sock.sendMessage(targetJid, { text: preview }, { ephemeralExpiration: 86400 });
         }
 
     } catch (e) {
