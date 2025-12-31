@@ -82,18 +82,29 @@ module.exports = async (sock, msg) => {
         // !HAI / !MENU
         // ----------------------------------------------------
         if (command === '!hai' || command === '!menu') {
-            const info = `🤖 *ASISTEN MAGANGHUB*
+            const coverPath = require('path').join(__dirname, '../../public/img/cover.png');
 
-*DAFTAR* : !daftar
-*ABSEN AI* : !preview -> !buatkan
-*ABSEN MANUAL* : !absen
-*CEK STATUS* : !cek
-*RIWAYAT* : !riwayat
-*TAG GRUP* : !ingatkan
+            const info = `*BOT MAGANGHUB v7.0 (AI Edition)*
 
-_Otomatis terhapus dalam 24 jam._`;
+Daftar Perintah:
+1️⃣ *!daftar* - Registrasi akun
+2️⃣ *!absen* - Kirim laporan manual
+3️⃣ *!preview* - Preview laporan AI
+4️⃣ *!buatkan* - Submit laporan AI
+5️⃣ *!cekabsen* - Cek status hari ini
+6️⃣ *!riwayat* [hari] - Riwayat absen
+7️⃣ *!ingatkan* - Tag yang belum absen
+8️⃣ *!listuser* - Daftar user
+9️⃣ *!hapus* - Hapus akun
+🔔 *!broadcast* [pesan] - Admin only
 
-            await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
+Bot ini membantu absensi harian MagangHub.`;
+
+            if (fs.existsSync(coverPath)) {
+                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            } else {
+                await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            }
             return;
         }
 
