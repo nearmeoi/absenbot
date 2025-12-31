@@ -226,11 +226,7 @@ Bot ini membantu absensi harian MagangHub.`;
                 return;
             }
 
-            await sock.sendMessage(
-                sender,
-                { text: `Mengecek status ${allUsers.length} peserta...` },
-                { quoted: msgObj, ephemeralExpiration: 86400 }
-            );
+            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
             let belumAbsen = [];
             let checked = 0;
