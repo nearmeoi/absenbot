@@ -206,9 +206,10 @@ async function submitAttendanceReport(email, reportData) {
         // Prepare the payload based on typical API structure
         const payload = {
             date: today,
+            status: "PRESENT",
             activity_log: reportData.aktivitas,
             lesson_learned: reportData.pembelajaran,
-            obstacle: reportData.kendala || "Tidak ada kendala"
+            obstacles: reportData.kendala || "Tidak ada kendala"
         };
 
         const response = await client.post(API_ENDPOINTS.DAILY_LOGS, payload);
