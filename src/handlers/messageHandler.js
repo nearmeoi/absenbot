@@ -2,20 +2,49 @@ const { prosesLoginDanAbsen, cekKredensial, cekStatusHarian, getRiwayat } = requ
 const { saveUser, getUserByPhone, updateUserLid, getAllUsers, deleteUser } = require('../services/database');
 const { GROUP_ID_FILE } = require('../config/constants');
 const { generateAuthUrl, initAuthServer } = require('../services/secureAuth');
-const { generateAttendanceReport } = require('../services/groqService');
+const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = require('../services/groqService');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
-const chalk = require('chalk');
+const path = require('path');
+const { TEMP_DIR } = require('../config/constants');
 
-// Cache untuk menyimpan preview sementara (per user)
-const pendingPreviews = new Map();
-
-// Admin numbers yang bisa broadcast
-const ADMIN_NUMBERS = ['6285657025300', '6289517153324'];
+// ... (kode lainnya tetap sama)
 
 module.exports = async (sock, msg) => {
     try {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
+
+        // --- HANDLING VOICE NOTE / AUDIO (PRIVATE CHAT ONLY) ---
+        const isAudio = msgObj.message.audioMessage || msgObj.message.pttMessage;
+        const sender = msgObj.key.remoteJid;
+        const isGroup = sender.endsWith("@g.us");
+
+        if (isAudio && !isGroup) {
+            await sock.sendMessage(sender, { react: { text: "🎧", key: msgObj.key } });
+            
+            // Download audio
+            const buffer = await downloadMediaMessage(msgObj, 'buffer', {});
+            const fileName = path.join(TEMP_DIR, `audio_${Date.now()}.ogg`);
+            fs.writeFileSync(fileName, buffer);
+
+            // Transcribe
+            const transcription = await transcribeAudio(fileName);
+            
+            // Hapus file audio (Cleanup)
+            try { fs.unlinkSync(fileName); } catch (e) {}
+
+            if (transcription.success && transcription.text.length > 5) {
+                await sock.sendMessage(sender, { text: `_Saya mendengar:_ "${transcription.text}"\n\n_Sedang merapikan laporan Anda..._` });
+                
+                // Teruskan ke logika !absen (panggil ulang handler dengan teks hasil VN)
+                msgObj.message = { conversation: `!absen ${transcription.text}` };
+                return module.exports(sock, msgObj);
+            } else {
+                await sock.sendMessage(sender, { text: "Maaf, saya kurang jelas mendengar suara Anda. Bisa ulangi lagi?" });
+                return;
+            }
+        }
 
         const getMsgText = (m) => {
             if (!m) return "";

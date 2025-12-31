@@ -6,8 +6,49 @@
 const axios = require('axios');
 const chalk = require('chalk');
 
+const FormData = require('form-data');
+const fs = require('fs');
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile'; // Model aktif terbaru
+const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile'; 
+
+/**
+ * Transcribe audio file to text using Groq Whisper
+ * @param {string} filePath - Path to the audio file
+ * @returns {Object} { success: boolean, text: string }
+ */
+async function transcribeAudio(filePath) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return { success: false, error: 'GROQ_API_KEY tidak dikonfigurasi' };
+
+    try {
+        const form = new FormData();
+        form.append('file', fs.createReadStream(filePath));
+        form.append('model', 'whisper-large-v3');
+        form.append('language', 'id'); // Paksa bahasa Indonesia agar akurat
+        form.append('response_format', 'json');
+
+        const response = await axios.post(GROQ_AUDIO_URL, form, {
+            headers: {
+                ...form.getHeaders(),
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            timeout: 60000
+        });
+
+        return {
+            success: true,
+            text: response.data.text
+        };
+    } catch (error) {
+        console.error(chalk.red('[GROQ] Transcribe Error:'), error.response?.data || error.message);
+        return {
+            success: false,
+            error: 'Gagal mendengarkan VN Anda.'
+        };
+    }
+}
 
 /**
  * Generate attendance report using Groq AI
@@ -218,4 +259,4 @@ KENDALA: [isi]`;
     }
 }
 
-module.exports = { generateAttendanceReport, processFreeTextToReport };
+module.exports = { generateAttendanceReport, processFreeTextToReport, transcribeAudio };
