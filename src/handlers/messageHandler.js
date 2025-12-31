@@ -160,9 +160,8 @@ Bot ini membantu absensi harian MagangHub.`;
 
             allUsers.forEach((user, index) => {
                 const phone = user.phone;
-                const name = getName(user.email);
                 mentions.push(phone);
-                userList += `${index + 1}. @${phone.split('@')[0]} - ${name}\n`;
+                userList += `${index + 1}. @${phone.split('@')[0]}\n`;
             });
 
             await sock.sendMessage(sender, { text: userList, mentions }, { quoted: msgObj });
