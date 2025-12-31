@@ -332,7 +332,7 @@ function clearSession(email) {
  * @param {number} days - Number of days to fetch (default: 1 = yesterday)
  * @returns {Object} { success: boolean, logs: array, pesan: string }
  */
-async function getAttendanceHistory(email, days = 1) {
+async function getAttendanceHistory(email, days = 1, retries = 2) {
     console.log(chalk.cyan(`[API] Getting ${days} day(s) attendance history for ${email}...`));
 
     const session = loadSession(email);
@@ -342,9 +342,11 @@ async function getAttendanceHistory(email, days = 1) {
 
     try {
         const client = createApiClient(session);
+        // Increase timeout for history fetch
         const response = await client.get(API_ENDPOINTS.DAILY_LOGS, {
             maxRedirects: 0,
-            validateStatus: status => status >= 200 && status < 400
+            validateStatus: status => status >= 200 && status < 400,
+            timeout: 60000 
         });
 
         if (response.status !== 200) {
@@ -383,6 +385,12 @@ async function getAttendanceHistory(email, days = 1) {
         return { success: true, logs: filteredLogs };
 
     } catch (error) {
+        // Retry logic for timeouts
+        if ((error.code === 'ECONNABORTED' || error.message.includes('timeout')) && retries > 0) {
+            console.log(chalk.yellow(`[API] History request timed out, retrying... (${retries} attempts left)`));
+            return getAttendanceHistory(email, days, retries - 1);
+        }
+
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             return { success: false, needsLogin: true, logs: [], pesan: "Session expired" };
         }
