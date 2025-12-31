@@ -9,7 +9,11 @@ const path = require('path');
 const chalk = require('chalk');
 const { TEMP_DIR } = require('../config/constants');
 
-// ... (kode lainnya tetap sama)
+// Cache untuk menyimpan preview sementara (per user)
+const pendingPreviews = new Map();
+
+// Admin numbers yang bisa broadcast
+const ADMIN_NUMBERS = ['6285657025300', '6289517153324'];
 
 module.exports = async (sock, msg) => {
     try {
