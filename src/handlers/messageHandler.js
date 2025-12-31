@@ -82,29 +82,23 @@ module.exports = async (sock, msg) => {
         // !HAI / !MENU
         // ----------------------------------------------------
         if (command === '!hai' || command === '!menu') {
-            const coverPath = require('path').join(__dirname, '../../public/img/cover.png');
-
             const info = `*BOT MAGANGHUB v7.0 (AI Edition)*
 
 Daftar Perintah:
-1️⃣ *!daftar* - Sambungkan akun dulu (Wajib)
-2️⃣ *!preview* - Minta dibuatin laporan otomatis
-3️⃣ *!buatkan* - Kirim laporan otomatis ke web
-4️⃣ *!absen* - Tulis laporan sendiri (Manual)
-5️⃣ *!cek* - Cek laporan sudah masuk belum
-6️⃣ *!riwayat* - Lihat laporan hari kemarin
-7️⃣ *!ingatkan* - Tag teman yang belum lapor
-8️⃣ *!listuser* - Lihat daftar peserta
-9️⃣ *!hapus* - Hapus akun dari bot
-🔔 *!broadcast* - Kirim info ke semua (Admin)
+1. !daftar - Sambungkan akun dulu (Wajib)
+2. !preview - Minta dibuatin laporan otomatis
+3. !buatkan - Kirim laporan otomatis ke web
+4. !absen - Tulis laporan sendiri (Manual)
+5. !cek - Cek laporan sudah masuk belum
+6. !riwayat - Lihat laporan hari kemarin
+7. !ingatkan - Tag teman yang belum lapor
+8. !listuser - Lihat daftar peserta
+9. !hapus - Hapus akun dari bot
+!broadcast - Kirim info ke semua (Admin)
 
 Bot ini membantu absensi harian MagangHub.`;
 
-            if (fs.existsSync(coverPath)) {
-                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            } else {
-                await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            }
+            await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
             return;
         }
 
@@ -277,9 +271,9 @@ Bot ini membantu absensi harian MagangHub.`;
                 await sock.sendMessage(
                     sender,
                     {
-                        text: "Anda sudah terdaftar. Gunakan !absen untuk mengirim laporan atau !cekabsen untuk melihat status."
+                        text: "Anda sudah terdaftar. Gunakan !absen untuk mengirim laporan atau !cek untuk melihat status."
                     },
-                    { quoted: msgObj }
+                    { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
                 return;
             }
@@ -291,7 +285,7 @@ Bot ini membantu absensi harian MagangHub.`;
                     await sock.sendMessage(
                         originalSenderId,
                         {
-                            text: `*REGISTRASI BERHASIL*\n\nAkun Anda telah terdaftar. Gunakan perintah !absen untuk mengirim laporan harian.`
+                            text: "*REGISTRASI BERHASIL*\n\nAkun Anda telah terdaftar. Gunakan perintah !absen untuk mengirim laporan harian."
                         }
                     );
                 } else {
@@ -308,14 +302,14 @@ Bot ini membantu absensi harian MagangHub.`;
                 // Notify in group
                 await sock.sendMessage(
                     sender,
-                    { text: `📩 Cek chat pribadi ya!` },
+                    { text: "Link pendaftaran sudah saya kirim ke Chat Pribadi (Japri) ya." },
                     { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
                 // Send link to private chat
                 await sock.sendMessage(
                     originalSenderId,
                     {
-                        text: `🔐 *PENDAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
+                        text: `*PENDAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
                     }
                 );
             } else {
@@ -323,7 +317,7 @@ Bot ini membantu absensi harian MagangHub.`;
                 await sock.sendMessage(
                     sender,
                     {
-                        text: `🔐 *PENDAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
+                        text: `*PENDAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
                     },
                     { quoted: msgObj }
                 );
@@ -351,7 +345,7 @@ Catatan: Minimal 100 karakter per kolom.`;
                     // Jika di grup, arahkan ke PC
                     await sock.sendMessage(
                         sender,
-                        { text: "📩 Template laporan telah dikirim ke chat pribadi Anda. Silakan isi di sana agar tidak memenuhi grup." },
+                        { text: "Template laporan telah dikirim ke chat pribadi Anda. Silakan isi di sana agar tidak memenuhi grup." },
                         { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                     
@@ -643,9 +637,9 @@ Catatan: Minimal 100 karakter per kolom.`;
 
             if (submitResult.success) {
                 await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                let reply = `✅ *SIAP! LAPORAN SUDAH TERKIRIM*\n\n`;
+                let reply = `*LAPORAN SUDAH TERKIRIM*\n\n`;
                 reply += `*Isi Laporan:* \n${cachedPreview.aktivitas}\n\n`;
-                reply += `*Note:* Laporan sudah masuk ke web Kemnaker. Istirahat yang cukup ya!`;
+                reply += `Laporan sudah masuk ke web Kemnaker.`;
                 await sock.sendMessage(sender, { text: reply }, { quoted: msgObj, ephemeralExpiration: 86400 });
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
@@ -663,7 +657,7 @@ Catatan: Minimal 100 karakter per kolom.`;
                 return;
             }
 
-            await sock.sendMessage(sender, { react: { text: "🤖", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
             // Ambil riwayat untuk konteks (30 hari)
             const riwayatResult = await getRiwayat(user.email, user.password, 30);
@@ -687,13 +681,13 @@ Catatan: Minimal 100 karakter per kolom.`;
             });
 
             await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-            let preview = `🤖 *INI DRAF LAPORANMU (AI)*\n_(Belum terkirim, baca dulu ya)_\n\n`;
-            preview += `━━━━━━━━━━━━━━━━━━\n`;
+            let preview = `*DRAF LAPORAN AI*\n(Belum terkirim, baca dulu ya)\n\n`;
+            preview += `----------------------------------\n`;
             preview += `*Aktivitas:*\n${aiResult.aktivitas}\n\n`;
             preview += `*Pembelajaran:*\n${aiResult.pembelajaran}\n\n`;
             preview += `*Kendala:*\n${aiResult.kendala}\n`;
-            preview += `━━━━━━━━━━━━━━━━━━\n\n`;
-            preview += `👍 *Suka?* Ketik *!buatkan* untuk kirim.\n🔄 *Ganti?* Ketik *!preview* lagi.`;
+            preview += `----------------------------------\n\n`;
+            preview += `Ketik *!buatkan* untuk kirim.\nKetik *!preview* lagi untuk ganti laporan.`;
 
             await sock.sendMessage(sender, { text: preview }, { quoted: msgObj, ephemeralExpiration: 86400 });
         }
