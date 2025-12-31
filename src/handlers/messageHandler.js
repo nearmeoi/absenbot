@@ -94,8 +94,7 @@ Daftar Perintah:
 5️⃣ *!cek* - Cek laporan sudah masuk belum
 6️⃣ *!riwayat* - Lihat laporan hari kemarin
 7️⃣ *!ingatkan* - Tag teman yang belum lapor
-8️⃣ *!listuser* - Lihat daftar peserta
-9️⃣ *!hapus* - Hapus akun dari bot
+8️⃣ *!hapus* - Hapus akun dari bot
 🔔 *!broadcast* - Kirim info ke semua (Admin)
 
 Bot ini membantu absensi harian MagangHub.`;
