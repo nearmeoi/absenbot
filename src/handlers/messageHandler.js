@@ -66,8 +66,6 @@ module.exports = async (sock, msg) => {
 
         if (!isCommand && !isLaporanContent) return;
 
-        const sender = msgObj.key.remoteJid;
-        const isGroup = sender.endsWith("@g.us");
         let senderNumber = isGroup
             ? msgObj.key.participant || msgObj.participant
             : sender;
