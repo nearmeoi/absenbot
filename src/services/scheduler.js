@@ -56,6 +56,21 @@ async function runAutoReminder(sock) {
         msgAlert += `\nSegera lengkapi sebelum 23:59!`;
 
         await sock.sendMessage(groupId, { text: msgAlert, mentions: belumAbsen });
+
+        // --- FITUR ASISTEN PRIBADI (JAPRI) ---
+        console.log(chalk.cyan(`[SCHEDULER] Mengirim japri ke ${belumAbsen.length} user...`));
+        for (const phone of belumAbsen) {
+            try {
+                const personalMsg = `Halo! Saya perhatikan Anda belum mengirim laporan magang hari ini. 
+
+Jangan sampai terlewat ya agar absensi tetap aman. Jika sedang sibuk, Anda bisa balas chat ini dengan *!preview* untuk draf laporan otomatis.`;
+                
+                await sock.sendMessage(phone, { text: personalMsg });
+                await new Promise(r => setTimeout(r, 2000)); // Delay anti-spam
+            } catch (e) {
+                console.error(chalk.red(`[SCHEDULER] Gagal japri ke ${phone}:`), e.message);
+            }
+        }
     } else {
         await sock.sendMessage(groupId, { text: `Semua peserta sudah absen hari ini.` });
     }
