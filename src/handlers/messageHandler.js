@@ -101,9 +101,9 @@ Daftar Perintah:
 Bot ini membantu absensi harian MagangHub.`;
 
             if (fs.existsSync(coverPath)) {
-                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
+                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
             } else {
-                await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
             }
             return;
         }
@@ -229,7 +229,7 @@ Bot ini membantu absensi harian MagangHub.`;
             await sock.sendMessage(
                 sender,
                 { text: `Mengecek status ${allUsers.length} peserta...` },
-                { quoted: msgObj }
+                { quoted: msgObj, ephemeralExpiration: 86400 }
             );
 
             let belumAbsen = [];
@@ -254,12 +254,12 @@ Bot ini membantu absensi harian MagangHub.`;
                 );
                 msgAlert += `\nSegera lengkapi laporan harian Anda.`;
 
-                await sock.sendMessage(sender, { text: msgAlert, mentions: belumAbsen });
+                await sock.sendMessage(sender, { text: msgAlert, mentions: belumAbsen }, { ephemeralExpiration: 86400 });
             } else {
                 await sock.sendMessage(
                     sender,
                     { text: `Semua peserta sudah menyelesaikan absensi hari ini.` },
-                    { quoted: msgObj }
+                    { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
             }
             return;
@@ -356,20 +356,21 @@ Catatan: Minimal 100 karakter per kolom.`;
                     await sock.sendMessage(
                         sender,
                         { text: "📩 Template laporan telah dikirim ke chat pribadi Anda. Silakan isi di sana agar tidak memenuhi grup." },
-                        { quoted: msgObj }
+                        { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                     
                     // Kirim template ke PC
                     await sock.sendMessage(
                         senderNumber,
-                        { text: template }
+                        { text: template },
+                        { ephemeralExpiration: 86400 }
                     );
                 } else {
                     // Jika sudah di PC, langsung kirim template
                     await sock.sendMessage(
                         sender,
                         { text: template },
-                        { quoted: msgObj }
+                        { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                 }
                 return;
@@ -430,13 +431,13 @@ Catatan: Minimal 100 karakter per kolom.`;
                     await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
                     let reply = `*ABSENSI BERHASIL* ${hasil.pesan_tambahan || ''}\nNama: @${senderNumber.split("@")[0]}\nTanggal: ${new Date().toLocaleDateString('id-ID')}`;
                     if (hasil.foto && fs.existsSync(hasil.foto)) {
-                        sock.sendMessage(sender, { image: { url: hasil.foto }, caption: reply, mentions: [senderNumber] }, { quoted: msgObj });
+                        sock.sendMessage(sender, { image: { url: hasil.foto }, caption: reply, mentions: [senderNumber] }, { quoted: msgObj, ephemeralExpiration: 86400 });
                         try { fs.unlinkSync(hasil.foto); } catch (e) { }
                     } else {
                         sock.sendMessage(
                             sender,
                             { text: reply, mentions: [senderNumber] },
-                            { quoted: msgObj }
+                            { quoted: msgObj, ephemeralExpiration: 86400 }
                         );
                     }
                 } else {
@@ -445,7 +446,7 @@ Catatan: Minimal 100 karakter per kolom.`;
                     sock.sendMessage(
                         sender,
                         { text: `*ABSENSI GAGAL*\n${hasil.pesan}` },
-                        { quoted: msgObj }
+                        { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                 }
             });
@@ -476,13 +477,13 @@ Catatan: Minimal 100 karakter per kolom.`;
                     sock.sendMessage(
                         sender,
                         { text: reply },
-                        { quoted: msgObj }
+                        { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                 } else {
                     sock.sendMessage(
                         sender,
                         { text: `*STATUS: BELUM ABSEN*\nAnda belum mengirim laporan hari ini.` },
-                        { quoted: msgObj }
+                        { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                 }
             } else {
@@ -490,7 +491,7 @@ Catatan: Minimal 100 karakter per kolom.`;
                 sock.sendMessage(
                     sender,
                     { text: `Terjadi kesalahan: ${status.pesan}` },
-                    { quoted: msgObj }
+                    { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
             }
         }
@@ -553,10 +554,10 @@ Catatan: Minimal 100 karakter per kolom.`;
 
                 historyText += `\n━━━━━━━━━━━━━━━━━━\nGunakan !riwayat [jumlah] untuk melihat lebih banyak hari.`;
 
-                await sock.sendMessage(sender, { text: historyText }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: historyText }, { quoted: msgObj, ephemeralExpiration: 86400 });
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Gagal mengambil riwayat: ${result.pesan || 'Tidak ada data'}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `Gagal mengambil riwayat: ${result.pesan || 'Tidak ada data'}` }, { quoted: msgObj, ephemeralExpiration: 86400 });
             }
         }
 
@@ -650,10 +651,10 @@ Catatan: Minimal 100 karakter per kolom.`;
                 reply += `*Aktivitas:*\n${cachedPreview.aktivitas}\n\n`;
                 reply += `*Pembelajaran:*\n${cachedPreview.pembelajaran}\n\n`;
                 reply += `*Kendala:*\n${cachedPreview.kendala}`;
-                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj, ephemeralExpiration: 86400 });
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Gagal submit: ${submitResult.pesan}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `Gagal submit: ${submitResult.pesan}` }, { quoted: msgObj, ephemeralExpiration: 86400 });
             }
         }
 
@@ -699,7 +700,7 @@ Catatan: Minimal 100 karakter per kolom.`;
             preview += `━━━━━━━━━━━━━━━━━━\n\n`;
             preview += `Jika sudah OK, ketik *!buatkan* untuk submit.\nAtau *!preview* lagi untuk generate ulang.`;
 
-            await sock.sendMessage(sender, { text: preview }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: preview }, { quoted: msgObj, ephemeralExpiration: 86400 });
         }
 
     } catch (e) {
