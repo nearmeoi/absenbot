@@ -701,7 +701,8 @@ Catatan: Minimal 100 karakter per kolom.`;
             preview += `*Pembelajaran:*\n${aiResult.pembelajaran}\n\n`;
             preview += `*Kendala:*\n${aiResult.kendala}\n`;
             preview += `----------------------------------\n\n`;
-            preview += `Ketik *!buatkan* untuk kirim.\nKetik *!preview* lagi untuk ganti laporan.`;
+            preview += `Ketik *!buatkan* untuk kirim.\nKetik *!preview* lagi untuk ganti laporan.\n\n`;
+            preview += `✏️ *Mau Edit?* Copy teks di atas, ubah sesukamu, lalu kirim pakai format *!absen*.`;
 
             // Tentukan target pengiriman (PC)
             const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
