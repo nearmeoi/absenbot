@@ -481,7 +481,7 @@ Semoga membantu!`;
         }
 
         // --- CORE LOGIC: !CEK ---
-        if (command === "!ceka" || command === "!cek") {
+        if (command === "!cek") {
             const user = getUserByPhone(senderNumber);
             if (!user) {
                 await sock.sendMessage(sender, { text: "Anda belum terdaftar." }, { quoted: msgObj });

@@ -11,7 +11,15 @@ const fs = require('fs');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile'; 
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
+// Validate API key on startup
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+if (!GROQ_API_KEY) {
+    console.error(chalk.red('[GROQ] ❌ GROQ_API_KEY not found in .env file!'));
+    console.error(chalk.yellow('[GROQ] Get your free API key at: https://console.groq.com'));
+    process.exit(1);
+}
 
 /**
  * Transcribe audio file to text using Groq Whisper
@@ -19,22 +27,16 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
  * @returns {Object} { success: boolean, text: string }
  */
 async function transcribeAudio(filePath) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return { success: false, error: 'GROQ_API_KEY tidak dikonfigurasi' };
-
     try {
-        const form = new FormData();
-        form.append('file', fs.createReadStream(filePath));
-        form.append('model', 'whisper-large-v3');
-        form.append('language', 'id'); // Paksa bahasa Indonesia agar akurat
-        form.append('response_format', 'json');
+        const formData = new FormData();
+        formData.append('file', fs.createReadStream(filePath));
+        formData.append('model', 'whisper-large-v3-turbo');
 
-        const response = await axios.post(GROQ_AUDIO_URL, form, {
+        const response = await axios.post(GROQ_AUDIO_URL, formData, {
             headers: {
-                ...form.getHeaders(),
-                'Authorization': `Bearer ${apiKey}`,
-            },
-            timeout: 60000
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${GROQ_API_KEY}`,
+            }
         });
 
         return {
@@ -110,10 +112,10 @@ KENDALA: [isi minimal 100 karakter]`;
                 { role: 'user', content: userPrompt }
             ],
             temperature: 0.7,
-            max_tokens: 1024
+            max_tokens: 1000
         }, {
             headers: {
-                'Authorization': `Bearer ${apiKey}`,
+                'Authorization': `Bearer ${GROQ_API_KEY}`,
                 'Content-Type': 'application/json'
             },
             timeout: 30000
@@ -140,7 +142,7 @@ KENDALA: [isi minimal 100 karakter]`;
 
         // Robust Padding Logic
         const MIN_CHARS = 100;
-        
+
         const pad = (text, type) => {
             let padded = text;
             const extra = {
@@ -148,7 +150,7 @@ KENDALA: [isi minimal 100 karakter]`;
                 P: " Hal ini memberikan wawasan baru mengenai bagaimana cara menangani masalah teknis secara efektif dan efisien dalam lingkungan kerja profesional.",
                 K: " Namun kendala tersebut dapat diatasi dengan baik melalui diskusi bersama rekan tim sehingga tidak menghambat produktivitas kerja hari ini."
             };
-            
+
             while (padded.length < MIN_CHARS) {
                 padded += extra[type];
                 if (padded.length > 500) break; // Safety break
