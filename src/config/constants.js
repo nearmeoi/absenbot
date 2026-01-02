@@ -4,6 +4,16 @@ const fs = require('fs');
 const os = require('os');
 
 // ========================================
+// ADMIN CONFIGURATION
+// ========================================
+
+// Admin phone numbers (add your number here)
+// Format: '628xxxxxxxxxx@s.whatsapp.net'
+const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
+    ? process.env.ADMIN_NUMBERS.split(',').map(n => n.trim())
+    : [];
+
+// ========================================
 // ENVIRONMENT DETECTION
 // ========================================
 
@@ -290,5 +300,8 @@ module.exports = {
     // API
     API_BASE_URL,
     API_ENDPOINTS,
-    SESSION_TIMEOUT_MS
+    SESSION_TIMEOUT_MS,
+
+    // New addition
+    ADMIN_NUMBERS
 };

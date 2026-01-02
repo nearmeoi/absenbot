@@ -205,24 +205,36 @@ KENDALA: [isi 100-150 karakter, pakai kata-kata user]`;
                 return text.substring(0, MAX_CHARS).trim();
             }
 
-            // Pad if too short
+            // Pad if too short - add suffix ONCE, not in a loop
             if (text.length < MIN_CHARS) {
-                const extra = {
-                    A: teamPref === 'teman' ? " serta koordinasi dengan teman terkait" :
-                        teamPref === 'tim' ? " serta koordinasi dengan tim terkait" :
-                            " serta menyelesaikan tugas dengan baik",
-                    P: " dan memberikan pemahaman baru tentang proses kerja",
-                    K: teamPref === 'teman' ? " namun dapat diselesaikan dengan diskusi bersama teman" :
-                        teamPref === 'tim' ? " namun dapat diselesaikan dengan diskusi bersama tim" :
-                            " namun dapat diselesaikan dengan baik"
+                const suffixes = {
+                    A: [
+                        " dan melakukan dokumentasi hasil kerja",
+                        " serta melakukan review terhadap progress",
+                        " dan berkoordinasi untuk kelanjutan tugas"
+                    ],
+                    P: [
+                        " yang sangat bermanfaat untuk pengembangan skill",
+                        " dan menambah wawasan tentang best practices",
+                        " serta meningkatkan pemahaman teknis"
+                    ],
+                    K: [
+                        " dan semua berjalan lancar",
+                        " sehingga pekerjaan dapat diselesaikan",
+                        " dan tidak menghambat progress"
+                    ]
                 };
 
                 let padded = text;
-                while (padded.length < MIN_CHARS && padded.length < MAX_CHARS) {
-                    padded += extra[type];
+                let suffixIndex = 0;
+
+                // Add suffixes one by one until min reached (max 2 suffixes)
+                while (padded.length < MIN_CHARS && suffixIndex < suffixes[type].length) {
+                    padded += suffixes[type][suffixIndex];
+                    suffixIndex++;
                 }
 
-                // Final truncate if still over
+                // Final truncate if over max
                 return padded.length > MAX_CHARS ? padded.substring(0, MAX_CHARS).trim() : padded;
             }
 
@@ -331,19 +343,27 @@ KENDALA: [isi 100-150 karakter, profesional]`;
             }
 
             if (text.length < MIN_CHARS) {
-                const extra = {
-                    A: teamPref === 'teman' ? " serta koordinasi dengan teman terkait" :
-                        teamPref === 'tim' ? " serta koordinasi dengan tim terkait" :
-                            " serta menyelesaikan tugas dengan baik",
-                    P: " dan memberikan pemahaman baru tentang proses kerja",
-                    K: teamPref === 'teman' ? " namun dapat diselesaikan dengan diskusi bersama teman" :
-                        teamPref === 'tim' ? " namun dapat diselesaikan dengan diskusi bersama tim" :
-                            " namun dapat diselesaikan dengan baik"
+                const suffixes = {
+                    A: [
+                        " dan melakukan dokumentasi hasil kerja",
+                        " serta melakukan review terhadap progress"
+                    ],
+                    P: [
+                        " yang sangat bermanfaat untuk pengembangan skill",
+                        " dan menambah wawasan tentang best practices"
+                    ],
+                    K: [
+                        " dan semua berjalan lancar",
+                        " sehingga pekerjaan dapat diselesaikan"
+                    ]
                 };
 
                 let padded = text;
-                while (padded.length < MIN_CHARS && padded.length < MAX_CHARS) {
-                    padded += extra[type];
+                let suffixIndex = 0;
+
+                while (padded.length < MIN_CHARS && suffixIndex < suffixes[type].length) {
+                    padded += suffixes[type][suffixIndex];
+                    suffixIndex++;
                 }
 
                 return padded.length > MAX_CHARS ? padded.substring(0, MAX_CHARS).trim() : padded;

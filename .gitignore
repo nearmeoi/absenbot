@@ -11,7 +11,7 @@ user.json
 group_id.txt
 
 # Environment
-.env
+# .env
 nodemon.json
 
 # Logs & temp files
@@ -20,7 +20,7 @@ temp/
 *.log
 
 # Test files (tidak perlu di VPS)
-test_*.js
+#   
 
 # IDE & OS
 .vscode/

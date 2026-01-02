@@ -1,16 +1,14 @@
 const { prosesLoginDanAbsen, cekKredensial, cekStatusHarian, getRiwayat } = require('../services/magang');
 const { saveUser, getUserByPhone, updateUserLid, getAllUsers, deleteUser } = require('../services/database');
-const { GROUP_ID_FILE } = require('../config/constants');
+const { GROUP_ID_FILE, ADMIN_NUMBERS } = require('../config/constants');
 const { generateAuthUrl, initAuthServer } = require('../services/secureAuth');
 const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = require('../services/groqService');
 const { setDraft, getDraft, deleteDraft } = require('../services/previewService');
+const { addHoliday, removeHoliday, isHoliday, getAllHolidays, addAllowedGroup, removeAllowedGroup, getAllowedGroups } = require('../config/holidays');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
-const { TEMP_DIR } = require('../config/constants');
-
-const ADMIN_NUMBERS = ['6285657025300', '6289517153324', '117948895244409'];
 
 module.exports = async (sock, msg) => {
     try {
@@ -23,29 +21,11 @@ module.exports = async (sock, msg) => {
         const isGroup = sender.endsWith("@g.us");
 
         if (isAudio && !isGroup) {
-            await sock.sendMessage(sender, { react: { text: "🎧", key: msgObj.key } });
-
-            // Download audio
-            const buffer = await downloadMediaMessage(msgObj, 'buffer', {});
-            const fileName = path.join(TEMP_DIR, `audio_${Date.now()}.ogg`);
-            fs.writeFileSync(fileName, buffer);
-
-            // Transcribe
-            const transcription = await transcribeAudio(fileName);
-
-            // Hapus file audio (Cleanup)
-            try { fs.unlinkSync(fileName); } catch (e) { }
-
-            if (transcription.success && transcription.text.length > 5) {
-                await sock.sendMessage(sender, { text: `_Saya mendengar:_ "${transcription.text}"\n\n_Sedang merapikan laporan Anda..._` });
-
-                // Teruskan ke logika !absen (panggil ulang handler dengan teks hasil VN)
-                msgObj.message = { conversation: `!absen ${transcription.text}` };
-                return module.exports(sock, msgObj);
-            } else {
-                await sock.sendMessage(sender, { text: "Maaf, saya kurang jelas mendengar suara Anda. Bisa ulangi lagi?" });
-                return;
-            }
+            // Voice note feature temporarily disabled
+            await sock.sendMessage(sender, {
+                text: "Maaf, fitur Voice Note sedang dinonaktifkan sementara. Silakan ketik laporan Anda menggunakan perintah *!absen [cerita]*."
+            }, { quoted: msgObj });
+            return;
         }
 
         const getMsgText = (m) => {
@@ -65,8 +45,10 @@ module.exports = async (sock, msg) => {
         const HEADER_LAPORAN = "[LAPORAN MAGANGHUB]";
         const isCommand = textMessage.trim().startsWith("!");
         const isLaporanContent = textMessage.includes(HEADER_LAPORAN);
+        const isDraftContent = textMessage.includes("*DRAF LAPORAN ANDA*");
+        const isConfirmation = textMessage.toLowerCase().trim() === 'ya';
 
-        if (!isCommand && !isLaporanContent) return;
+        if (!isCommand && !isLaporanContent && !isDraftContent && !isConfirmation) return;
 
         let senderNumber = isGroup
             ? msgObj.key.participant || msgObj.participant
@@ -378,8 +360,126 @@ Semoga membantu!`;
             return;
         }
 
+        // --- DEVELOPER COMMANDS (Hidden from !help) ---
+        if (command === '!dev') {
+            // Security: Only allow admin numbers
+            // senderNumber is normalized to 628xxx@s.whatsapp.net, ADMIN_NUMBERS is just digits
+            const senderDigits = senderNumber.split('@')[0];
+            if (!ADMIN_NUMBERS.includes(senderDigits)) {
+                // Silent fail - don't reveal the command exists
+                return;
+            }
+
+            const args = textMessage.replace('!dev', '').trim();
+            const [subCmd, ...params] = args.split(' ');
+
+            // !dev showid - Get current chat ID (silent to group)
+            if (subCmd === 'showid') {
+                const chatId = sender;
+                const isGroup = sender.endsWith('@g.us');
+                const message = `*DEV: CHAT ID*\n\n` +
+                    `Chat Type: ${isGroup ? 'Group' : 'Private'}\n` +
+                    `ID: \`${chatId}\`\n\n` +
+                    `${isGroup ? 'Kirim ke grup: `!dev grup add ' + chatId + '`' : ''}`;
+
+                // Always DM to admin
+                await sock.sendMessage(senderNumber, { text: message });
+                return;
+            }
+
+            // !dev libur [tanggal] - Set holiday
+            if (subCmd === 'libur') {
+                const dateStr = params[0] || new Date().toISOString().split('T')[0];
+                const added = addHoliday(dateStr);
+                const reply = added
+                    ? `✅ Tanggal ${dateStr} ditandai sebagai libur.`
+                    : `⚠️ Tanggal ${dateStr} sudah ada di daftar libur.`;
+                await sock.sendMessage(senderNumber, { text: reply });
+                return;
+            }
+
+            // !dev hapus-libur [tanggal] - Remove holiday
+            if (subCmd === 'hapus-libur') {
+                const dateStr = params[0] || new Date().toISOString().split('T')[0];
+                const removed = removeHoliday(dateStr);
+                const reply = removed
+                    ? `✅ Tanggal ${dateStr} dihapus dari daftar libur.`
+                    : `⚠️ Tanggal ${dateStr} tidak ada di daftar libur.`;
+                await sock.sendMessage(senderNumber, { text: reply });
+                return;
+            }
+
+            // !dev status - Show system status
+            if (subCmd === 'status') {
+                const holidays = getAllHolidays();
+                const groups = getAllowedGroups();
+                const today = new Date().toISOString().split('T')[0];
+                const todayIsHoliday = isHoliday();
+
+                const statusMsg = `*DEV: SYSTEM STATUS*\n\n` +
+                    `Hari ini: ${today}\n` +
+                    `Status: ${todayIsHoliday ? '🔴 LIBUR' : '🟢 KERJA'}\n\n` +
+                    `📅 Custom Holidays (${holidays.length}):\n${holidays.length > 0 ? holidays.map(d => `  • ${d}`).join('\n') : '  (kosong)'}\n\n` +
+                    `👥 Allowed Groups (${groups.length}):\n${groups.length > 0 ? groups.map(g => `  • ${g}`).join('\n') : '  (kosong)'}`;
+
+                await sock.sendMessage(senderNumber, { text: statusMsg });
+                return;
+            }
+
+            // !dev grup add/remove [id] - Manage allowed groups
+            if (subCmd === 'grup') {
+                const action = params[0]; // 'add' or 'remove'
+                const groupId = params[1];
+
+                if (!action || !groupId) {
+                    await sock.sendMessage(senderNumber, {
+                        text: `⚠️ Format: !dev grup [add/remove] [groupId]`
+                    });
+                    return;
+                }
+
+                if (action === 'add') {
+                    const added = addAllowedGroup(groupId);
+                    const reply = added
+                        ? `✅ Grup ${groupId} ditambahkan ke whitelist.`
+                        : `⚠️ Grup ${groupId} sudah ada di whitelist.`;
+                    await sock.sendMessage(senderNumber, { text: reply });
+                } else if (action === 'remove') {
+                    const removed = removeAllowedGroup(groupId);
+                    const reply = removed
+                        ? `✅ Grup ${groupId} dihapus dari whitelist.`
+                        : `⚠️ Grup ${groupId} tidak ada di whitelist.`;
+                    await sock.sendMessage(senderNumber, { text: reply });
+                } else {
+                    await sock.sendMessage(senderNumber, {
+                        text: `⚠️ Action tidak valid. Gunakan 'add' atau 'remove'.`
+                    });
+                }
+                return;
+            }
+
+            // Unknown subcommand
+            await sock.sendMessage(senderNumber, {
+                text: `*DEV COMMANDS*\n\n` +
+                    `!dev showid - Get chat ID\n` +
+                    `!dev libur [date] - Set holiday\n` +
+                    `!dev hapus-libur [date] - Remove holiday\n` +
+                    `!dev status - System status\n` +
+                    `!dev grup add/remove [id] - Manage groups`
+            });
+            return;
+        }
+
         // --- CORE LOGIC: !ABSEN ---
         if (command === '!absen') {
+            // Check if today is a holiday
+            if (isHoliday()) {
+                await sock.sendMessage(sender, {
+                    text: "🏖️ Hari ini libur, tidak perlu absen. Selamat beristirahat!"
+                }, { quoted: msgObj });
+                return;
+            }
+
             const user = getUserByPhone(senderNumber);
             if (!user) {
                 await sock.sendMessage(sender, { text: "Anda belum terdaftar. Gunakan *!daftar* terlebih dahulu." }, { quoted: msgObj });
@@ -387,13 +487,37 @@ Semoga membantu!`;
             }
 
             if (!args || args.trim() === '') {
-                await sock.sendMessage(sender, {
-                    text: `*CARA LAPOR:* \n\n` +
-                        `1. *Semi-Auto (AI):* Kirim *!absen [cerita]*\n` +
-                        `_Contoh: !absen belajar database_\n\n` +
-                        `2. *Manual:* Gunakan tag #\n` +
-                        `_Contoh: !absen #aktivitas [isi] #pembelajaran [isi] #kendala [isi]_`
-                }, { quoted: msgObj });
+                // Zero-input mode: Auto-generate from history
+                await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
+                await sock.sendMessage(sender, { text: "_Sedang menyiapkan laporan otomatis dari riwayat Anda..._" }, { quoted: msgObj });
+
+                const history = await getRiwayat(user.email, user.password, 3);
+                const aiResult = await generateAttendanceReport(history.success ? history.logs : []);
+
+                if (!aiResult.success) {
+                    await sock.sendMessage(sender, {
+                        text: `Gagal membuat laporan otomatis. Silakan coba manual:\n\n*!absen [cerita aktivitas hari ini]*\n_Contoh: !absen belajar react membuat komponen_`
+                    }, { quoted: msgObj });
+                    return;
+                }
+
+                const reportData = {
+                    aktivitas: aiResult.aktivitas,
+                    pembelajaran: aiResult.pembelajaran,
+                    kendala: aiResult.kendala,
+                    type: 'ai'
+                };
+
+                setDraft(senderNumber, reportData);
+
+                const previewText = `*DRAF LAPORAN OTOMATIS* 🤖\n\n` +
+                    `*Aktivitas:* (${reportData.aktivitas.length} karakter)\n${reportData.aktivitas}\n\n` +
+                    `*Pembelajaran:* (${reportData.pembelajaran.length} karakter)\n${reportData.pembelajaran}\n\n` +
+                    `*Kendala:* (${reportData.kendala.length} karakter)\n${reportData.kendala}\n\n` +
+                    `Ketik *ya* untuk kirim, atau ceritakan aktivitas Anda untuk laporan baru:\n` +
+                    `_Contoh: !absen belajar database_`;
+
+                await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                 return;
             }
 
@@ -464,7 +588,7 @@ Semoga membantu!`;
 
         // --- CORE LOGIC: EDIT BY COPY-PASTE ---
         const pendingDraft = getDraft(senderNumber);
-        if (pendingDraft && !command) { // If there is a draft and message is not a command
+        if (pendingDraft && !isCommand) { // If there is a draft and message is not a command
             const parsedEdit = parseDraftFromMessage(textMessage);
             if (parsedEdit) {
                 const MIN_CHARS = 100;
