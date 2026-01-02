@@ -590,6 +590,8 @@ Semoga membantu!`;
         const pendingDraft = getDraft(senderNumber);
         if (pendingDraft && !isCommand) { // If there is a draft and message is not a command
             const parsedEdit = parseDraftFromMessage(textMessage);
+
+            // OPTION 1: USER COPIED & EDITED THE DRAFT MANUALLY (FORMATTED)
             if (parsedEdit) {
                 const MIN_CHARS = 100;
                 const MAX_CHARS = 150;
@@ -607,21 +609,45 @@ Semoga membantu!`;
                 }
 
                 if (errors.length > 0) {
-                    await sock.sendMessage(sender, { text: `⚠️ *Edit Ditolak*\n\n` + errors.join('\n') }, { quoted: msgObj });
+                    await sock.sendMessage(sender, { text: `⚠️ *Format Laporan Belum Sesuai*\n\n${errors.join('\n')}\n\nSilakan perbaiki.` }, { quoted: msgObj });
                     return;
                 }
 
-                // Update draft
-                pendingDraft.aktivitas = parsedEdit.aktivitas;
-                pendingDraft.pembelajaran = parsedEdit.pembelajaran;
-                pendingDraft.kendala = parsedEdit.kendala;
-                setDraft(senderNumber, pendingDraft);
+                setDraft(senderNumber, parsedEdit);
+                await sock.sendMessage(sender, { text: `✅ *Draf berhasil diperbarui manual*.\n\nKetik *ya* untuk mengirim.` }, { quoted: msgObj });
+                return;
+            }
+            // OPTION 2: USER SENT FREE TEXT REVISION (AUTO UPDATE WITH AI)
+            else {
+                await sock.sendMessage(sender, { react: { text: "✍️", key: msgObj.key } });
+                await sock.sendMessage(sender, { text: "_Memperbarui laporan berdasarkan revisi Anda..._" }, { quoted: msgObj });
 
-                const previewText = `*DRAF UPDATED* ✨\n\n` +
-                    `*Aktivitas:* (${pendingDraft.aktivitas.length} karakter)\n${pendingDraft.aktivitas}\n\n` +
-                    `*Pembelajaran:* (${pendingDraft.pembelajaran.length} karakter)\n${pendingDraft.pembelajaran}\n\n` +
-                    `*Kendala:* (${pendingDraft.kendala.length} karakter)\n${pendingDraft.kendala}\n\n` +
-                    `_Ketik *ya* untuk mengirim atau edit lagi dengan copy-paste._`;
+                const user = getUserByPhone(senderNumber);
+                const history = await getRiwayat(user.email, user.password, 3);
+
+                // Combine previous context (draft type) + new text
+                const revisionContext = pendingDraft.type === 'ai' ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual: ';
+                const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
+
+                if (!aiResult.success) {
+                    await sock.sendMessage(sender, { text: `Gagal memperbarui laporan. Silakan coba lagi atau ketik sesuai format manual.` }, { quoted: msgObj });
+                    return;
+                }
+
+                const reportData = {
+                    aktivitas: aiResult.aktivitas,
+                    pembelajaran: aiResult.pembelajaran,
+                    kendala: aiResult.kendala,
+                    type: 'ai'
+                };
+
+                setDraft(senderNumber, reportData);
+
+                const previewText = `*DRAF DIPERBARUI* ✨\n\n` +
+                    `*Aktivitas:* (${reportData.aktivitas.length} karakter)\n${reportData.aktivitas}\n\n` +
+                    `*Pembelajaran:* (${reportData.pembelajaran.length} karakter)\n${reportData.pembelajaran}\n\n` +
+                    `*Kendala:* (${reportData.kendala.length} karakter)\n${reportData.kendala}\n\n` +
+                    `_Ketik *ya* untuk kirim, atau revisi lagi dengan membalas pesan ini._`;
 
                 await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                 return;

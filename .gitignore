@@ -11,7 +11,7 @@ user.json
 group_id.txt
 
 # Environment
-# .env
+.env
 nodemon.json
 
 # Logs & temp files
