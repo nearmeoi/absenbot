@@ -84,23 +84,23 @@ async function generateAttendanceReport(previousLogs = []) {
 TUGAS UTAMA: 
 1. Analisis gaya bahasa, kosakata, dan kata-kata yang sering digunakan user dari riwayat laporan yang diberikan.
 2. Tiru gaya penulisan tersebut agar laporan terasa natural (seperti ditulis oleh user sendiri).
-3. Pastikan setiap bagian (AKTIVITAS, PEMBELAJARAN, KENDALA) WAJIB minimal 100 karakter dan maksimal 200 karakter.
+3. PENTING: Setiap bagian WAJIB 100-150 karakter. TIDAK BOLEH lebih dari 150 karakter!
 
 ATURAN:
 - Jika user sering menggunakan istilah teknis tertentu, gunakan kembali.
 - Sebut pembimbing sebagai "co mentor" kecuali user punya sebutan khusus di riwayatnya.
 - Tulis santai tapi sopan, tanpa menggunakan kata ganti orang pertama (aku/saya).
-- Pastikan kalimatnya panjang dan deskriptif agar memenuhi syarat minimal 100 karakter.`;
+- Buat kalimat yang padat dan efisien, 100-150 karakter saja.`;
 
     const userPrompt = `${context}
 
 Berdasarkan riwayat di atas, buatkan laporan magang hari ini dengan GAYA PENULISAN YANG SAMA. 
-Ingat: MINIMAL 100 KARAKTER PER BAGIAN!
+PENTING: Setiap bagian HARUS 100-150 karakter. JANGAN lebih dari 150!
 
 Format balasan:
-AKTIVITAS: [isi minimal 100 karakter]
-PEMBELAJARAN: [isi minimal 100 karakter]
-KENDALA: [isi minimal 100 karakter]`;
+AKTIVITAS: [isi 100-150 karakter]
+PEMBELAJARAN: [isi 100-150 karakter]
+KENDALA: [isi 100-150 karakter]`;
 
     try {
         console.log(chalk.cyan('[GROQ] Generating attendance report...'));
@@ -140,22 +140,34 @@ KENDALA: [isi minimal 100 karakter]`;
 
         console.log(chalk.gray(`[GROQ] Raw Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
 
-        // Robust Padding Logic
+        // Padding and Truncation Logic
         const MIN_CHARS = 100;
+        const MAX_CHARS = 150;
 
         const pad = (text, type) => {
-            let padded = text;
-            const extra = {
-                A: " Selain itu juga melakukan koordinasi intensif dengan tim terkait untuk memastikan semua tugas berjalan sesuai dengan rencana yang telah ditetapkan.",
-                P: " Hal ini memberikan wawasan baru mengenai bagaimana cara menangani masalah teknis secara efektif dan efisien dalam lingkungan kerja profesional.",
-                K: " Namun kendala tersebut dapat diatasi dengan baik melalui diskusi bersama rekan tim sehingga tidak menghambat produktivitas kerja hari ini."
-            };
-
-            while (padded.length < MIN_CHARS) {
-                padded += extra[type];
-                if (padded.length > 500) break; // Safety break
+            // Truncate if too long
+            if (text.length > MAX_CHARS) {
+                return text.substring(0, MAX_CHARS).trim();
             }
-            return padded;
+
+            // Pad if too short
+            if (text.length < MIN_CHARS) {
+                const extra = {
+                    A: " dan melakukan koordinasi dengan tim.",
+                    P: " serta memberikan wawasan baru.",
+                    K: " namun dapat diatasi dengan baik."
+                };
+
+                let padded = text;
+                while (padded.length < MIN_CHARS && padded.length < MAX_CHARS) {
+                    padded += extra[type];
+                }
+
+                // Final truncate if still over
+                return padded.length > MAX_CHARS ? padded.substring(0, MAX_CHARS).trim() : padded;
+            }
+
+            return text;
         };
 
         if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
@@ -197,7 +209,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     const systemPrompt = `Kamu adalah asisten MagangHub. 
 TUGAS: Mengubah cerita singkat user menjadi laporan magang formal (AKTIVITAS, PEMBELAJARAN, KENDALA).
 SYARAT MUTLAK: 
-1. Setiap bagian WAJIB 100 - 200 karakter. 
+1. Setiap bagian WAJIB 100-150 karakter. TIDAK BOLEH lebih dari 150!
 2. Jika cerita user terlalu pendek, kembangkan dengan kalimat deskriptif yang relevan dan profesional.
 3. Tiru kosakata dan gaya bahasa user dari riwayat yang diberikan.
 4. Gunakan sudut pandang orang ketiga (jangan pakai "aku/saya"). Sebut pembimbing "co mentor".`;
@@ -205,12 +217,12 @@ SYARAT MUTLAK:
     const userPrompt = `${context}
 Cerita User: "${userText}"
 
-Buatkan laporan berdasarkan cerita di atas. Ingat: MINIMAL 100 KARAKTER PER BAGIAN!
+Buatkan laporan berdasarkan cerita di atas. PENTING: 100-150 karakter per bagian, JANGAN lebih!
 
 Format:
-AKTIVITAS: [isi]
-PEMBELAJARAN: [isi]
-KENDALA: [isi]`;
+AKTIVITAS: [isi 100-150 karakter]
+PEMBELAJARAN: [isi 100-150 karakter]
+KENDALA: [isi 100-150 karakter]`;
 
     try {
         const response = await axios.post(GROQ_API_URL, {
@@ -238,17 +250,31 @@ KENDALA: [isi]`;
         let pembelajaran = parseSection('PEMBELAJARAN', content);
         let kendala = parseSection('KENDALA', content);
 
-        // Smart Padding logic (reuse logic from existing generate function)
+        // Padding and Truncation
         const MIN_CHARS = 100;
+        const MAX_CHARS = 150;
+
         const pad = (text, type) => {
-            let padded = text;
-            const extra = {
-                A: " Selain itu juga melakukan koordinasi intensif dengan tim terkait untuk memastikan semua tugas berjalan sesuai dengan rencana.",
-                P: " Hal ini memberikan wawasan baru mengenai bagaimana cara menangani masalah teknis secara efektif dalam lingkungan kerja.",
-                K: " Namun kendala tersebut dapat diatasi dengan baik melalui diskusi bersama rekan tim sehingga tidak menghambat produktivitas."
-            };
-            while (padded.length < MIN_CHARS) { padded += extra[type]; }
-            return padded;
+            if (text.length > MAX_CHARS) {
+                return text.substring(0, MAX_CHARS).trim();
+            }
+
+            if (text.length < MIN_CHARS) {
+                const extra = {
+                    A: " dan melakukan koordinasi dengan tim.",
+                    P: " serta memberikan wawasan baru.",
+                    K: " namun dapat diatasi dengan baik."
+                };
+
+                let padded = text;
+                while (padded.length < MIN_CHARS && padded.length < MAX_CHARS) {
+                    padded += extra[type];
+                }
+
+                return padded.length > MAX_CHARS ? padded.substring(0, MAX_CHARS).trim() : padded;
+            }
+
+            return text;
         };
 
         if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
