@@ -40,7 +40,7 @@ async function runAutoReminder(sock) {
         for (const phone of belumAbsen) {
             try {
                 await sock.sendMessage(phone, {
-                    text: `*PENGINGAT ABSENSI*\n\nHalo! Kamu belum absen hari ini di MagangHub. Segera lapor ya sebelum jam 23:59 WITA.\n\nKetik *!absen* untuk mulai.`
+                    text: `*PENGINGAT ABSENSI* 🔔\n\nHalo! Kamu belum absen hari ini di MagangHub. Segera lapor ya sebelum jam 23:59 WITA.\n\nKetik *!absen* untuk mulai.`
                 });
                 await new Promise(r => setTimeout(r, 2000));
             } catch (e) { }
@@ -75,8 +75,8 @@ async function runDraftPush(sock) {
 
                 setDraft(user.phone, reportData);
 
-                const msg = `*DARURAT: DRAF ABSENSI OTOMATIS*\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan AI untukmu:\n\n` +
-                    `*Aktivitas:* ${aiResult.aktivitas}\n\n` +
+                const msg = `*DARURAT: DRAF ABSENSI OTOMATIS* ⚠️\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan AI untukmu:\n\n` +
+                    `🏢 *Aktivitas:* ${aiResult.aktivitas}\n\n` +
                     `Ketik *ya* sekarang untuk mengirim laporan ini!\n` +
                     `_Jika tidak dibalas, sistem akan otomatis mengirim draf ini pada jam 23:59._`;
 
@@ -114,7 +114,7 @@ async function runEmergencyAutoSubmit(sock) {
 
                 if (submitResult.success) {
                     await sock.sendMessage(user.phone, {
-                        text: `*AUTO-SUBMIT BERHASIL*\n\nLaporan darurat telah dikirim otomatis oleh sistem agar absensi Anda aman.`
+                        text: `*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh sistem agar absensi Anda aman.`
                     });
                 }
             }

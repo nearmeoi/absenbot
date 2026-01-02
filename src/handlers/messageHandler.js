@@ -23,7 +23,7 @@ module.exports = async (sock, msg) => {
         const isGroup = sender.endsWith("@g.us");
 
         if (isAudio && !isGroup) {
-            // Audio processing
+            await sock.sendMessage(sender, { react: { text: "🎧", key: msgObj.key } });
 
             // Download audio
             const buffer = await downloadMediaMessage(msgObj, 'buffer', {});
@@ -112,16 +112,16 @@ module.exports = async (sock, msg) => {
         // ----------------------------------------------------
         if (command === '!hai' || command === '!menu') {
             const coverPath = require('path').join(__dirname, '../../public/img/cover.png');
-            const info = `*BOT MAGANGHUB v7.1*
+            const info = `*BOT MAGANGHUB v7.1* 🚀
             
 Halo! Saya asisten absensi MagangHub Anda.
 
 *Daftar Perintah:*
-1. *!daftar* - Registrasi akun (Wajib)
-2. *!absen* [cerita] - Lapor (Semi-Auto)
-3. *!cek* - Cek status kehadiran hari ini
-4. *!riwayat* - Lihat riwayat absen
-5. *!help* - Panduan & Cara pakai
+1️⃣ *!daftar* - Registrasi akun (Wajib)
+2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)
+3️⃣ *!cek* - Cek status kehadiran hari ini
+4️⃣ *!riwayat* - Lihat riwayat absen
+5️⃣ *!help* - Panduan & Cara pakai
 
 _Bot akan menyiapkan draf, balas *ya* untuk mengirim ke web._`;
 
@@ -273,7 +273,7 @@ Semoga membantu!`;
                 return;
             }
 
-            // Processing request
+            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
             let belumAbsen = [];
             let checked = 0;
@@ -397,7 +397,7 @@ Semoga membantu!`;
                 return;
             }
 
-            // Processing request
+            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
             let reportData = { aktivitas: '', pembelajaran: '', kendala: '', type: '' };
 
@@ -416,21 +416,12 @@ Semoga membantu!`;
                 };
 
                 const errors = [];
-                const MIN_CHARS = 100;
-                const MAX_CHARS = 150;
-
-                if (reportData.aktivitas.length < MIN_CHARS) {
-                    errors.push(`Aktivitas: ${reportData.aktivitas.length} karakter (minimal ${MIN_CHARS})`);
-                }
-                if (reportData.pembelajaran.length < MIN_CHARS) {
-                    errors.push(`Pembelajaran: ${reportData.pembelajaran.length} karakter (minimal ${MIN_CHARS})`);
-                }
-                if (reportData.kendala.length < MIN_CHARS && reportData.kendala !== "Tidak ada kendala.") {
-                    errors.push(`Kendala: ${reportData.kendala.length} karakter (minimal ${MIN_CHARS})`);
-                }
+                if (reportData.aktivitas.length < 100) errors.push(`Aktivitas kurang ${100 - reportData.aktivitas.length} karakter.`);
+                if (reportData.pembelajaran.length < 100) errors.push(`Pembelajaran kurang ${100 - reportData.pembelajaran.length} karakter.`);
+                if (reportData.kendala.length < 100 && reportData.kendala !== "Tidak ada kendala.") errors.push(`Kendala kurang ${100 - reportData.kendala.length} karakter.`);
 
                 if (errors.length > 0) {
-                    await sock.sendMessage(sender, { text: `*Laporan Terlalu Singkat*\n\n${errors.join('\n')}\n\nSilakan panjangkan lagi laporannya (${MIN_CHARS}-${MAX_CHARS} karakter per bagian).` }, { quoted: msgObj });
+                    await sock.sendMessage(sender, { text: `⚠️ *Laporan Terlalu Singkat*\n\n${errors.join('\n')}\n\nSilakan panjangkan lagi laporannya.` }, { quoted: msgObj });
                     return;
                 }
             } else {
@@ -452,10 +443,10 @@ Semoga membantu!`;
 
             setDraft(senderNumber, reportData);
 
-            const previewText = `*DRAF LAPORAN ANDA*\n\n` +
-                `*Aktivitas:* (${reportData.aktivitas.length} karakter)\n${reportData.aktivitas}\n\n` +
-                `*Pembelajaran:* (${reportData.pembelajaran.length} karakter)\n${reportData.pembelajaran}\n\n` +
-                `*Kendala:* (${reportData.kendala.length} karakter)\n${reportData.kendala}\n\n` +
+            const previewText = `*DRAF LAPORAN ANDA* 📝\n\n` +
+                `🏢 *Aktivitas:* \n${reportData.aktivitas}\n\n` +
+                `📚 *Pembelajaran:* \n${reportData.pembelajaran}\n\n` +
+                `⚠️ *Kendala:* \n${reportData.kendala}\n\n` +
                 `_Ketik *ya* untuk mengirim laporan ini ke web MagangHub._`;
 
             await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
@@ -470,7 +461,7 @@ Semoga membantu!`;
             const user = getUserByPhone(senderNumber);
             if (!user) return;
 
-            // Submitting report
+            await sock.sendMessage(sender, { react: { text: "🚀", key: msgObj.key } });
 
             const loginResult = await prosesLoginDanAbsen({
                 email: user.email,
@@ -481,10 +472,10 @@ Semoga membantu!`;
             });
 
             if (loginResult.success) {
-                await sock.sendMessage(sender, { text: `*BERHASIL!*\nLaporan Anda telah terkirim ke web MagangHub.` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `✅ *BERHASIL!* \nLaporan Anda telah terkirim ke web MagangHub.` }, { quoted: msgObj });
                 deleteDraft(senderNumber);
             } else {
-                await sock.sendMessage(sender, { text: `*GAGAL:* ${loginResult.pesan}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `❌ *GAGAL:* ${loginResult.pesan}` }, { quoted: msgObj });
             }
             return;
         }
@@ -501,16 +492,16 @@ Semoga membantu!`;
             const status = await cekStatusHarian(user.email, user.password);
 
             if (status.success) {
-                // Status checked
+                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
                 if (status.sudahAbsen) {
                     const log = status.data;
-                    let reply = `*STATUS: SUDAH ABSEN*\n\n*Tanggal:* ${log.date}\n*Aktivitas:* ${log.activity_log.substring(0, 100)}...`;
+                    let reply = `✅ *STATUS: SUDAH ABSEN*\n\n📅 *Tanggal:* ${log.date}\n🏢 *Aktivitas:* ${log.activity_log.substring(0, 100)}...`;
                     await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
                 } else {
-                    await sock.sendMessage(sender, { text: `*STATUS: BELUM ABSEN*\nAnda belum mengirim laporan hari ini.` }, { quoted: msgObj });
+                    await sock.sendMessage(sender, { text: `❌ *STATUS: BELUM ABSEN*\nAnda belum mengirim laporan hari ini.` }, { quoted: msgObj });
                 }
             } else {
-                // Status check failed
+                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
                 await sock.sendMessage(sender, { text: `Terjadi kesalahan saat mengecek status: ${status.pesan}` }, { quoted: msgObj });
             }
             return;
@@ -539,7 +530,7 @@ Semoga membantu!`;
                     if (log.missing || !log.activity_log) {
                         historyText += `_(Tidak ada data absen)_\n`;
                     } else {
-                        historyText += `*Aktivitas:* ${log.activity_log.substring(0, 80)}...\n`;
+                        historyText += `🏢 *Aktivitas:* ${log.activity_log.substring(0, 80)}...\n`;
                     }
                 });
                 const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
@@ -569,7 +560,7 @@ Semoga membantu!`;
             }
 
             const allUsers = getAllUsers();
-            // Broadcasting
+            await sock.sendMessage(sender, { react: { text: "📢", key: msgObj.key } });
             for (const u of allUsers) {
                 try {
                     await sock.sendMessage(u.phone, { text: args });
