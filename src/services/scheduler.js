@@ -61,9 +61,9 @@ async function runAutoReminder(sock) {
     }
 }
 
-// EMERGENCY: Auto-generate & submit at 23:50 for users who haven't submitted
+// EMERGENCY: Auto-generate & submit at 23:59 for users who haven't submitted
 async function runEmergencyAutoSubmit(sock) {
-    console.log(chalk.magenta('[SCHEDULER] Running emergency auto-submit (23:50)...'));
+    console.log(chalk.magenta('[SCHEDULER] Running emergency auto-submit (23:59 WITA)...'));
 
     if (isWeekend()) {
         console.log(chalk.yellow('[SCHEDULER] Skipping - weekend.'));
@@ -113,7 +113,7 @@ async function runEmergencyAutoSubmit(sock) {
             if (submitResult.success) {
                 console.log(chalk.green(`[AUTO] Successfully auto-submitted for ${user.email}`));
                 await sock.sendMessage(user.phone, {
-                    text: `*AUTO-SUBMIT BERHASIL*\n\nKarena Anda belum absen sampai 23:50, sistem telah mengirim laporan otomatis menggunakan AI.\n\nAktivitas: ${aiResult.aktivitas.substring(0, 80)}...`
+                    text: `*AUTO-SUBMIT BERHASIL*\n\nKarena Anda belum absen sampai 23:59 WITA, sistem telah mengirim laporan otomatis menggunakan AI.\n\nAktivitas: ${aiResult.aktivitas.substring(0, 80)}...`
                 });
             } else {
                 console.error(chalk.red(`[AUTO] Failed to submit for ${user.email}: ${submitResult.pesan}`));
@@ -134,15 +134,15 @@ async function runEmergencyAutoSubmit(sock) {
 }
 
 function initScheduler(sock) {
-    // Regular reminders (Monday-Friday)
-    cron.schedule('0 18 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
-    cron.schedule('0 20 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
-    cron.schedule('0 22 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Jakarta" });
+    // Regular reminders (Monday-Friday) - Adjusted for WITA
+    cron.schedule('0 18 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
+    cron.schedule('0 20 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
+    cron.schedule('0 22 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
 
-    // EMERGENCY: Auto-submit at 23:50 (Monday-Friday)
-    cron.schedule('50 23 * * 1-5', () => runEmergencyAutoSubmit(sock), { timezone: "Asia/Jakarta" });
+    // EMERGENCY: Auto-submit at 23:59 WITA (Monday-Friday)
+    cron.schedule('59 23 * * 1-5', () => runEmergencyAutoSubmit(sock), { timezone: "Asia/Makassar" });
 
-    console.log(chalk.blue('[SCHEDULER] Alarm: 18:00, 20:00, 22:00, 23:50 (emergency) WIB'));
+    console.log(chalk.blue('[SCHEDULER] Alarm: 18:00, 20:00, 22:00, 23:59 (emergency) WITA'));
 }
 
 module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit };

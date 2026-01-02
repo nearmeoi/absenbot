@@ -9,8 +9,7 @@ const chalk = require('chalk');
 // Cache untuk menyimpan preview sementara (per user)
 const pendingPreviews = new Map();
 
-// Admin numbers yang bisa broadcast
-const ADMIN_NUMBERS = ['6285657025300', '6289517153324'];
+const ADMIN_NUMBERS = ['6285657025300', '6289517153324', '117948895244409'];
 
 module.exports = async (sock, msg) => {
     try {
@@ -295,7 +294,7 @@ Bot ini membantu absensi harian MagangHub.`;
                     await sock.sendMessage(
                         originalSenderId,
                         {
-                            text: `*REGISTRASI BERHASIL*\n\nAkun Anda telah terdaftar. Gunakan perintah !absen untuk mengirim laporan harian.`
+                            text: `*REGISTRASI BERHASIL*\n\nAkun Anda telah terdaftar.\n\nPastikan Anda mendaftar menggunakan email dan password akun *Monev / SiapKerja* asli agar bot dapat melakukan absensi secara otomatis.\n\nGunakan perintah *!absen* untuk mengirim laporan harian.`
                         }
                     );
                 } else {
@@ -548,11 +547,48 @@ Catatan: Minimal 100 karakter per kolom.`;
         // ----------------------------------------------------
         if (command === '!broadcast') {
             // Cek apakah admin
+            // Logic: Cek ID langsung, kalau gagal cek via database, kalau gagal coba known LIDs
+            let isAdmin = false;
+
+            // Known Admin LIDs map (LID -> Phone)
+            // Tambahkan LID admin di sini jika belum ter-link di database
+            const KNOWN_ADMIN_LIDS = {
+                '117948895244409@s.whatsapp.net': '6285657025300', // Mapping manual untuk admin utama
+                '117948895244409@lid': '6285657025300'
+            };
+
             const senderBase = senderNumber.replace(/@.*/, '').replace(/:.*/, '');
-            const isAdmin = ADMIN_NUMBERS.some(num => senderBase.includes(num) || num.includes(senderBase));
+            const senderLid = senderNumber.includes('@lid') || senderNumber.length > 15 ? senderNumber : null;
+
+            // 1. Cek direct match (Phone)
+            if (ADMIN_NUMBERS.some(num => senderBase.includes(num) || num.includes(senderBase))) {
+                isAdmin = true;
+            }
+            // 2. Cek via database (Resolve LID -> Phone)
+            else {
+                const user = getUserByPhone(senderNumber);
+                if (user) {
+                    const userPhoneBase = user.phone.replace(/@.*/, '').replace(/:.*/, '');
+                    if (ADMIN_NUMBERS.some(num => userPhoneBase.includes(num) || num.includes(userPhoneBase))) {
+                        isAdmin = true;
+                    }
+                }
+                // 3. Cek via Known LIDs (Manual Map)
+                else if (senderLid && KNOWN_ADMIN_LIDS[senderLid]) {
+                    const mappedPhone = KNOWN_ADMIN_LIDS[senderLid];
+                    if (ADMIN_NUMBERS.some(num => mappedPhone.includes(num))) {
+                        isAdmin = true;
+                        // Auto-save mapping ke database biar next time ga perlu manual map
+                        updateUserLid(mappedPhone + '@s.whatsapp.net', senderLid);
+                    }
+                }
+            }
+
+            // Debug log
+            console.log(`[BROADCAST] Check Admin: Sender=${senderNumber}, IsAdmin=${isAdmin}`);
 
             if (!isAdmin) {
-                await sock.sendMessage(sender, { text: "Command ini hanya untuk admin." }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `Command ini hanya untuk admin.\nID Anda: ${senderBase}` }, { quoted: msgObj });
                 return;
             }
 
