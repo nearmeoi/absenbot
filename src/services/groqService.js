@@ -53,6 +53,35 @@ async function transcribeAudio(filePath) {
 }
 
 /**
+ * Detect team preference from user's history
+ * Default: null (no team mention - optional)
+ * Only use "teman" or "tim" if user explicitly mentioned it
+ */
+function detectTeamPreference(previousLogs = []) {
+    if (!previousLogs || previousLogs.length === 0) {
+        return null; // No history = no team mention
+    }
+
+    // Check if user ever mentioned "teman" or "tim" in their reports
+    const allText = previousLogs.map(log => {
+        return [log.activity_log, log.lesson_learned, log.obstacles].filter(Boolean).join(' ').toLowerCase();
+    }).join(' ');
+
+    // Check for "teman" first (more common in 2-person internship)
+    if (allText.includes(' teman ') || allText.includes('teman ') || allText.includes(' teman')) {
+        return 'teman';
+    }
+
+    // Check for "tim" (only if explicitly mentioned)
+    if (allText.includes(' tim ') || allText.includes('tim ') || allText.includes(' tim')) {
+        return 'tim';
+    }
+
+    // Default: no team mention (user works alone or doesn't mention collaboration)
+    return null;
+}
+
+/**
  * Generate attendance report using Groq AI
  * @param {Array} previousLogs - Array of previous attendance logs for context
  * @returns {Object} { success: boolean, aktivitas: string, pembelajaran: string, kendala: string }
@@ -167,6 +196,9 @@ KENDALA: [isi 100-150 karakter, pakai kata-kata user]`;
         const MIN_CHARS = 100;
         const MAX_CHARS = 150;
 
+        // Detect team preference from history
+        const teamPref = detectTeamPreference(previousLogs);
+
         const pad = (text, type) => {
             // Truncate if too long
             if (text.length > MAX_CHARS) {
@@ -176,9 +208,13 @@ KENDALA: [isi 100-150 karakter, pakai kata-kata user]`;
             // Pad if too short
             if (text.length < MIN_CHARS) {
                 const extra = {
-                    A: " serta melakukan koordinasi dengan tim terkait",
+                    A: teamPref === 'teman' ? " serta koordinasi dengan teman terkait" :
+                        teamPref === 'tim' ? " serta koordinasi dengan tim terkait" :
+                            " serta menyelesaikan tugas dengan baik",
                     P: " dan memberikan pemahaman baru tentang proses kerja",
-                    K: " namun dapat diselesaikan dengan diskusi tim"
+                    K: teamPref === 'teman' ? " namun dapat diselesaikan dengan diskusi bersama teman" :
+                        teamPref === 'tim' ? " namun dapat diselesaikan dengan diskusi bersama tim" :
+                            " namun dapat diselesaikan dengan baik"
                 };
 
                 let padded = text;
@@ -237,6 +273,7 @@ ATURAN:
 3. Tetap profesional dan sopan, JANGAN terlalu gaul
 4. JANGAN pakai frasa robot seperti "melakukan koordinasi intensif yang komprehensif"
 5. PANJANG: 100-150 karakter per bagian (WAJIB!)
+6. KOLABORASI: Jangan sebut "teman" atau "tim" KECUALI user pernah menyebutnya di riwayat. Jika user kerja sendiri, jangan tambahkan elemen kolaborasi.
 
 CONTOH YANG BAIK:
 "Melakukan testing fitur login dan memperbaiki bug yang ditemukan"
@@ -285,6 +322,9 @@ KENDALA: [isi 100-150 karakter, profesional]`;
         const MIN_CHARS = 100;
         const MAX_CHARS = 150;
 
+        // Detect team preference from history
+        const teamPref = detectTeamPreference(previousLogs);
+
         const pad = (text, type) => {
             if (text.length > MAX_CHARS) {
                 return text.substring(0, MAX_CHARS).trim();
@@ -292,9 +332,13 @@ KENDALA: [isi 100-150 karakter, profesional]`;
 
             if (text.length < MIN_CHARS) {
                 const extra = {
-                    A: " serta melakukan koordinasi dengan tim terkait",
+                    A: teamPref === 'teman' ? " serta koordinasi dengan teman terkait" :
+                        teamPref === 'tim' ? " serta koordinasi dengan tim terkait" :
+                            " serta menyelesaikan tugas dengan baik",
                     P: " dan memberikan pemahaman baru tentang proses kerja",
-                    K: " namun dapat diselesaikan dengan diskusi tim"
+                    K: teamPref === 'teman' ? " namun dapat diselesaikan dengan diskusi bersama teman" :
+                        teamPref === 'tim' ? " namun dapat diselesaikan dengan diskusi bersama tim" :
+                            " namun dapat diselesaikan dengan baik"
                 };
 
                 let padded = text;
@@ -307,6 +351,8 @@ KENDALA: [isi 100-150 karakter, profesional]`;
 
             return text;
         };
+
+
 
         if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
         if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');
