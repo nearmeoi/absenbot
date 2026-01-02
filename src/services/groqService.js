@@ -80,27 +80,35 @@ async function generateAttendanceReport(previousLogs = []) {
         });
     }
 
-    const systemPrompt = `Kamu membantu membuat laporan magang harian. 
-TUGAS UTAMA: 
-1. Analisis gaya bahasa, kosakata, dan kata-kata yang sering digunakan user dari riwayat laporan yang diberikan.
-2. Tiru gaya penulisan tersebut agar laporan terasa natural (seperti ditulis oleh user sendiri).
-3. PENTING: Setiap bagian WAJIB 100-150 karakter. TIDAK BOLEH lebih dari 150 karakter!
+    const systemPrompt = `Kamu adalah asisten yang membantu menulis laporan magang harian dengan gaya SANGAT NATURAL dan MANUSIAWI.
 
-ATURAN:
-- Jika user sering menggunakan istilah teknis tertentu, gunakan kembali.
-- Sebut pembimbing sebagai "co mentor" kecuali user punya sebutan khusus di riwayatnya.
-- Tulis santai tapi sopan, tanpa menggunakan kata ganti orang pertama (aku/saya).
-- Buat kalimat yang padat dan efisien, 100-150 karakter saja.`;
+ATURAN PENTING:
+1. Tiru PERSIS gaya bahasa user dari riwayat - jika user nulis santai, kamu juga santai
+2. JANGAN pakai kalimat formal/kaku seperti "melakukan koordinasi intensif" atau "memberikan wawasan mendalam"
+3. Tulis seperti orang biasa cerita ke teman, tapi tetap sopan
+4. Pakai kata-kata sederhana dan natural yang biasa dipakai sehari-hari
+5. PANJANG: 100-150 karakter per bagian (WAJIB!)
+
+CONTOH GAYA NATURAL:
+❌ JANGAN: "Melakukan analisis mendalam terhadap sistem database untuk optimasi performa"
+✅ PAKAI: "Ngecek database yang lemot, ternyata ada query yang perlu diperbaiki"
+
+❌ JANGAN: "Memberikan wawasan baru mengenai metodologi pengembangan"  
+✅ PAKAI: "Belajar cara baru buat develop yang lebih efisien"
+
+Ingat: Tulis seperti MANUSIA BIASA, bukan robot!`;
 
     const userPrompt = `${context}
 
-Berdasarkan riwayat di atas, buatkan laporan magang hari ini dengan GAYA PENULISAN YANG SAMA. 
-PENTING: Setiap bagian HARUS 100-150 karakter. JANGAN lebih dari 150!
+Berdasarkan riwayat di atas, buatkan laporan hari ini dengan GAYA YANG SAMA PERSIS.
+Tulis NATURAL seperti orang biasa ngomong, jangan formal/kaku!
 
-Format balasan:
-AKTIVITAS: [isi 100-150 karakter]
-PEMBELAJARAN: [isi 100-150 karakter]
-KENDALA: [isi 100-150 karakter]`;
+PENTING: 100-150 karakter per bagian, JANGAN lebih!
+
+Format:
+AKTIVITAS: [isi 100-150 karakter, natural dan santai]
+PEMBELAJARAN: [isi 100-150 karakter, natural dan santai]
+KENDALA: [isi 100-150 karakter, natural dan santai]`;
 
     try {
         console.log(chalk.cyan('[GROQ] Generating attendance report...'));
@@ -153,9 +161,9 @@ KENDALA: [isi 100-150 karakter]`;
             // Pad if too short
             if (text.length < MIN_CHARS) {
                 const extra = {
-                    A: " dan melakukan koordinasi dengan tim.",
-                    P: " serta memberikan wawasan baru.",
-                    K: " namun dapat diatasi dengan baik."
+                    A: " dan koordinasi sama tim buat pastiin semua jalan lancar",
+                    P: " jadi nambah wawasan baru soal cara kerja yang lebih baik",
+                    K: " tapi bisa diatasi kok lewat diskusi bareng tim"
                 };
 
                 let padded = text;
@@ -206,23 +214,29 @@ async function processFreeTextToReport(userText, previousLogs = []) {
         context = 'Riwayat gaya bahasa user:\n' + previousLogs.slice(0, 5).map(log => log.activity_log).join('\n') + '\n\n';
     }
 
-    const systemPrompt = `Kamu adalah asisten MagangHub. 
-TUGAS: Mengubah cerita singkat user menjadi laporan magang formal (AKTIVITAS, PEMBELAJARAN, KENDALA).
-SYARAT MUTLAK: 
-1. Setiap bagian WAJIB 100-150 karakter. TIDAK BOLEH lebih dari 150!
-2. Jika cerita user terlalu pendek, kembangkan dengan kalimat deskriptif yang relevan dan profesional.
-3. Tiru kosakata dan gaya bahasa user dari riwayat yang diberikan.
-4. Gunakan sudut pandang orang ketiga (jangan pakai "aku/saya"). Sebut pembimbing "co mentor".`;
+    const systemPrompt = `Kamu membantu mengubah cerita singkat jadi laporan magang yang NATURAL dan MANUSIAWI.
+
+ATURAN:
+1. Tulis seperti orang biasa cerita, JANGAN formal/kaku
+2. Pakai bahasa sehari-hari yang natural
+3. Tiru gaya bahasa user dari riwayat (kalau ada)
+4. PANJANG: 100-150 karakter per bagian (WAJIB!)
+5. JANGAN pakai kata-kata robot seperti "melakukan koordinasi intensif" atau "memberikan wawasan mendalam"
+
+CONTOH:
+❌ BURUK: "Melaksanakan analisis komprehensif terhadap infrastruktur sistem"
+✅ BAGUS: "Ngecek sistem yang error, ternyata ada bug di backend"`;
 
     const userPrompt = `${context}
 Cerita User: "${userText}"
 
-Buatkan laporan berdasarkan cerita di atas. PENTING: 100-150 karakter per bagian, JANGAN lebih!
+Buatkan laporan dari cerita di atas. Tulis NATURAL kayak orang ngomong biasa!
+PENTING: 100-150 karakter per bagian, JANGAN lebih!
 
 Format:
-AKTIVITAS: [isi 100-150 karakter]
-PEMBELAJARAN: [isi 100-150 karakter]
-KENDALA: [isi 100-150 karakter]`;
+AKTIVITAS: [isi 100-150 karakter, natural]
+PEMBELAJARAN: [isi 100-150 karakter, natural]
+KENDALA: [isi 100-150 karakter, natural]`;
 
     try {
         const response = await axios.post(GROQ_API_URL, {
@@ -261,9 +275,9 @@ KENDALA: [isi 100-150 karakter]`;
 
             if (text.length < MIN_CHARS) {
                 const extra = {
-                    A: " dan melakukan koordinasi dengan tim.",
-                    P: " serta memberikan wawasan baru.",
-                    K: " namun dapat diatasi dengan baik."
+                    A: " dan koordinasi sama tim buat pastiin semua jalan lancar",
+                    P: " jadi nambah wawasan baru soal cara kerja yang lebih baik",
+                    K: " tapi bisa diatasi kok lewat diskusi bareng tim"
                 };
 
                 let padded = text;
