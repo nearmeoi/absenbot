@@ -80,35 +80,50 @@ async function generateAttendanceReport(previousLogs = []) {
         });
     }
 
-    const systemPrompt = `Kamu adalah asisten yang membantu menulis laporan magang harian dengan gaya SANGAT NATURAL dan MANUSIAWI.
+    const systemPrompt = `Kamu adalah asisten yang membantu menulis laporan magang harian dengan gaya PROFESIONAL namun NATURAL.
 
-ATURAN PENTING:
-1. Tiru PERSIS gaya bahasa user dari riwayat - jika user nulis santai, kamu juga santai
-2. JANGAN pakai kalimat formal/kaku seperti "melakukan koordinasi intensif" atau "memberikan wawasan mendalam"
-3. Tulis seperti orang biasa cerita ke teman, tapi tetap sopan
-4. Pakai kata-kata sederhana dan natural yang biasa dipakai sehari-hari
-5. PANJANG: 100-150 karakter per bagian (WAJIB!)
+TUGAS UTAMA:
+1. ANALISIS MENDALAM riwayat laporan user:
+   - Identifikasi kata-kata dan frasa yang SERING MUNCUL
+   - Perhatikan istilah teknis yang konsisten digunakan
+   - Catat pola kalimat dan struktur penulisan user
+   - Temukan kata kunci yang berulang dari hari ke hari
 
-CONTOH GAYA NATURAL:
-❌ JANGAN: "Melakukan analisis mendalam terhadap sistem database untuk optimasi performa"
-✅ PAKAI: "Ngecek database yang lemot, ternyata ada query yang perlu diperbaiki"
+2. TIRU GAYA PENULISAN user:
+   - Gunakan KATA-KATA YANG SAMA yang sering user pakai
+   - Ikuti struktur kalimat user
+   - Pertahankan tingkat formalitas yang sama
+   - Jika user pakai istilah tertentu (misal: "koordinasi", "evaluasi", "implementasi"), GUNAKAN LAGI
 
-❌ JANGAN: "Memberikan wawasan baru mengenai metodologi pengembangan"  
-✅ PAKAI: "Belajar cara baru buat develop yang lebih efisien"
+3. ATURAN PENULISAN:
+   - Tetap profesional dan sopan
+   - JANGAN terlalu gaul atau informal
+   - JANGAN pakai kata robot seperti "melakukan koordinasi intensif" atau "memberikan wawasan mendalam yang komprehensif"
+   - Tulis natural tapi tetap formal
+   - PANJANG: 100-150 karakter per bagian (WAJIB!)
 
-Ingat: Tulis seperti MANUSIA BIASA, bukan robot!`;
+CONTOH ANALISIS KONSISTENSI:
+Jika user sering pakai: "melakukan", "bersama tim", "sistem", "database"
+Maka gunakan kata-kata tersebut dalam laporan baru.
+
+Ingat: Tiru gaya user, jangan buat gaya sendiri!`;
 
     const userPrompt = `${context}
 
-Berdasarkan riwayat di atas, buatkan laporan hari ini dengan GAYA YANG SAMA PERSIS.
-Tulis NATURAL seperti orang biasa ngomong, jangan formal/kaku!
+ANALISIS riwayat di atas dan temukan:
+- Kata-kata apa yang SERING MUNCUL?
+- Istilah teknis apa yang KONSISTEN dipakai?
+- Bagaimana pola kalimat user?
+
+Lalu buatkan laporan hari ini dengan GAYA YANG SAMA PERSIS.
+Gunakan KATA-KATA YANG SAMA yang user sering pakai!
 
 PENTING: 100-150 karakter per bagian, JANGAN lebih!
 
 Format:
-AKTIVITAS: [isi 100-150 karakter, natural dan santai]
-PEMBELAJARAN: [isi 100-150 karakter, natural dan santai]
-KENDALA: [isi 100-150 karakter, natural dan santai]`;
+AKTIVITAS: [isi 100-150 karakter, pakai kata-kata user]
+PEMBELAJARAN: [isi 100-150 karakter, pakai kata-kata user]
+KENDALA: [isi 100-150 karakter, pakai kata-kata user]`;
 
     try {
         console.log(chalk.cyan('[GROQ] Generating attendance report...'));
@@ -161,9 +176,9 @@ KENDALA: [isi 100-150 karakter, natural dan santai]`;
             // Pad if too short
             if (text.length < MIN_CHARS) {
                 const extra = {
-                    A: " dan koordinasi sama tim buat pastiin semua jalan lancar",
-                    P: " jadi nambah wawasan baru soal cara kerja yang lebih baik",
-                    K: " tapi bisa diatasi kok lewat diskusi bareng tim"
+                    A: " serta melakukan koordinasi dengan tim terkait",
+                    P: " dan memberikan pemahaman baru tentang proses kerja",
+                    K: " namun dapat diselesaikan dengan diskusi tim"
                 };
 
                 let padded = text;
@@ -214,29 +229,31 @@ async function processFreeTextToReport(userText, previousLogs = []) {
         context = 'Riwayat gaya bahasa user:\n' + previousLogs.slice(0, 5).map(log => log.activity_log).join('\n') + '\n\n';
     }
 
-    const systemPrompt = `Kamu membantu mengubah cerita singkat jadi laporan magang yang NATURAL dan MANUSIAWI.
+    const systemPrompt = `Kamu membantu mengubah cerita singkat jadi laporan magang yang PROFESIONAL namun NATURAL.
 
 ATURAN:
-1. Tulis seperti orang biasa cerita, JANGAN formal/kaku
-2. Pakai bahasa sehari-hari yang natural
-3. Tiru gaya bahasa user dari riwayat (kalau ada)
-4. PANJANG: 100-150 karakter per bagian (WAJIB!)
-5. JANGAN pakai kata-kata robot seperti "melakukan koordinasi intensif" atau "memberikan wawasan mendalam"
+1. Analisis riwayat user (jika ada) untuk menemukan kata-kata yang sering dipakai
+2. Gunakan kata-kata yang SAMA dengan yang user sering pakai
+3. Tetap profesional dan sopan, JANGAN terlalu gaul
+4. JANGAN pakai frasa robot seperti "melakukan koordinasi intensif yang komprehensif"
+5. PANJANG: 100-150 karakter per bagian (WAJIB!)
 
-CONTOH:
-❌ BURUK: "Melaksanakan analisis komprehensif terhadap infrastruktur sistem"
-✅ BAGUS: "Ngecek sistem yang error, ternyata ada bug di backend"`;
+CONTOH YANG BAIK:
+"Melakukan testing fitur login dan memperbaiki bug yang ditemukan"
+"Belajar tentang authentication flow dan implementasi JWT"
+"Kendala pada integrasi API, diselesaikan dengan bantuan mentor"`;
 
     const userPrompt = `${context}
 Cerita User: "${userText}"
 
-Buatkan laporan dari cerita di atas. Tulis NATURAL kayak orang ngomong biasa!
+Buatkan laporan dari cerita di atas. 
+Tetap profesional tapi natural, JANGAN terlalu gaul!
 PENTING: 100-150 karakter per bagian, JANGAN lebih!
 
 Format:
-AKTIVITAS: [isi 100-150 karakter, natural]
-PEMBELAJARAN: [isi 100-150 karakter, natural]
-KENDALA: [isi 100-150 karakter, natural]`;
+AKTIVITAS: [isi 100-150 karakter, profesional]
+PEMBELAJARAN: [isi 100-150 karakter, profesional]
+KENDALA: [isi 100-150 karakter, profesional]`;
 
     try {
         const response = await axios.post(GROQ_API_URL, {
@@ -275,9 +292,9 @@ KENDALA: [isi 100-150 karakter, natural]`;
 
             if (text.length < MIN_CHARS) {
                 const extra = {
-                    A: " dan koordinasi sama tim buat pastiin semua jalan lancar",
-                    P: " jadi nambah wawasan baru soal cara kerja yang lebih baik",
-                    K: " tapi bisa diatasi kok lewat diskusi bareng tim"
+                    A: " serta melakukan koordinasi dengan tim terkait",
+                    P: " dan memberikan pemahaman baru tentang proses kerja",
+                    K: " namun dapat diselesaikan dengan diskusi tim"
                 };
 
                 let padded = text;
