@@ -2,9 +2,12 @@ const { prosesLoginDanAbsen, cekKredensial, cekStatusHarian, getRiwayat } = requ
 const { saveUser, getUserByPhone, updateUserLid, getAllUsers, deleteUser } = require('../services/database');
 const { GROUP_ID_FILE } = require('../config/constants');
 const { generateAuthUrl, initAuthServer } = require('../services/secureAuth');
-const { generateAttendanceReport } = require('../services/groqService');
+const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = require('../services/groqService');
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
+const path = require('path');
 const chalk = require('chalk');
+const { TEMP_DIR } = require('../config/constants');
 
 // Cache untuk menyimpan preview sementara (per user)
 const pendingPreviews = new Map();
@@ -15,6 +18,37 @@ module.exports = async (sock, msg) => {
     try {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
+
+        // --- HANDLING VOICE NOTE / AUDIO (PRIVATE CHAT ONLY) ---
+        const isAudio = msgObj.message.audioMessage || msgObj.message.pttMessage;
+        const sender = msgObj.key.remoteJid;
+        const isGroup = sender.endsWith("@g.us");
+
+        if (isAudio && !isGroup) {
+            await sock.sendMessage(sender, { react: { text: "🎧", key: msgObj.key } });
+
+            // Download audio
+            const buffer = await downloadMediaMessage(msgObj, 'buffer', {});
+            const fileName = path.join(TEMP_DIR, `audio_${Date.now()}.ogg`);
+            fs.writeFileSync(fileName, buffer);
+
+            // Transcribe
+            const transcription = await transcribeAudio(fileName);
+
+            // Hapus file audio (Cleanup)
+            try { fs.unlinkSync(fileName); } catch (e) { }
+
+            if (transcription.success && transcription.text.length > 5) {
+                await sock.sendMessage(sender, { text: `_Saya mendengar:_ "${transcription.text}"\n\n_Sedang merapikan laporan Anda..._` });
+
+                // Teruskan ke logika !absen (panggil ulang handler dengan teks hasil VN)
+                msgObj.message = { conversation: `!absen ${transcription.text}` };
+                return module.exports(sock, msgObj);
+            } else {
+                await sock.sendMessage(sender, { text: "Maaf, saya kurang jelas mendengar suara Anda. Bisa ulangi lagi?" });
+                return;
+            }
+        }
 
         const getMsgText = (m) => {
             if (!m) return "";
@@ -36,8 +70,6 @@ module.exports = async (sock, msg) => {
 
         if (!isCommand && !isLaporanContent) return;
 
-        const sender = msgObj.key.remoteJid;
-        const isGroup = sender.endsWith("@g.us");
         let senderNumber = isGroup
             ? msgObj.key.participant || msgObj.participant
             : sender;
@@ -86,23 +118,22 @@ module.exports = async (sock, msg) => {
             const info = `*BOT MAGANGHUB v7.0 (AI Edition)*
 
 Daftar Perintah:
-1️⃣ *!daftar* - Registrasi akun
-2️⃣ *!absen* - Kirim laporan manual
-3️⃣ *!preview* - Preview laporan AI
-4️⃣ *!buatkan* - Submit laporan AI
-5️⃣ *!cekabsen* - Cek status hari ini
-6️⃣ *!riwayat* [hari] - Riwayat absen
-7️⃣ *!ingatkan* - Tag yang belum absen
-8️⃣ *!listuser* - Daftar user
-9️⃣ *!hapus* - Hapus akun
-🔔 *!broadcast* [pesan] - Admin only
+1️⃣ *!daftar* - Sambungkan akun dulu (Wajib)
+2️⃣ *!preview* - Minta dibuatin laporan otomatis
+3️⃣ *!buatkan* - Kirim laporan otomatis ke web
+4️⃣ *!absen* - Tulis laporan sendiri (Manual)
+5️⃣ *!cek* - Cek laporan sudah masuk belum
+6️⃣ *!riwayat* - Lihat laporan hari kemarin
+7️⃣ *!ingatkan* - Tag teman yang belum lapor
+8️⃣ *!hapus* - Hapus akun dari bot
+🔔 *!broadcast* - Kirim info ke semua (Admin)
 
 Bot ini membantu absensi harian MagangHub.`;
 
             if (fs.existsSync(coverPath)) {
-                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
+                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
             } else {
-                await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
             }
             return;
         }
@@ -160,9 +191,8 @@ Bot ini membantu absensi harian MagangHub.`;
 
             allUsers.forEach((user, index) => {
                 const phone = user.phone;
-                const name = getName(user.email);
                 mentions.push(phone);
-                userList += `${index + 1}. @${phone.split('@')[0]} - ${name}\n`;
+                userList += `${index + 1}. @${phone.split('@')[0]}\n`;
             });
 
             await sock.sendMessage(sender, { text: userList, mentions }, { quoted: msgObj });
@@ -225,11 +255,7 @@ Bot ini membantu absensi harian MagangHub.`;
                 return;
             }
 
-            await sock.sendMessage(
-                sender,
-                { text: `Mengecek status ${allUsers.length} peserta...` },
-                { quoted: msgObj }
-            );
+            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
             let belumAbsen = [];
             let checked = 0;
@@ -253,12 +279,12 @@ Bot ini membantu absensi harian MagangHub.`;
                 );
                 msgAlert += `\nSegera lengkapi laporan harian Anda.`;
 
-                await sock.sendMessage(sender, { text: msgAlert, mentions: belumAbsen });
+                await sock.sendMessage(sender, { text: msgAlert, mentions: belumAbsen }, { ephemeralExpiration: 86400 });
             } else {
                 await sock.sendMessage(
                     sender,
                     { text: `Semua peserta sudah menyelesaikan absensi hari ini.` },
-                    { quoted: msgObj }
+                    { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
             }
             return;
@@ -280,9 +306,9 @@ Bot ini membantu absensi harian MagangHub.`;
                 await sock.sendMessage(
                     sender,
                     {
-                        text: "Anda sudah terdaftar. Gunakan !absen untuk mengirim laporan atau !cekabsen untuk melihat status."
+                        text: "Anda sudah terdaftar. Gunakan !absen untuk mengirim laporan atau !cek untuk melihat status."
                     },
-                    { quoted: msgObj }
+                    { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
                 return;
             }
@@ -311,14 +337,14 @@ Bot ini membantu absensi harian MagangHub.`;
                 // Notify in group
                 await sock.sendMessage(
                     sender,
-                    { text: `Cek chat pribadi untuk link registrasi.` },
-                    { quoted: msgObj }
+                    { text: "Link pendaftaran sudah saya kirim ke Chat Pribadi (Japri) ya." },
+                    { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
                 // Send link to private chat
                 await sock.sendMessage(
                     originalSenderId,
                     {
-                        text: `*REGISTRASI AKUN*\n\nSilakan buka link berikut untuk mendaftar:\n${authUrl}\n\nLink berlaku selama 10 menit.\nEmail dan password Anda akan diproses secara aman.`
+                        text: `*PENDADAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
                     }
                 );
             } else {
@@ -326,7 +352,7 @@ Bot ini membantu absensi harian MagangHub.`;
                 await sock.sendMessage(
                     sender,
                     {
-                        text: `*REGISTRASI AKUN*\n\nSilakan buka link berikut untuk mendaftar:\n${authUrl}\n\nLink berlaku selama 10 menit.\nEmail dan password Anda akan diproses secara aman.`
+                        text: `*PENDAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
                     },
                     { quoted: msgObj }
                 );
@@ -335,102 +361,70 @@ Bot ini membantu absensi harian MagangHub.`;
         }
 
         // ----------------------------------------------------
-        // !ABSEN
+        // !ABSEN (Sistem Ketik Bebas / AI Power)
         // ----------------------------------------------------
-        if (command === "!absen" || isLaporanContent) {
-            if (!textMessage.includes("Aktivitas:")) {
-                const template = `!absen ${HEADER_LAPORAN}
-(Salin, isi, dan kirim kembali)
-
-Aktivitas: 
-
-Pembelajaran: 
-
-Kendala: 
-
-Catatan: Minimal 100 karakter per kolom.`;
-                await sock.sendMessage(
-                    sender,
-                    { text: template },
-                    { quoted: msgObj }
-                );
-                return;
-            }
-
+        if (command === "!absen") {
             const user = getUserByPhone(senderNumber);
             if (!user) {
-                await sock.sendMessage(
-                    sender,
-                    { text: `Anda belum terdaftar. Gunakan !daftar terlebih dahulu.` },
-                    { quoted: msgObj }
-                );
+                await sock.sendMessage(sender, { text: "Anda belum terdaftar. Ketik !daftar dulu ya." }, { quoted: msgObj });
                 return;
             }
 
-            const aktMatch = textMessage.match(
-                /Aktivitas:\s*([\s\S]*?)(?=Pembelajaran:|$)/i
-            );
-            const pembMatch = textMessage.match(
-                /Pembelajaran:\s*([\s\S]*?)(?=Kendala:|$)/i
-            );
-            const kenMatch = textMessage.match(/Kendala:\s*([\s\S]*)/i);
+            // Jika cuma ketik !absen tanpa isi
+            if (!args || args.trim().length < 5) {
+                const guide = `*CARA LAPOR CEPAT*\n\nKetik *!absen* diikuti cerita singkat kegiatanmu hari ini.\n\nContoh:\n_!absen tadi saya bantu instalasi windows di lab dan belajar setting mikrotik._\n\nNanti saya yang rapikan laporannya otomatis!`;
 
-            const aktivitas = aktMatch ? aktMatch[1].trim() : "";
-            const pembelajaran = pembMatch ? pembMatch[1].trim() : "";
-            let kendala = kenMatch ? kenMatch[1].trim() : "Tidak ada kendala";
-            if (kendala.includes("Catatan:"))
-                kendala = kendala.split("Catatan:")[0].trim();
-
-            if (
-                aktivitas.length < 100 ||
-                pembelajaran.length < 100 ||
-                kendala.length < 100
-            ) {
-                await sock.sendMessage(
-                    sender,
-                    {
-                        text: `*Laporan Ditolak*\nSemua kolom wajib diisi minimal 100 karakter.\n\nPengirim: @${senderNumber.split("@")[0]}`,
-                        mentions: [senderNumber]
-                    },
-                    { quoted: msgObj }
-                );
+                // Kirim ke PC agar tidak nyepam grup
+                const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+                if (isGroup) await sock.sendMessage(sender, { text: "Instruksi sudah saya kirim ke Chat Pribadi ya." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                await sock.sendMessage(targetJid, { text: guide }, { ephemeralExpiration: 86400 });
                 return;
             }
 
-            // React dengan jam pasir saat memproses
+            // React loading
             await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
+            // 1. Cek status dulu agar tidak double
+            const statusCheck = await cekStatusHarian(user.email, user.password);
+            if (statusCheck.success && statusCheck.sudahAbsen) {
+                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
+                await sock.sendMessage(sender, { text: "Anda sudah absen hari ini. Tidak perlu lapor lagi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                return;
+            }
+
+            // 2. Proses cerita user lewat AI
+            const riwayatResult = await getRiwayat(user.email, user.password, 5);
+            const aiResult = await processFreeTextToReport(args, riwayatResult.success ? riwayatResult.logs : []);
+
+            if (!aiResult.success) {
+                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
+                await sock.sendMessage(sender, { text: "Gagal memproses cerita Anda. Coba lagi nanti." }, { quoted: msgObj });
+                return;
+            }
+
+            // 3. Submit ke MagangHub
             prosesLoginDanAbsen({
                 email: user.email,
                 password: user.password,
-                aktivitas,
-                pembelajaran,
-                kendala
+                aktivitas: aiResult.aktivitas,
+                pembelajaran: aiResult.pembelajaran,
+                kendala: aiResult.kendala
             }).then(async hasil => {
                 if (hasil.success) {
-                    // React sukses
                     await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                    let reply = `*ABSENSI BERHASIL* ${hasil.pesan_tambahan || ''}\nNama: @${senderNumber.split("@")[0]}\nTanggal: ${new Date().toLocaleDateString('id-ID')}`;
-                    if (hasil.foto && fs.existsSync(hasil.foto)) {
-                        sock.sendMessage(sender, { image: { url: hasil.foto }, caption: reply, mentions: [senderNumber] }, { quoted: msgObj });
-                        try { fs.unlinkSync(hasil.foto); } catch (e) { }
-                    } else {
-                        sock.sendMessage(
-                            sender,
-                            { text: reply, mentions: [senderNumber] },
-                            { quoted: msgObj }
-                        );
-                    }
+                    let reply = `✅ *LAPORAN SUKSES TERKIRIM*\n\n`;
+                    reply += `*Hasil Olahan AI:*\n${aiResult.aktivitas}\n\n`;
+                    reply += `_Laporan sudah rapi & masuk ke web Kemnaker._`;
+
+                    // Kirim ke target (PC jika dari grup)
+                    const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+                    await sock.sendMessage(targetJid, { text: reply }, { ephemeralExpiration: 86400 });
                 } else {
-                    // React gagal
                     await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                    sock.sendMessage(
-                        sender,
-                        { text: `*ABSENSI GAGAL*\n${hasil.pesan}` },
-                        { quoted: msgObj }
-                    );
+                    await sock.sendMessage(sender, { text: `Gagal mengirim: ${hasil.pesan}` }, { quoted: msgObj });
                 }
             });
+            return;
         }
 
         // ----------------------------------------------------
@@ -458,13 +452,13 @@ Catatan: Minimal 100 karakter per kolom.`;
                     sock.sendMessage(
                         sender,
                         { text: reply },
-                        { quoted: msgObj }
+                        { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                 } else {
                     sock.sendMessage(
                         sender,
                         { text: `*STATUS: BELUM ABSEN*\nAnda belum mengirim laporan hari ini.` },
-                        { quoted: msgObj }
+                        { quoted: msgObj, ephemeralExpiration: 86400 }
                     );
                 }
             } else {
@@ -472,7 +466,7 @@ Catatan: Minimal 100 karakter per kolom.`;
                 sock.sendMessage(
                     sender,
                     { text: `Terjadi kesalahan: ${status.pesan}` },
-                    { quoted: msgObj }
+                    { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
             }
         }
@@ -513,9 +507,6 @@ Catatan: Minimal 100 karakter per kolom.`;
                     if (log.missing || !log.activity_log) {
                         historyText += `(Tidak ada data absen)\n`;
                     } else {
-                        // Debug: log semua field yang ada
-                        console.log('[RIWAYAT] Fields available:', Object.keys(log));
-
                         // Aktivitas
                         historyText += `\n*Aktivitas:*\n${log.activity_log || '-'}\n`;
 
@@ -535,10 +526,18 @@ Catatan: Minimal 100 karakter per kolom.`;
 
                 historyText += `\n━━━━━━━━━━━━━━━━━━\nGunakan !riwayat [jumlah] untuk melihat lebih banyak hari.`;
 
-                await sock.sendMessage(sender, { text: historyText }, { quoted: msgObj });
+                // Tentukan target pengiriman (PC)
+                const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+
+                if (isGroup) {
+                    await sock.sendMessage(sender, { text: "📩 Riwayat absensi dikirim ke chat pribadi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                }
+
+                await sock.sendMessage(targetJid, { text: historyText }, { ephemeralExpiration: 86400 });
+
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Gagal mengambil riwayat: ${result.pesan || 'Tidak ada data'}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `Gagal mengambil riwayat: ${result.pesan || 'Tidak ada data'}` }, { quoted: msgObj, ephemeralExpiration: 86400 });
             }
         }
 
@@ -665,14 +664,13 @@ Catatan: Minimal 100 karakter per kolom.`;
 
             if (submitResult.success) {
                 await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                let reply = `*ABSENSI BERHASIL (AI)*\n\n`;
-                reply += `*Aktivitas:*\n${cachedPreview.aktivitas}\n\n`;
-                reply += `*Pembelajaran:*\n${cachedPreview.pembelajaran}\n\n`;
-                reply += `*Kendala:*\n${cachedPreview.kendala}`;
-                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+                let reply = `*LAPORAN SUDAH TERKIRIM*\n\n`;
+                reply += `*Isi Laporan:* \n${cachedPreview.aktivitas}\n\n`;
+                reply += `Laporan sudah masuk ke web Kemnaker.`;
+                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj, ephemeralExpiration: 86400 });
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Gagal submit: ${submitResult.pesan}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: `Gagal submit: ${submitResult.pesan}` }, { quoted: msgObj, ephemeralExpiration: 86400 });
             }
         }
 
@@ -686,7 +684,7 @@ Catatan: Minimal 100 karakter per kolom.`;
                 return;
             }
 
-            await sock.sendMessage(sender, { react: { text: "🤖", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
             // Ambil riwayat untuk konteks (30 hari)
             const riwayatResult = await getRiwayat(user.email, user.password, 30);
@@ -710,15 +708,23 @@ Catatan: Minimal 100 karakter per kolom.`;
             });
 
             await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-            let preview = `*PREVIEW LAPORAN (AI)*\n_(Tersimpan sementara)_\n\n`;
-            preview += `━━━━━━━━━━━━━━━━━━\n`;
+            let preview = `*DRAF LAPORAN AI*\n(Belum terkirim, baca dulu ya)\n\n`;
+            preview += `----------------------------------\n`;
             preview += `*Aktivitas:*\n${aiResult.aktivitas}\n\n`;
             preview += `*Pembelajaran:*\n${aiResult.pembelajaran}\n\n`;
             preview += `*Kendala:*\n${aiResult.kendala}\n`;
-            preview += `━━━━━━━━━━━━━━━━━━\n\n`;
-            preview += `Jika sudah OK, ketik *!buatkan* untuk submit.\nAtau *!preview* lagi untuk generate ulang.`;
+            preview += `----------------------------------\n\n`;
+            preview += `Ketik *!buatkan* untuk kirim.\nKetik *!preview* lagi untuk ganti laporan.\n\n`;
+            preview += `✏️ *Mau Edit?* Copy teks di atas, ubah sesukamu, lalu kirim pakai format *!absen*.`;
 
-            await sock.sendMessage(sender, { text: preview }, { quoted: msgObj });
+            // Tentukan target pengiriman (PC)
+            const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+
+            if (isGroup) {
+                await sock.sendMessage(sender, { text: "📩 Draf laporan AI dikirim ke chat pribadi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            }
+
+            await sock.sendMessage(targetJid, { text: preview }, { ephemeralExpiration: 86400 });
         }
 
     } catch (e) {

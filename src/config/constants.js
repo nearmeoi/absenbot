@@ -232,6 +232,7 @@ const API_BASE_URL = 'https://monev.maganghub.kemnaker.go.id';
 const SIAPKERJA_URL = 'https://siapkerja.kemnaker.go.id';
 const API_ENDPOINTS = {
     DAILY_LOGS: `${API_BASE_URL}/api/daily-logs`,
+    SUBMIT_ATTENDANCE: `${API_BASE_URL}/api/attendances/with-daily-log`,
     DASHBOARD: `${API_BASE_URL}/dashboard`,
     SIAPKERJA_HOME: `${SIAPKERJA_URL}/app/home`,
     LOGIN_URL: `https://account.kemnaker.go.id/auth/login`
