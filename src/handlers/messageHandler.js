@@ -3,14 +3,12 @@ const { saveUser, getUserByPhone, updateUserLid, getAllUsers, deleteUser } = req
 const { GROUP_ID_FILE } = require('../config/constants');
 const { generateAuthUrl, initAuthServer } = require('../services/secureAuth');
 const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = require('../services/groqService');
+const { setDraft, getDraft, deleteDraft } = require('../services/previewService');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
 const { TEMP_DIR } = require('../config/constants');
-
-// Cache untuk menyimpan preview sementara (per user)
-const pendingPreviews = new Map();
 
 const ADMIN_NUMBERS = ['6285657025300', '6289517153324', '117948895244409'];
 
@@ -114,27 +112,47 @@ module.exports = async (sock, msg) => {
         // ----------------------------------------------------
         if (command === '!hai' || command === '!menu') {
             const coverPath = require('path').join(__dirname, '../../public/img/cover.png');
+            const info = `*BOT MAGANGHUB v7.1* 🚀
+            
+Halo! Saya asisten absensi MagangHub Anda.
 
-            const info = `*BOT MAGANGHUB v7.0 (AI Edition)*
+*Daftar Perintah:*
+1️⃣ *!daftar* - Registrasi akun (Wajib)
+2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)
+3️⃣ *!cek* - Cek status kehadiran hari ini
+4️⃣ *!riwayat* - Lihat riwayat absen
+5️⃣ *!help* - Panduan & Cara pakai
 
-Daftar Perintah:
-1️⃣ *!daftar* - Sambungkan akun dulu (Wajib)
-2️⃣ *!preview* - Minta dibuatin laporan otomatis
-3️⃣ *!buatkan* - Kirim laporan otomatis ke web
-4️⃣ *!absen* - Tulis laporan sendiri (Manual)
-5️⃣ *!cek* - Cek laporan sudah masuk belum
-6️⃣ *!riwayat* - Lihat laporan hari kemarin
-7️⃣ *!ingatkan* - Tag teman yang belum lapor
-8️⃣ *!hapus* - Hapus akun dari bot
-🔔 *!broadcast* - Kirim info ke semua (Admin)
-
-Bot ini membantu absensi harian MagangHub.`;
+_Bot akan menyiapkan draf, balas *ya* untuk mengirim ke web._`;
 
             if (fs.existsSync(coverPath)) {
-                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
             } else {
-                await sock.sendMessage(sender, { text: info }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
             }
+            return;
+        }
+
+        if (command === '!help') {
+            const helpText = `*PANDUAN PENGGUNAAN BOT* 📖
+
+*1. Cara Lapor (Semi-Auto - AI)*
+Ketik *!absen* diikuti cerita singkat kegiatan Anda hari ini.
+_Contoh: !absen tadi saya belajar react js dan membuat komponen login_
+
+*2. Cara Lapor (Manual Full)*
+Jika ingin kontrol penuh, gunakan tag berikut:
+*!absen #aktivitas [isi] #pembelajaran [isi] #kendala [isi]*
+_Pastikan setiap bagian minimal 100 karakter._
+
+*3. Cara Konfirmasi*
+Setelah bot mengirimkan draf laporan, periksa isinya. Jika sudah OK, cukup balas dengan kata *ya*.
+
+*4. Cek Status*
+Ketik *!cek* untuk memastikan laporan Anda sudah benar-benar masuk ke sistem MagangHub.
+
+Semoga membantu!`;
+            await sock.sendMessage(sender, { text: helpText }, { quoted: msgObj });
             return;
         }
 
@@ -155,7 +173,7 @@ Bot ini membantu absensi harian MagangHub.`;
             await sock.sendMessage(
                 sender,
                 {
-                    text: `Grup berhasil disimpan.\n\nAlarm otomatis (Jam 18:00, 20:00, 22:00 WIB) akan dikirim ke grup ini.`
+                    text: `Grup berhasil disimpan.\n\nAlarm otomatis (WITA) akan dikirim ke grup ini.`
                 },
                 { quoted: msgObj }
             );
@@ -360,84 +378,113 @@ Bot ini membantu absensi harian MagangHub.`;
             return;
         }
 
-        // ----------------------------------------------------
-        // !ABSEN (Sistem Ketik Bebas / AI Power)
-        // ----------------------------------------------------
-        if (command === "!absen") {
+        // --- CORE LOGIC: !ABSEN ---
+        if (command === '!absen') {
             const user = getUserByPhone(senderNumber);
             if (!user) {
-                await sock.sendMessage(sender, { text: "Anda belum terdaftar. Ketik !daftar dulu ya." }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: "Anda belum terdaftar. Gunakan *!daftar* terlebih dahulu." }, { quoted: msgObj });
                 return;
             }
 
-            // Jika cuma ketik !absen tanpa isi
-            if (!args || args.trim().length < 5) {
-                const guide = `*CARA LAPOR CEPAT*\n\nKetik *!absen* diikuti cerita singkat kegiatanmu hari ini.\n\nContoh:\n_!absen tadi saya bantu instalasi windows di lab dan belajar setting mikrotik._\n\nNanti saya yang rapikan laporannya otomatis!`;
-
-                // Kirim ke PC agar tidak nyepam grup
-                const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-                if (isGroup) await sock.sendMessage(sender, { text: "Instruksi sudah saya kirim ke Chat Pribadi ya." }, { quoted: msgObj, ephemeralExpiration: 86400 });
-                await sock.sendMessage(targetJid, { text: guide }, { ephemeralExpiration: 86400 });
+            if (!args || args.trim() === '') {
+                await sock.sendMessage(sender, {
+                    text: `*CARA LAPOR:* \n\n` +
+                        `1. *Semi-Auto (AI):* Kirim *!absen [cerita]*\n` +
+                        `_Contoh: !absen belajar database_\n\n` +
+                        `2. *Manual:* Gunakan tag #\n` +
+                        `_Contoh: !absen #aktivitas [isi] #pembelajaran [isi] #kendala [isi]_`
+                }, { quoted: msgObj });
                 return;
             }
 
-            // React loading
             await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
 
-            // 1. Cek status dulu agar tidak double
-            const statusCheck = await cekStatusHarian(user.email, user.password);
-            if (statusCheck.success && statusCheck.sudahAbsen) {
-                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: "Anda sudah absen hari ini. Tidak perlu lapor lagi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
-                return;
-            }
+            let reportData = { aktivitas: '', pembelajaran: '', kendala: '', type: '' };
 
-            // 2. Proses cerita user lewat AI
-            const riwayatResult = await getRiwayat(user.email, user.password, 5);
-            const aiResult = await processFreeTextToReport(args, riwayatResult.success ? riwayatResult.logs : []);
+            if (args.includes('#aktivitas') || args.includes('#pembelajaran')) {
+                const parseTag = (tag) => {
+                    const regex = new RegExp(`#${tag}\\s*([\\s\\S]*?)(?=#|$)`, 'i');
+                    const match = args.match(regex);
+                    return match ? match[1].trim() : '';
+                };
 
-            if (!aiResult.success) {
-                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: "Gagal memproses cerita Anda. Coba lagi nanti." }, { quoted: msgObj });
-                return;
-            }
+                reportData = {
+                    aktivitas: parseTag('aktivitas'),
+                    pembelajaran: parseTag('pembelajaran'),
+                    kendala: parseTag('kendala') || "Tidak ada kendala.",
+                    type: 'manual'
+                };
 
-            // 3. Submit ke MagangHub
-            prosesLoginDanAbsen({
-                email: user.email,
-                password: user.password,
-                aktivitas: aiResult.aktivitas,
-                pembelajaran: aiResult.pembelajaran,
-                kendala: aiResult.kendala
-            }).then(async hasil => {
-                if (hasil.success) {
-                    await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                    let reply = `✅ *LAPORAN SUKSES TERKIRIM*\n\n`;
-                    reply += `*Hasil Olahan AI:*\n${aiResult.aktivitas}\n\n`;
-                    reply += `_Laporan sudah rapi & masuk ke web Kemnaker._`;
+                const errors = [];
+                if (reportData.aktivitas.length < 100) errors.push(`Aktivitas kurang ${100 - reportData.aktivitas.length} karakter.`);
+                if (reportData.pembelajaran.length < 100) errors.push(`Pembelajaran kurang ${100 - reportData.pembelajaran.length} karakter.`);
+                if (reportData.kendala.length < 100 && reportData.kendala !== "Tidak ada kendala.") errors.push(`Kendala kurang ${100 - reportData.kendala.length} karakter.`);
 
-                    // Kirim ke target (PC jika dari grup)
-                    const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-                    await sock.sendMessage(targetJid, { text: reply }, { ephemeralExpiration: 86400 });
-                } else {
-                    await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                    await sock.sendMessage(sender, { text: `Gagal mengirim: ${hasil.pesan}` }, { quoted: msgObj });
+                if (errors.length > 0) {
+                    await sock.sendMessage(sender, { text: `⚠️ *Laporan Terlalu Singkat*\n\n${errors.join('\n')}\n\nSilakan panjangkan lagi laporannya.` }, { quoted: msgObj });
+                    return;
                 }
-            });
+            } else {
+                const history = await getRiwayat(user.email, user.password, 3);
+                const aiResult = await processFreeTextToReport(args, history.success ? history.logs : []);
+
+                if (!aiResult.success) {
+                    await sock.sendMessage(sender, { text: `Maaf, gagal memproses laporan AI: ${aiResult.error}` }, { quoted: msgObj });
+                    return;
+                }
+
+                reportData = {
+                    aktivitas: aiResult.aktivitas,
+                    pembelajaran: aiResult.pembelajaran,
+                    kendala: aiResult.kendala,
+                    type: 'ai'
+                };
+            }
+
+            setDraft(senderNumber, reportData);
+
+            const previewText = `*DRAF LAPORAN ANDA* 📝\n\n` +
+                `🏢 *Aktivitas:* \n${reportData.aktivitas}\n\n` +
+                `📚 *Pembelajaran:* \n${reportData.pembelajaran}\n\n` +
+                `⚠️ *Kendala:* \n${reportData.kendala}\n\n` +
+                `_Ketik *ya* untuk mengirim laporan ini ke web MagangHub._`;
+
+            await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
             return;
         }
 
-        // ----------------------------------------------------
-        // !CEKABSEN / !CEK
-        // ----------------------------------------------------
-        if (command === "!cekabsen" || command === "!cek") {
+        // --- CORE LOGIC: YA (CONFIRMATION) ---
+        if (textMessage.toLowerCase().trim() === 'ya') {
+            const cachedDraft = getDraft(senderNumber);
+            if (!cachedDraft) return;
+
+            const user = getUserByPhone(senderNumber);
+            if (!user) return;
+
+            await sock.sendMessage(sender, { react: { text: "🚀", key: msgObj.key } });
+
+            const loginResult = await prosesLoginDanAbsen({
+                email: user.email,
+                password: user.password,
+                aktivitas: cachedDraft.aktivitas,
+                pembelajaran: cachedDraft.pembelajaran,
+                kendala: cachedDraft.kendala
+            });
+
+            if (loginResult.success) {
+                await sock.sendMessage(sender, { text: `✅ *BERHASIL!* \nLaporan Anda telah terkirim ke web MagangHub.` }, { quoted: msgObj });
+                deleteDraft(senderNumber);
+            } else {
+                await sock.sendMessage(sender, { text: `❌ *GAGAL:* ${loginResult.pesan}` }, { quoted: msgObj });
+            }
+            return;
+        }
+
+        // --- CORE LOGIC: !CEK ---
+        if (command === "!ceka" || command === "!cek") {
             const user = getUserByPhone(senderNumber);
             if (!user) {
-                await sock.sendMessage(
-                    sender,
-                    { text: "Anda belum terdaftar." },
-                    { quoted: msgObj }
-                );
+                await sock.sendMessage(sender, { text: "Anda belum terdaftar." }, { quoted: msgObj });
                 return;
             }
 
@@ -448,283 +495,80 @@ Bot ini membantu absensi harian MagangHub.`;
                 await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
                 if (status.sudahAbsen) {
                     const log = status.data;
-                    let reply = `*STATUS: SUDAH ABSEN*\nTanggal: ${log.date}\nAktivitas: ${log.activity_log.substring(0, 50)}...`;
-                    sock.sendMessage(
-                        sender,
-                        { text: reply },
-                        { quoted: msgObj, ephemeralExpiration: 86400 }
-                    );
+                    let reply = `✅ *STATUS: SUDAH ABSEN*\n\n📅 *Tanggal:* ${log.date}\n🏢 *Aktivitas:* ${log.activity_log.substring(0, 100)}...`;
+                    await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
                 } else {
-                    sock.sendMessage(
-                        sender,
-                        { text: `*STATUS: BELUM ABSEN*\nAnda belum mengirim laporan hari ini.` },
-                        { quoted: msgObj, ephemeralExpiration: 86400 }
-                    );
+                    await sock.sendMessage(sender, { text: `❌ *STATUS: BELUM ABSEN*\nAnda belum mengirim laporan hari ini.` }, { quoted: msgObj });
                 }
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                sock.sendMessage(
-                    sender,
-                    { text: `Terjadi kesalahan: ${status.pesan}` },
-                    { quoted: msgObj, ephemeralExpiration: 86400 }
-                );
+                await sock.sendMessage(sender, { text: `Terjadi kesalahan saat mengecek status: ${status.pesan}` }, { quoted: msgObj });
             }
+            return;
         }
 
-        // ----------------------------------------------------
-        // !RIWAYAT (CEK HISTORY)
-        // ----------------------------------------------------
+        // --- CORE LOGIC: !RIWAYAT ---
         if (command === "!riwayat") {
             const user = getUserByPhone(senderNumber);
             if (!user) {
                 await sock.sendMessage(sender, { text: "Anda belum terdaftar." }, { quoted: msgObj });
                 return;
             }
-
-            // Parse jumlah hari dari argumen (default: 1 = kemarin)
             let days = 1;
             if (args && !isNaN(parseInt(args))) {
-                days = Math.min(Math.max(parseInt(args), 1), 30); // Min 1, Max 30 hari
+                days = Math.min(Math.max(parseInt(args), 1), 7);
             }
-
             await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
-
             const result = await getRiwayat(user.email, user.password, days);
 
             if (result.success && result.logs.length > 0) {
                 await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-
-                let historyText = `*RIWAYAT ABSENSI*\n(${days} hari terakhir)\n`;
-
+                let historyText = `*RIWAYAT ABSENSI* 📜\n`;
                 result.logs.forEach(log => {
-                    const dateObj = new Date(log.date);
-                    const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'long' });
-                    const dateFormatted = dateObj.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-
                     historyText += `\n━━━━━━━━━━━━━━━━━━\n`;
-                    historyText += `*${dayName}, ${dateFormatted}*\n`;
-
+                    historyText += `📅 *${log.date}*\n`;
                     if (log.missing || !log.activity_log) {
-                        historyText += `(Tidak ada data absen)\n`;
+                        historyText += `_(Tidak ada data absen)_\n`;
                     } else {
-                        // Aktivitas
-                        historyText += `\n*Aktivitas:*\n${log.activity_log || '-'}\n`;
-
-                        // Pembelajaran (field: lesson_learned)
-                        const pembelajaran = log.lesson_learned || log.learning || log.lesson || '';
-                        if (pembelajaran) {
-                            historyText += `\n*Pembelajaran:*\n${pembelajaran}\n`;
-                        }
-
-                        // Kendala (field: obstacles)
-                        const kendala = log.obstacles || log.obstacle || '';
-                        if (kendala) {
-                            historyText += `\n*Kendala:*\n${kendala}\n`;
-                        }
+                        historyText += `🏢 *Aktivitas:* ${log.activity_log.substring(0, 80)}...\n`;
                     }
                 });
-
-                historyText += `\n━━━━━━━━━━━━━━━━━━\nGunakan !riwayat [jumlah] untuk melihat lebih banyak hari.`;
-
-                // Tentukan target pengiriman (PC)
                 const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-
-                if (isGroup) {
-                    await sock.sendMessage(sender, { text: "📩 Riwayat absensi dikirim ke chat pribadi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
-                }
-
-                await sock.sendMessage(targetJid, { text: historyText }, { ephemeralExpiration: 86400 });
-
+                if (isGroup) await sock.sendMessage(sender, { text: "Riwayat dikirim ke Japri." }, { quoted: msgObj });
+                await sock.sendMessage(targetJid, { text: historyText });
             } else {
-                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Gagal mengambil riwayat: ${result.pesan || 'Tidak ada data'}` }, { quoted: msgObj, ephemeralExpiration: 86400 });
+                await sock.sendMessage(sender, { text: "Gagal mengambil riwayat atau data kosong." }, { quoted: msgObj });
             }
+            return;
         }
 
-        // ----------------------------------------------------
-        // !BROADCAST (ADMIN ONLY)
-        // ----------------------------------------------------
+        // --- ADMIN LOGIC: !BROADCAST ---
         if (command === '!broadcast') {
-            // Cek apakah admin
-            // Logic: Cek ID langsung, kalau gagal cek via database, kalau gagal coba known LIDs
+            const ADMIN_NUMBERS = ['6285657025300', '6289517153324', '117948895244409'];
             let isAdmin = false;
-
-            // Known Admin LIDs map (LID -> Phone)
-            // Tambahkan LID admin di sini jika belum ter-link di database
-            const KNOWN_ADMIN_LIDS = {
-                '117948895244409@s.whatsapp.net': '6285657025300', // Mapping manual untuk admin utama
-                '117948895244409@lid': '6285657025300'
-            };
-
             const senderBase = senderNumber.replace(/@.*/, '').replace(/:.*/, '');
-            const senderLid = senderNumber.includes('@lid') || senderNumber.length > 15 ? senderNumber : null;
-
-            // 1. Cek direct match (Phone)
-            if (ADMIN_NUMBERS.some(num => senderBase.includes(num) || num.includes(senderBase))) {
-                isAdmin = true;
-            }
-            // 2. Cek via database (Resolve LID -> Phone)
-            else {
-                const user = getUserByPhone(senderNumber);
-                if (user) {
-                    const userPhoneBase = user.phone.replace(/@.*/, '').replace(/:.*/, '');
-                    if (ADMIN_NUMBERS.some(num => userPhoneBase.includes(num) || num.includes(userPhoneBase))) {
-                        isAdmin = true;
-                    }
-                }
-                // 3. Cek via Known LIDs (Manual Map)
-                else if (senderLid && KNOWN_ADMIN_LIDS[senderLid]) {
-                    const mappedPhone = KNOWN_ADMIN_LIDS[senderLid];
-                    if (ADMIN_NUMBERS.some(num => mappedPhone.includes(num))) {
-                        isAdmin = true;
-                        // Auto-save mapping ke database biar next time ga perlu manual map
-                        updateUserLid(mappedPhone + '@s.whatsapp.net', senderLid);
-                    }
-                }
-            }
-
-            // Debug log
-            console.log(`[BROADCAST] Check Admin: Sender=${senderNumber}, IsAdmin=${isAdmin}`);
+            if (ADMIN_NUMBERS.some(num => senderBase.includes(num))) isAdmin = true;
 
             if (!isAdmin) {
-                await sock.sendMessage(sender, { text: `Command ini hanya untuk admin.\nID Anda: ${senderBase}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: "Hanya untuk admin." }, { quoted: msgObj });
                 return;
             }
 
-            if (!args || args.trim() === '') {
+            if (!args) {
                 await sock.sendMessage(sender, { text: "Format: !broadcast [pesan]" }, { quoted: msgObj });
                 return;
             }
 
             const allUsers = getAllUsers();
-            if (allUsers.length === 0) {
-                await sock.sendMessage(sender, { text: "Tidak ada user terdaftar." }, { quoted: msgObj });
-                return;
-            }
-
             await sock.sendMessage(sender, { react: { text: "📢", key: msgObj.key } });
-
-            let sent = 0;
-            for (const user of allUsers) {
+            for (const u of allUsers) {
                 try {
-                    await sock.sendMessage(user.phone, { text: args });
-                    sent++;
-                    await new Promise(r => setTimeout(r, 500)); // delay anti-spam
-                } catch (e) {
-                    console.error(`[BROADCAST] Gagal kirim ke ${user.phone}:`, e.message);
-                }
+                    await sock.sendMessage(u.phone, { text: args });
+                    await new Promise(r => setTimeout(r, 500));
+                } catch (e) { }
             }
-
-            await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-            await sock.sendMessage(sender, { text: `Broadcast terkirim ke ${sent}/${allUsers.length} user.` }, { quoted: msgObj });
-        }
-
-        // ----------------------------------------------------
-        // !BUATKAN (SUBMIT DARI PREVIEW)
-        // ----------------------------------------------------
-        if (command === '!buatkan') {
-            const user = getUserByPhone(senderNumber);
-            if (!user) {
-                await sock.sendMessage(sender, { text: "Anda belum terdaftar." }, { quoted: msgObj });
-                return;
-            }
-
-            // Cek apakah ada preview yang tersimpan
-            const cachedPreview = pendingPreviews.get(senderNumber);
-            if (!cachedPreview) {
-                await sock.sendMessage(sender, {
-                    text: "Belum ada preview tersimpan.\nGunakan *!preview* dulu untuk lihat hasil generate AI."
-                }, { quoted: msgObj });
-                return;
-            }
-
-            // Cek apakah sudah absen hari ini
-            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
-            const statusCheck = await cekStatusHarian(user.email, user.password);
-
-            if (statusCheck.success && statusCheck.sudahAbsen) {
-                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: "Anda sudah absen hari ini." }, { quoted: msgObj });
-                pendingPreviews.delete(senderNumber);
-                return;
-            }
-
-            // Submit dari cache
-            await sock.sendMessage(sender, { react: { text: "📤", key: msgObj.key } });
-            const submitResult = await prosesLoginDanAbsen({
-                email: user.email,
-                password: user.password,
-                aktivitas: cachedPreview.aktivitas,
-                pembelajaran: cachedPreview.pembelajaran,
-                kendala: cachedPreview.kendala
-            });
-
-            // Hapus cache setelah submit
-            pendingPreviews.delete(senderNumber);
-
-            if (submitResult.success) {
-                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                let reply = `*LAPORAN SUDAH TERKIRIM*\n\n`;
-                reply += `*Isi Laporan:* \n${cachedPreview.aktivitas}\n\n`;
-                reply += `Laporan sudah masuk ke web Kemnaker.`;
-                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            } else {
-                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Gagal submit: ${submitResult.pesan}` }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            }
-        }
-
-        // ----------------------------------------------------
-        // !PREVIEW (AI GENERATE & SIMPAN SEMENTARA)
-        // ----------------------------------------------------
-        if (command === '!preview') {
-            const user = getUserByPhone(senderNumber);
-            if (!user) {
-                await sock.sendMessage(sender, { text: "Anda belum terdaftar." }, { quoted: msgObj });
-                return;
-            }
-
-            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
-
-            // Ambil riwayat untuk konteks (30 hari)
-            const riwayatResult = await getRiwayat(user.email, user.password, 30);
-            const previousLogs = riwayatResult.success ? riwayatResult.logs : [];
-
-            // Generate dengan AI
-            const aiResult = await generateAttendanceReport(previousLogs);
-
-            if (!aiResult.success) {
-                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Gagal generate: ${aiResult.error}` }, { quoted: msgObj });
-                return;
-            }
-
-            // Simpan ke cache
-            pendingPreviews.set(senderNumber, {
-                aktivitas: aiResult.aktivitas,
-                pembelajaran: aiResult.pembelajaran,
-                kendala: aiResult.kendala,
-                timestamp: Date.now()
-            });
-
-            await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-            let preview = `*DRAF LAPORAN AI*\n(Belum terkirim, baca dulu ya)\n\n`;
-            preview += `----------------------------------\n`;
-            preview += `*Aktivitas:*\n${aiResult.aktivitas}\n\n`;
-            preview += `*Pembelajaran:*\n${aiResult.pembelajaran}\n\n`;
-            preview += `*Kendala:*\n${aiResult.kendala}\n`;
-            preview += `----------------------------------\n\n`;
-            preview += `Ketik *!buatkan* untuk kirim.\nKetik *!preview* lagi untuk ganti laporan.\n\n`;
-            preview += `✏️ *Mau Edit?* Copy teks di atas, ubah sesukamu, lalu kirim pakai format *!absen*.`;
-
-            // Tentukan target pengiriman (PC)
-            const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-
-            if (isGroup) {
-                await sock.sendMessage(sender, { text: "📩 Draf laporan AI dikirim ke chat pribadi." }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            }
-
-            await sock.sendMessage(targetJid, { text: preview }, { ephemeralExpiration: 86400 });
+            await sock.sendMessage(sender, { text: "Broadcast selesai." }, { quoted: msgObj });
+            return;
         }
 
     } catch (e) {

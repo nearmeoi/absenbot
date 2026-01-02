@@ -5,6 +5,7 @@ const { GROUP_ID_FILE } = require('../config/constants');
 const { getAllUsers } = require('./database');
 const { cekStatusHarian, getRiwayat, prosesLoginDanAbsen } = require('./magang');
 const { generateAttendanceReport } = require('./groqService');
+const { setDraft } = require('./previewService');
 
 // Check if today is weekend (Saturday or Sunday)
 function isWeekend() {
@@ -12,7 +13,7 @@ function isWeekend() {
     return day === 0 || day === 6;
 }
 
-// Auto reminder function
+// Auto reminder function (Just notify)
 async function runAutoReminder(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running auto reminder...'));
 
@@ -21,143 +22,118 @@ async function runAutoReminder(sock) {
         return;
     }
 
-    if (!fs.existsSync(GROUP_ID_FILE)) {
-        console.log(chalk.red('[SCHEDULER] No group configured.'));
-        return;
-    }
-
-    const groupId = fs.readFileSync(GROUP_ID_FILE, 'utf8').trim();
     const allUsers = getAllUsers();
-
     if (allUsers.length === 0) return;
 
-    await sock.sendMessage(groupId, {
-        text: `*PENGECEKAN OTOMATIS*\nMemeriksa ${allUsers.length} peserta...`
-    });
-
     let belumAbsen = [];
-
     for (const user of allUsers) {
         try {
             const status = await cekStatusHarian(user.email, user.password);
             if (status.success && !status.sudahAbsen) {
                 belumAbsen.push(user.phone);
-            } else if (!status.success) {
-                belumAbsen.push(user.phone);
             }
-        } catch (e) {
-            console.error(chalk.red(`[SCHEDULER] Error checking ${user.email}:`), e.message);
-        }
+        } catch (e) { }
     }
 
     if (belumAbsen.length > 0) {
-        let msgAlert = `*PENGINGAT ABSENSI*\n\nBelum absen:\n`;
-        belumAbsen.forEach(num => msgAlert += `- @${num.split('@')[0]}\n`);
-        msgAlert += `\nSegera lengkapi sebelum 23:59!`;
-
-        await sock.sendMessage(groupId, { text: msgAlert, mentions: belumAbsen });
-
-        // --- FITUR ASISTEN PRIBADI (JAPRI) ---
-        console.log(chalk.cyan(`[SCHEDULER] Mengirim japri ke ${belumAbsen.length} user...`));
+        console.log(chalk.cyan(`[SCHEDULER] Mengirim pengingat ke ${belumAbsen.length} user...`));
         for (const phone of belumAbsen) {
             try {
-                const personalMsg = `Halo! Saya perhatikan Anda belum mengirim laporan magang hari ini. 
-
-Jangan sampai terlewat ya agar absensi tetap aman. Jika sedang sibuk, Anda bisa balas chat ini dengan *!preview* untuk draf laporan otomatis.`;
-
-                await sock.sendMessage(phone, { text: personalMsg });
-                await new Promise(r => setTimeout(r, 2000)); // Delay anti-spam
-            } catch (e) {
-                console.error(chalk.red(`[SCHEDULER] Gagal japri ke ${phone}:`), e.message);
-            }
+                await sock.sendMessage(phone, {
+                    text: `*PENGINGAT ABSENSI* 🔔\n\nHalo! Kamu belum absen hari ini di MagangHub. Segera lapor ya sebelum jam 23:59 WITA.\n\nKetik *!absen* untuk mulai.`
+                });
+                await new Promise(r => setTimeout(r, 2000));
+            } catch (e) { }
         }
-    } else {
-        await sock.sendMessage(groupId, { text: `Semua peserta sudah absen hari ini.` });
     }
 }
 
-// EMERGENCY: Auto-generate & submit at 23:59 for users who haven't submitted
+// PROXY: Generate Draft and Push to User at 23:50
+async function runDraftPush(sock) {
+    console.log(chalk.magenta('[SCHEDULER] Running draft push (23:50 WITA)...'));
+
+    if (isWeekend()) return;
+
+    const allUsers = getAllUsers();
+    for (const user of allUsers) {
+        try {
+            const status = await cekStatusHarian(user.email, user.password);
+            if (status.success && status.sudahAbsen) continue;
+
+            console.log(chalk.yellow(`[DRAFT-PUSH] Preparing for ${user.email}`));
+
+            const riwayatResult = await getRiwayat(user.email, user.password, 3);
+            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+
+            if (aiResult.success) {
+                const reportData = {
+                    aktivitas: aiResult.aktivitas,
+                    pembelajaran: aiResult.pembelajaran,
+                    kendala: aiResult.kendala,
+                    type: 'ai'
+                };
+
+                setDraft(user.phone, reportData);
+
+                const msg = `*DARURAT: DRAF ABSENSI OTOMATIS* ⚠️\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan AI untukmu:\n\n` +
+                    `🏢 *Aktivitas:* ${aiResult.aktivitas}\n\n` +
+                    `Ketik *ya* sekarang untuk mengirim laporan ini!\n` +
+                    `_Jika tidak dibalas, sistem akan otomatis mengirim draf ini pada jam 23:59._`;
+
+                await sock.sendMessage(user.phone, { text: msg });
+            }
+        } catch (e) { }
+    }
+}
+
+// EMERGENCY: Auto-submit at 23:59 for users who haven't submitted
 async function runEmergencyAutoSubmit(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running emergency auto-submit (23:59 WITA)...'));
 
-    if (isWeekend()) {
-        console.log(chalk.yellow('[SCHEDULER] Skipping - weekend.'));
-        return;
-    }
+    if (isWeekend()) return;
 
     const allUsers = getAllUsers();
-    if (allUsers.length === 0) return;
-
     for (const user of allUsers) {
         try {
-            // Check if user already submitted today
             const status = await cekStatusHarian(user.email, user.password);
+            if (status.success && status.sudahAbsen) continue;
 
-            if (status.success && status.sudahAbsen) {
-                console.log(chalk.green(`[AUTO] ${user.email} already submitted`));
-                continue;
-            }
+            console.log(chalk.red(`[AUTO-SUBMIT] Emergency action for ${user.email}`));
 
-            console.log(chalk.yellow(`[AUTO] ${user.email} hasn't submitted, auto-generating...`));
+            const riwayatResult = await getRiwayat(user.email, user.password, 3);
+            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
 
-            // Get history for AI context
-            const riwayatResult = await getRiwayat(user.email, user.password, 5);
-            const previousLogs = riwayatResult.success ? riwayatResult.logs : [];
-
-            // Generate with AI
-            const aiResult = await generateAttendanceReport(previousLogs);
-
-            if (!aiResult.success) {
-                console.error(chalk.red(`[AUTO] Failed to generate for ${user.email}: ${aiResult.error}`));
-                // Notify user
-                await sock.sendMessage(user.phone, {
-                    text: `*GAGAL AUTO-SUBMIT*\n\nTidak dapat generate laporan otomatis.\nSilakan submit manual sekarang!`
+            if (aiResult.success) {
+                const submitResult = await prosesLoginDanAbsen({
+                    email: user.email,
+                    password: user.password,
+                    aktivitas: aiResult.aktivitas,
+                    pembelajaran: aiResult.pembelajaran,
+                    kendala: aiResult.kendala
                 });
-                continue;
+
+                if (submitResult.success) {
+                    await sock.sendMessage(user.phone, {
+                        text: `*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh sistem agar absensi Anda aman.`
+                    });
+                }
             }
-
-            // Submit to MagangHub
-            const submitResult = await prosesLoginDanAbsen({
-                email: user.email,
-                password: user.password,
-                aktivitas: aiResult.aktivitas,
-                pembelajaran: aiResult.pembelajaran,
-                kendala: aiResult.kendala
-            });
-
-            if (submitResult.success) {
-                console.log(chalk.green(`[AUTO] Successfully auto-submitted for ${user.email}`));
-                await sock.sendMessage(user.phone, {
-                    text: `*AUTO-SUBMIT BERHASIL*\n\nKarena Anda belum absen sampai 23:59 WITA, sistem telah mengirim laporan otomatis menggunakan AI.\n\nAktivitas: ${aiResult.aktivitas.substring(0, 80)}...`
-                });
-            } else {
-                console.error(chalk.red(`[AUTO] Failed to submit for ${user.email}: ${submitResult.pesan}`));
-                await sock.sendMessage(user.phone, {
-                    text: `*GAGAL AUTO-SUBMIT*\n\nTidak dapat mengirim laporan.\nError: ${submitResult.pesan}\n\nSilakan submit manual sekarang!`
-                });
-            }
-
-            // Delay between users to avoid rate limiting
-            await new Promise(r => setTimeout(r, 3000));
-
-        } catch (e) {
-            console.error(chalk.red(`[AUTO] Error for ${user.email}:`), e.message);
-        }
+        } catch (e) { }
     }
-
-    console.log(chalk.green('[SCHEDULER] Emergency auto-submit completed.'));
 }
 
 function initScheduler(sock) {
-    // Regular reminders (Monday-Friday) - Adjusted for WITA
-    cron.schedule('0 18 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
-    cron.schedule('0 20 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
-    cron.schedule('0 22 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
+    // Regular reminders (WITA)
+    cron.schedule('0 21 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
+    cron.schedule('0 23 * * 1-5', () => runAutoReminder(sock), { timezone: "Asia/Makassar" });
 
-    // EMERGENCY: Auto-submit at 23:59 WITA (Monday-Friday)
+    // DRAFT PUSH (23:50 WITA)
+    cron.schedule('50 23 * * 1-5', () => runDraftPush(sock), { timezone: "Asia/Makassar" });
+
+    // EMERGENCY (23:59 WITA)
     cron.schedule('59 23 * * 1-5', () => runEmergencyAutoSubmit(sock), { timezone: "Asia/Makassar" });
 
-    console.log(chalk.blue('[SCHEDULER] Alarm: 18:00, 20:00, 22:00, 23:59 (emergency) WITA'));
+    console.log(chalk.blue('[SCHEDULER] Schedule: 21:00, 23:00, 23:50 (Draft), 23:59 (Emergency) WITA'));
 }
 
 module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit };

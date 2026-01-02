@@ -29,11 +29,8 @@ function loadSession(email) {
     try {
         const session = JSON.parse(fs.readFileSync(sessionPath, "utf8"));
 
-        // Check if session is expired
-        if (session.timestamp && Date.now() - session.timestamp > SESSION_TIMEOUT_MS) {
-            console.log(chalk.yellow(`[API] Session expired for ${email} (age: ${Math.round((Date.now() - session.timestamp) / 1000 / 60)} min)`));
-            return null;
-        }
+        // Flag if session is technically "stale" but let's try it anyway
+        const isStale = (session.timestamp && Date.now() - session.timestamp > SESSION_TIMEOUT_MS);
 
         // Validate cookies exist and are not empty
         if (!session.cookies || !Array.isArray(session.cookies) || session.cookies.length === 0) {
@@ -41,19 +38,12 @@ function loadSession(email) {
             return null;
         }
 
-        // Check for essential session cookies (common session cookie names)
-        const essentialCookieNames = ['laravel_session', 'XSRF-TOKEN', 'session', '_session_id'];
-        const hasEssentialCookie = session.cookies.some(c =>
-            essentialCookieNames.some(name => c.name.toLowerCase().includes(name.toLowerCase()))
-        );
-
-        if (!hasEssentialCookie) {
-            console.log(chalk.yellow(`[API] No essential session cookie found for ${email}. Cookies: ${session.cookies.map(c => c.name).join(', ')}`));
-            // Still return session but log warning - some sites may use different cookie names
-        }
-
         const ageMinutes = Math.round((Date.now() - session.timestamp) / 1000 / 60);
-        console.log(chalk.cyan(`[API] Loaded session for ${email} (age: ${ageMinutes} min, ${session.cookies.length} cookies)`));
+        if (isStale) {
+            console.log(chalk.yellow(`[API] Session stale for ${email} (${ageMinutes} min), but attempting reuse...`));
+        } else {
+            console.log(chalk.cyan(`[API] Loaded session for ${email} (age: ${ageMinutes} min, ${session.cookies.length} cookies)`));
+        }
         return session;
     } catch (e) {
         console.error(chalk.red(`[API] Error loading session for ${email}:`), e.message);
@@ -346,7 +336,7 @@ async function getAttendanceHistory(email, days = 1, retries = 2) {
         const response = await client.get(API_ENDPOINTS.DAILY_LOGS, {
             maxRedirects: 0,
             validateStatus: status => status >= 200 && status < 400,
-            timeout: 60000 
+            timeout: 60000
         });
 
         if (response.status !== 200) {
