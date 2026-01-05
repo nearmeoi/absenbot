@@ -31,14 +31,42 @@ export default function Groups() {
 
     const loadGroups = async () => {
         try {
-            const res = await api.get('/groups');
-            // Convert object to array
-            const data = res.data || {};
-            const list = Object.keys(data).map(id => ({ id, ...data[id] }));
-            setGroups(list);
+            const [resSettings, resActive] = await Promise.all([
+                api.get('/groups'), // Saved settings
+                api.get('/groups/active').catch(() => ({ data: [] })) // Live groups (might fail if offline)
+            ]);
+
+            const settings = resSettings.data || {};
+            const activeGroups = resActive.data || [];
+
+            // Merge logic:
+            // 1. Map active groups and attach settings if available
+            const merged = activeGroups.map(g => ({
+                ...g,
+                ...(settings[g.id] || {}), // Overwrite with saved settings (name, etc)
+                isRegistered: !!settings[g.id],
+                originalName: g.name // Keep original name ref
+            }));
+
+            // 2. Add groups that are in settings but NOT in active (offline/kicked)
+            Object.keys(settings).forEach(id => {
+                if (!merged.find(g => g.id === id)) {
+                    merged.push({
+                        id,
+                        name: settings[id].name || 'Unknown Group (Inactive)',
+                        ...settings[id],
+                        isRegistered: true,
+                        isMissing: true
+                    });
+                }
+            });
+
+            setGroups(merged);
             setLoading(false);
         } catch (e) {
+            console.error(e);
             toast.error('Failed to load groups');
+            setLoading(false);
         }
     };
 
@@ -91,29 +119,45 @@ export default function Groups() {
                             {groups.map((g) => (
                                 <TableRow key={g.id} hover>
                                     <TableCell>
-                                        <Typography variant="subtitle2" fontWeight={600}>{g.name || 'Unknown Group'}</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Typography variant="subtitle2" fontWeight={600}>
+                                                {g.name || 'Unknown Group'}
+                                            </Typography>
+                                            {!g.isRegistered && (
+                                                <Chip label="New" color="info" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+                                            )}
+                                            {g.isMissing && (
+                                                <Chip label="Bot Left" color="error" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+                                            )}
+                                        </Box>
                                         <Typography variant="caption" color="text.secondary">{g.id}</Typography>
                                     </TableCell>
                                     <TableCell>
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                            <Chip
-                                                label={g.schedulerEnabled ? "Scheduler ON" : "Scheduler OFF"}
-                                                color={g.schedulerEnabled ? "success" : "default"}
-                                                size="small"
-                                            />
-                                            {g.isTesting && <Chip label="TESTING" color="warning" size="small" />}
-                                        </Box>
+                                        {g.isRegistered ? (
+                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                                <Chip
+                                                    label={g.schedulerEnabled ? "Scheduler ON" : "Scheduler OFF"}
+                                                    color={g.schedulerEnabled ? "success" : "default"}
+                                                    size="small"
+                                                />
+                                                {g.isTesting && <Chip label="TESTING" color="warning" size="small" />}
+                                            </Box>
+                                        ) : (
+                                            <Chip label="Not Configured" size="small" variant="outlined" />
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <Typography variant="body2">{g.skipWeekends ? 'Skip Weekends' : 'Every Day'}</Typography>
                                     </TableCell>
                                     <TableCell align="right">
-                                        <IconButton size="small" onClick={() => setEditGroup(g)} sx={{ mr: 1 }}>
-                                            <Edit2 size={16} />
+                                        <IconButton size="small" onClick={() => setEditGroup(g)} sx={{ mr: 1 }} color={g.isRegistered ? "primary" : "default"}>
+                                            {g.isRegistered ? <Edit2 size={16} /> : <Save size={16} />}
                                         </IconButton>
-                                        <IconButton size="small" color="error" onClick={() => handleDelete(g.id)}>
-                                            <Trash2 size={16} />
-                                        </IconButton>
+                                        {g.isRegistered && (
+                                            <IconButton size="small" color="error" onClick={() => handleDelete(g.id)}>
+                                                <Trash2 size={16} />
+                                            </IconButton>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}
