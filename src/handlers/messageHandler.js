@@ -5,6 +5,9 @@ const { generateAuthUrl, initAuthServer } = require('../services/secureAuth');
 const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = require('../services/groqService');
 const { setDraft, getDraft, deleteDraft } = require('../services/previewService');
 const { addHoliday, removeHoliday, isHoliday, getAllHolidays, addAllowedGroup, removeAllowedGroup, getAllowedGroups } = require('../config/holidays');
+const { loadGroupSettings } = require('../services/groupSettings');
+const { getBotStatus } = require('../routes/dashboardRoutes');
+const { getMessage } = require('../services/messageService');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
@@ -15,15 +18,23 @@ module.exports = async (sock, msg) => {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
 
+        // --- BOT STATUS CHECK ---
+        const botStatus = getBotStatus();
+        const sender = msgObj.key.remoteJid;
+
+        // If bot is OFFLINE, ignore ALL messages completely
+        if (botStatus === 'offline') {
+            return;
+        }
+
         // --- HANDLING VOICE NOTE / AUDIO (PRIVATE CHAT ONLY) ---
         const isAudio = msgObj.message.audioMessage || msgObj.message.pttMessage;
-        const sender = msgObj.key.remoteJid;
         const isGroup = sender.endsWith("@g.us");
 
         if (isAudio && !isGroup) {
             // Voice note feature temporarily disabled
             await sock.sendMessage(sender, {
-                text: "Maaf, fitur Voice Note sedang dinonaktifkan sementara. Silakan ketik laporan Anda menggunakan perintah *!absen [cerita]*."
+                text: getMessage('voicenote_disabled')
             }, { quoted: msgObj });
             return;
         }
@@ -49,6 +60,14 @@ module.exports = async (sock, msg) => {
         const isConfirmation = textMessage.toLowerCase().trim() === 'ya';
 
         if (!isCommand && !isLaporanContent && !isDraftContent && !isConfirmation) return;
+
+        // If bot is MAINTENANCE, respond with maintenance message
+        if (botStatus === 'maintenance') {
+            await sock.sendMessage(sender, {
+                text: getMessage('maintenance_message')
+            }, { quoted: msgObj });
+            return;
+        }
 
         let senderNumber = isGroup
             ? msgObj.key.participant || msgObj.participant
@@ -94,18 +113,7 @@ module.exports = async (sock, msg) => {
         // ----------------------------------------------------
         if (command === '!hai' || command === '!menu') {
             const coverPath = require('path').join(__dirname, '../../public/img/cover.png');
-            const info = `*BOT MAGANGHUB v7.1* 🚀
-            
-Halo! Saya asisten absensi MagangHub Anda.
-
-*Daftar Perintah:*
-1️⃣ *!daftar* - Registrasi akun (Wajib)
-2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)
-3️⃣ *!cek* - Cek status kehadiran hari ini
-4️⃣ *!riwayat* - Lihat riwayat absen
-5️⃣ *!help* - Panduan & Cara pakai
-
-_Bot akan siapkan draft. Balas *ya* untuk kirim, atau *copy-paste & edit* draft untuk revisi._`;
+            const info = getMessage('menu');
 
             if (fs.existsSync(coverPath)) {
                 await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
@@ -116,24 +124,7 @@ _Bot akan siapkan draft. Balas *ya* untuk kirim, atau *copy-paste & edit* draft 
         }
 
         if (command === '!help') {
-            const helpText = `*PANDUAN PENGGUNAAN BOT* 📖
-
-*1. Cara Lapor (Semi-Auto - AI)*
-Ketik *!absen* diikuti cerita singkat kegiatan Anda hari ini.
-_Contoh: !absen tadi saya belajar react js dan membuat komponen login_
-
-*2. Cara Lapor (Manual Full)*
-Jika ingin kontrol penuh, gunakan tag berikut:
-*!absen #aktivitas [isi] #pembelajaran [isi] #kendala [isi]*
-_Pastikan setiap bagian minimal 100 karakter._
-
-*3. Cara Konfirmasi*
-Setelah bot mengirimkan draf laporan, periksa isinya. Jika sudah OK, cukup balas dengan kata *ya*.
-
-*4. Cek Status*
-Ketik *!cek* untuk memastikan laporan Anda sudah benar-benar masuk ke sistem MagangHub.
-
-Semoga membantu!`;
+            const helpText = getMessage('help');
             await sock.sendMessage(sender, { text: helpText }, { quoted: msgObj });
             return;
         }
@@ -145,7 +136,7 @@ Semoga membantu!`;
             if (!isGroup) {
                 await sock.sendMessage(
                     sender,
-                    { text: "Perintah ini harus dijalankan di dalam grup." },
+                    { text: getMessage('setgroup_not_group') },
                     { quoted: msgObj }
                 );
                 return;
@@ -155,7 +146,7 @@ Semoga membantu!`;
             await sock.sendMessage(
                 sender,
                 {
-                    text: `Grup berhasil disimpan.\n\nAlarm otomatis (WITA) akan dikirim ke grup ini.`
+                    text: getMessage('setgroup_success')
                 },
                 { quoted: msgObj }
             );
@@ -170,7 +161,7 @@ Semoga membantu!`;
             if (allUsers.length === 0) {
                 await sock.sendMessage(
                     sender,
-                    { text: "Belum ada user terdaftar." },
+                    { text: getMessage('listuser_empty') },
                     { quoted: msgObj }
                 );
                 return;
@@ -209,7 +200,7 @@ Semoga membantu!`;
             if (!user) {
                 await sock.sendMessage(
                     sender,
-                    { text: "Akun tidak ditemukan. Anda belum terdaftar." },
+                    { text: getMessage('hapus_not_found') },
                     { quoted: msgObj }
                 );
                 return;
@@ -219,13 +210,13 @@ Semoga membantu!`;
             if (deleted) {
                 await sock.sendMessage(
                     sender,
-                    { text: "Akun berhasil dihapus dari sistem." },
+                    { text: getMessage('hapus_success') },
                     { quoted: msgObj }
                 );
             } else {
                 await sock.sendMessage(
                     sender,
-                    { text: "Gagal menghapus akun. Silakan coba lagi." },
+                    { text: getMessage('hapus_failed') },
                     { quoted: msgObj }
                 );
             }
@@ -273,7 +264,7 @@ Semoga membantu!`;
             }
 
             if (belumAbsen.length > 0) {
-                let msgAlert = `*PENGINGAT ABSENSI*\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\nPeserta yang belum absen:\n`;
+                let msgAlert = getMessage('siapa_header') + `\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\n`;
                 belumAbsen.forEach(
                     num => (msgAlert += `- @${num.split("@")[0]}\n`)
                 );
@@ -283,7 +274,7 @@ Semoga membantu!`;
             } else {
                 await sock.sendMessage(
                     sender,
-                    { text: `Semua peserta sudah menyelesaikan absensi hari ini.` },
+                    { text: getMessage('siapa_all_done') },
                     { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
             }
@@ -306,7 +297,7 @@ Semoga membantu!`;
                 await sock.sendMessage(
                     sender,
                     {
-                        text: "Anda sudah terdaftar. Gunakan !absen untuk mengirim laporan atau !cek untuk melihat status."
+                        text: getMessage('already_registered')
                     },
                     { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
@@ -320,14 +311,14 @@ Semoga membantu!`;
                     await sock.sendMessage(
                         originalSenderId,
                         {
-                            text: `*REGISTRASI BERHASIL*\n\nAkun Anda telah terdaftar.\n\nPastikan Anda mendaftar menggunakan email dan password akun *Monev / SiapKerja* asli agar bot dapat melakukan absensi secara otomatis.\n\nGunakan perintah *!absen* untuk mengirim laporan harian.`
+                            text: getMessage('registration_success')
                         }
                     );
                 } else {
                     await sock.sendMessage(
                         originalSenderId,
                         {
-                            text: `*REGISTRASI GAGAL*\n${result.message || 'Terjadi kesalahan saat registrasi.'}`
+                            text: getMessage('registration_failed').replace('{error}', result.message || 'Terjadi kesalahan saat registrasi.')
                         }
                     );
                 }
@@ -337,14 +328,14 @@ Semoga membantu!`;
                 // Notify in group
                 await sock.sendMessage(
                     sender,
-                    { text: "Link pendaftaran sudah saya kirim ke Chat Pribadi (Japri) ya." },
+                    { text: getMessage('registration_link_group') },
                     { quoted: msgObj, ephemeralExpiration: 86400 }
                 );
                 // Send link to private chat
                 await sock.sendMessage(
                     originalSenderId,
                     {
-                        text: `*PENDADAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
+                        text: getMessage('registration_link_private').replace('{url}', authUrl)
                     }
                 );
             } else {
@@ -352,7 +343,7 @@ Semoga membantu!`;
                 await sock.sendMessage(
                     sender,
                     {
-                        text: `*PENDAFTARAN AKUN*\n\nKlik link di bawah ini untuk menghubungkan akun MagangHub kamu:\n\n${authUrl}\n\n(Link ini aman dan hanya berlaku 10 menit)`
+                        text: getMessage('registration_link_private').replace('{url}', authUrl)
                     },
                     { quoted: msgObj }
                 );
@@ -472,31 +463,56 @@ Semoga membantu!`;
 
         // --- CORE LOGIC: !ABSEN ---
         if (command === '!absen') {
-            // Check if today is a holiday
+            // Check if today is a global holiday
             if (isHoliday()) {
                 await sock.sendMessage(sender, {
-                    text: "🏖️ Hari ini libur, tidak perlu absen. Selamat beristirahat!"
+                    text: getMessage('holiday_message')
                 }, { quoted: msgObj });
                 return;
             }
 
+            // Check if this GROUP is on holiday today (per-group settings)
+            if (isGroup) {
+                const groupSettings = loadGroupSettings();
+                const groupConfig = groupSettings[sender];
+                if (groupConfig) {
+                    // Check group-specific holidays
+                    const today = new Date().toISOString().split('T')[0];
+                    if (groupConfig.holidays && groupConfig.holidays.includes(today)) {
+                        await sock.sendMessage(sender, {
+                            text: getMessage('holiday_message')
+                        }, { quoted: msgObj });
+                        return;
+                    }
+                    // Check weekend skip
+                    const dayOfWeek = new Date().getDay();
+                    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+                    if (isWeekend && groupConfig.skipWeekends !== false) {
+                        await sock.sendMessage(sender, {
+                            text: getMessage('holiday_message')
+                        }, { quoted: msgObj });
+                        return;
+                    }
+                }
+            }
+
             const user = getUserByPhone(senderNumber);
             if (!user) {
-                await sock.sendMessage(sender, { text: "Anda belum terdaftar. Gunakan *!daftar* terlebih dahulu." }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
                 return;
             }
 
             if (!args || args.trim() === '') {
                 // Zero-input mode: Auto-generate from history
                 await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: "_Sedang menyiapkan laporan otomatis dari riwayat Anda..._" }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('absen_loading') }, { quoted: msgObj });
 
                 const history = await getRiwayat(user.email, user.password, 3);
                 const aiResult = await generateAttendanceReport(history.success ? history.logs : []);
 
                 if (!aiResult.success) {
                     await sock.sendMessage(sender, {
-                        text: `Gagal membuat laporan otomatis. Silakan coba manual:\n\n*!absen [cerita aktivitas hari ini]*\n_Contoh: !absen belajar react membuat komponen_`
+                        text: getMessage('absen_failed_auto')
                     }, { quoted: msgObj });
                     return;
                 }
@@ -554,7 +570,8 @@ Semoga membantu!`;
                 }
 
                 if (errors.length > 0) {
-                    await sock.sendMessage(sender, { text: `⚠️ *Laporan Terlalu Singkat*\n\n${errors.join('\n')}\n\nSilakan panjangkan lagi laporannya (${MIN_CHARS}-${MAX_CHARS} karakter per bagian).` }, { quoted: msgObj });
+                    const errorMsg = getMessage('absen_too_short').replace('{errors}', errors.join('\n'));
+                    await sock.sendMessage(sender, { text: errorMsg }, { quoted: msgObj });
                     return;
                 }
             } else {
@@ -562,7 +579,7 @@ Semoga membantu!`;
                 const aiResult = await processFreeTextToReport(args, history.success ? history.logs : []);
 
                 if (!aiResult.success) {
-                    await sock.sendMessage(sender, { text: `Maaf, gagal memproses laporan AI: ${aiResult.error}` }, { quoted: msgObj });
+                    await sock.sendMessage(sender, { text: getMessage('absen_failed_ai').replace('{error}', aiResult.error) }, { quoted: msgObj });
                     return;
                 }
 
@@ -576,11 +593,13 @@ Semoga membantu!`;
 
             setDraft(senderNumber, reportData);
 
-            const previewText = `*DRAF LAPORAN ANDA*\n\n` +
-                `*Aktivitas:* (${reportData.aktivitas.length} karakter)\n${reportData.aktivitas}\n\n` +
-                `*Pembelajaran:* (${reportData.pembelajaran.length} karakter)\n${reportData.pembelajaran}\n\n` +
-                `*Kendala:* (${reportData.kendala.length} karakter)\n${reportData.kendala}\n\n` +
-                `_Ketik *ya* untuk mengirim laporan ini ke web MagangHub._`;
+            const previewText = getMessage('draft_preview')
+                .replace('{aktivitas_len}', reportData.aktivitas.length)
+                .replace('{aktivitas}', reportData.aktivitas)
+                .replace('{pembelajaran_len}', reportData.pembelajaran.length)
+                .replace('{pembelajaran}', reportData.pembelajaran)
+                .replace('{kendala_len}', reportData.kendala.length)
+                .replace('{kendala}', reportData.kendala);
 
             await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
             return;
@@ -609,18 +628,18 @@ Semoga membantu!`;
                 }
 
                 if (errors.length > 0) {
-                    await sock.sendMessage(sender, { text: `⚠️ *Format Laporan Belum Sesuai*\n\n${errors.join('\n')}\n\nSilakan perbaiki.` }, { quoted: msgObj });
+                    await sock.sendMessage(sender, { text: getMessage('draft_format_error').replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
                     return;
                 }
 
                 setDraft(senderNumber, parsedEdit);
-                await sock.sendMessage(sender, { text: `✅ *Draf berhasil diperbarui manual*.\n\nKetik *ya* untuk mengirim.` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('draft_manual_updated') }, { quoted: msgObj });
                 return;
             }
             // OPTION 2: USER SENT FREE TEXT REVISION (AUTO UPDATE WITH AI)
             else {
                 await sock.sendMessage(sender, { react: { text: "✍️", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: "_Memperbarui laporan berdasarkan revisi Anda..._" }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('draft_update_loading') }, { quoted: msgObj });
 
                 const user = getUserByPhone(senderNumber);
                 const history = await getRiwayat(user.email, user.password, 3);
@@ -630,7 +649,7 @@ Semoga membantu!`;
                 const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
 
                 if (!aiResult.success) {
-                    await sock.sendMessage(sender, { text: `Gagal memperbarui laporan. Silakan coba lagi atau ketik sesuai format manual.` }, { quoted: msgObj });
+                    await sock.sendMessage(sender, { text: getMessage('draft_update_failed') }, { quoted: msgObj });
                     return;
                 }
 
@@ -643,11 +662,13 @@ Semoga membantu!`;
 
                 setDraft(senderNumber, reportData);
 
-                const previewText = `*DRAF DIPERBARUI* ✨\n\n` +
-                    `*Aktivitas:* (${reportData.aktivitas.length} karakter)\n${reportData.aktivitas}\n\n` +
-                    `*Pembelajaran:* (${reportData.pembelajaran.length} karakter)\n${reportData.pembelajaran}\n\n` +
-                    `*Kendala:* (${reportData.kendala.length} karakter)\n${reportData.kendala}\n\n` +
-                    `_Ketik *ya* untuk kirim, atau revisi lagi dengan membalas pesan ini._`;
+                const previewText = getMessage('draft_updated')
+                    .replace('{aktivitas_len}', reportData.aktivitas.length)
+                    .replace('{aktivitas}', reportData.aktivitas)
+                    .replace('{pembelajaran_len}', reportData.pembelajaran.length)
+                    .replace('{pembelajaran}', reportData.pembelajaran)
+                    .replace('{kendala_len}', reportData.kendala.length)
+                    .replace('{kendala}', reportData.kendala);
 
                 await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                 return;
@@ -673,10 +694,10 @@ Semoga membantu!`;
             });
 
             if (loginResult.success) {
-                await sock.sendMessage(sender, { text: `✅ *BERHASIL!* \nLaporan Anda telah terkirim ke web MagangHub.` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('submit_success') }, { quoted: msgObj });
                 deleteDraft(senderNumber);
             } else {
-                await sock.sendMessage(sender, { text: `❌ *GAGAL:* ${loginResult.pesan}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('submit_failed').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
             }
             return;
         }
@@ -696,14 +717,16 @@ Semoga membantu!`;
                 await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
                 if (status.sudahAbsen) {
                     const log = status.data;
-                    let reply = `✅ *STATUS: SUDAH ABSEN*\n\n📅 *Tanggal:* ${log.date}\n🏢 *Aktivitas:* ${log.activity_log.substring(0, 100)}...`;
+                    let reply = getMessage('cek_sudah_absen')
+                        .replace('{date}', log.date)
+                        .replace('{activity}', log.activity_log.substring(0, 100));
                     await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
                 } else {
-                    await sock.sendMessage(sender, { text: `❌ *STATUS: BELUM ABSEN*\nAnda belum mengirim laporan hari ini.` }, { quoted: msgObj });
+                    await sock.sendMessage(sender, { text: getMessage('cek_belum_absen') }, { quoted: msgObj });
                 }
             } else {
                 await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
-                await sock.sendMessage(sender, { text: `Terjadi kesalahan saat mengecek status: ${status.pesan}` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('cek_error').replace('{error}', status.pesan) }, { quoted: msgObj });
             }
             return;
         }
@@ -724,12 +747,12 @@ Semoga membantu!`;
 
             if (result.success && result.logs.length > 0) {
                 await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
-                let historyText = `*RIWAYAT ABSENSI*\n`;
+                let historyText = getMessage('riwayat_header') + '\n';
                 result.logs.forEach(log => {
                     historyText += `\n━━━━━━━━━━━━━━━━━━\n`;
                     historyText += `*${log.date}*\n`;
                     if (log.missing || !log.activity_log) {
-                        historyText += `_(Tidak ada data absen)_\n`;
+                        historyText += getMessage('riwayat_no_data') + '\n';
                     } else {
                         historyText += `*Aktivitas:*\n${log.activity_log}\n\n`;
                         if (log.lesson_learned) {
@@ -741,10 +764,10 @@ Semoga membantu!`;
                     }
                 });
                 const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-                if (isGroup) await sock.sendMessage(sender, { text: "Riwayat dikirim ke Japri." }, { quoted: msgObj });
+                if (isGroup) await sock.sendMessage(sender, { text: getMessage('riwayat_sent_to_private') }, { quoted: msgObj });
                 await sock.sendMessage(targetJid, { text: historyText });
             } else {
-                await sock.sendMessage(sender, { text: "Gagal mengambil riwayat atau data kosong." }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('riwayat_failed') }, { quoted: msgObj });
             }
             return;
         }

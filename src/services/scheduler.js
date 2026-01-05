@@ -8,6 +8,9 @@ const { generateAttendanceReport } = require('./groqService');
 const { setDraft } = require('./previewService');
 const { getAllowedGroups, isHoliday } = require('../config/holidays');
 
+const { loadGroupSettings } = require('./groupSettings');
+const { getMessage } = require('./messageService');
+
 // Check if today is weekend or holiday
 function isWeekendOrHoliday() {
     const day = new Date().getDay();
@@ -22,21 +25,38 @@ async function sendReminder(sock, user, text) {
         await sock.sendMessage(user.phone, { text });
     } catch (e) { console.error(chalk.red(`[SCHEDULER] Failed DM to ${user.phone}:`), e.message); }
 
-    // 2. Send to Group (Only if whitelisted)
-    /* 
-       NOTE: Logic ini dimatikan sementara karena kita belum menyimpan Group ID user di database.
-       Jika user.groupId nanti sudah ada, uncomment kode di bawah ini.
+    // 2. Send to Group (Only if whitelisted AND enabled)
+    /*
+       STRATEGY: Since we don't store which user belongs to which group yet,
+       we will handle group broadcasts separately in the main scheduler functions
+       by iterating over the allowed groups list.
        
-       const allowedGroups = getAllowedGroups();
-       if (user.groupId && allowedGroups.includes(user.groupId)) {
-           try {
-               await sock.sendMessage(user.groupId, { text: `@${user.phone.split('@')[0]} ${text}`, mentions: [user.phone] });
-           } catch (e) {}
-       }
+       This function (sendReminder) keeps focusing on the individual user DM.
     */
 }
 
-// Morning reminder (08:00 WITA)
+// Check if today is a holiday for a specific group
+function isGroupHoliday(config) {
+    if (!config.holidays || config.holidays.length === 0) return false;
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    return config.holidays.includes(today);
+}
+
+// Check if today is weekend AND group has skipWeekends enabled (default: true)
+function isGroupWeekend(config) {
+    const day = new Date().getDay();
+    const isWeekend = (day === 0 || day === 6);
+    // skipWeekends defaults to true if not set
+    const shouldSkip = config.skipWeekends !== false;
+    return isWeekend && shouldSkip;
+}
+
+// Combined check: should this group be skipped today?
+function shouldSkipGroup(config) {
+    return isGroupHoliday(config) || isGroupWeekend(config);
+}
+
+// Morning reminder (08:00 WITA) - GROUP BROADCAST ONLY
 async function runMorningReminder(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running morning reminder (08:00)...'));
 
@@ -45,17 +65,26 @@ async function runMorningReminder(sock) {
         return;
     }
 
-    const allUsers = getAllUsers();
-    if (allUsers.length === 0) return;
+    // BROADCAST TO GROUPS ONLY (No personal DM)
+    const settings = loadGroupSettings();
+    // Filter: schedulerEnabled AND not skipped (holiday or weekend)
+    const enabledGroups = Object.entries(settings).filter(([_, c]) =>
+        c.schedulerEnabled && !shouldSkipGroup(c)
+    );
+    console.log(chalk.cyan(`[SCHEDULER] Broadcasting to ${enabledGroups.length} groups...`));
 
-    console.log(chalk.cyan(`[SCHEDULER] Mengirim pengingat pagi ke ${allUsers.length} user...`));
-    for (const user of allUsers) {
-        await sendReminder(sock, user, `Selamat pagi! ☀️\n\nJangan lupa absen hari ini ya. Ketik *!absen* kapan saja untuk lapor.`);
-        await new Promise(r => setTimeout(r, 2000));
+    const msg = getMessage('morning_reminder');
+    for (const [groupId, config] of enabledGroups) {
+        try {
+            await sock.sendMessage(groupId, { text: msg });
+            await new Promise(r => setTimeout(r, 2000));
+        } catch (e) {
+            console.error(chalk.red(`[SCHEDULER] Failed group broadcast to ${groupId}`));
+        }
     }
 }
 
-// Afternoon reminder (16:00 WITA - Markipul)
+// Afternoon reminder (16:00 WITA - Markipul) - GROUP BROADCAST ONLY
 async function runAfternoonReminder(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running afternoon reminder (16:00 - Markipul)...'));
 
@@ -64,60 +93,43 @@ async function runAfternoonReminder(sock) {
         return;
     }
 
-    const allUsers = getAllUsers();
-    if (allUsers.length === 0) return;
+    // BROADCAST MARKIPUL TO GROUPS ONLY (No personal DM)
+    const settings = loadGroupSettings();
+    const enabledGroups = Object.entries(settings).filter(([_, c]) =>
+        c.schedulerEnabled && !shouldSkipGroup(c)
+    );
+    console.log(chalk.cyan(`[SCHEDULER] Broadcasting Markipul to ${enabledGroups.length} groups...`));
 
-    let belumAbsen = [];
-    for (const user of allUsers) {
+    const msg = getMessage('afternoon_reminder');
+    for (const [groupId, config] of enabledGroups) {
         try {
-            const status = await cekStatusHarian(user.email, user.password);
-            if (status.success && !status.sudahAbsen) {
-                belumAbsen.push(user);
-            }
-        } catch (e) { }
-    }
-
-    if (belumAbsen.length > 0) {
-        console.log(chalk.cyan(`[SCHEDULER] Mengirim Markipul ke ${belumAbsen.length} user...`));
-        for (const user of belumAbsen) {
-            await sendReminder(sock, user, `*MARKIPUL* 🏠\n\nMari kita pulang! Tapi jangan lupa absen dulu ya sebelum tengah malam.\n\nKetik *!absen* untuk lapor.`);
+            await sock.sendMessage(groupId, { text: msg });
             await new Promise(r => setTimeout(r, 2000));
-        }
+        } catch (e) { }
     }
 }
 
-// Auto reminder function (Just notify)
+// Evening reminder (21:00, 23:00) - GROUP BROADCAST ONLY
 async function runAutoReminder(sock) {
-    console.log(chalk.magenta('[SCHEDULER] Running auto reminder...'));
+    console.log(chalk.magenta('[SCHEDULER] Running evening reminder...'));
 
-    if (isWeekend()) {
-        console.log(chalk.yellow('[SCHEDULER] Skipping - weekend.'));
+    if (isWeekendOrHoliday()) {
+        console.log(chalk.yellow('[SCHEDULER] Skipping - weekend or holiday.'));
         return;
     }
 
-    const allUsers = getAllUsers();
-    if (allUsers.length === 0) return;
+    // BROADCAST TO GROUPS ONLY (No personal DM)
+    const settings = loadGroupSettings();
+    const enabledGroups = Object.entries(settings).filter(([_, c]) =>
+        c.schedulerEnabled && !shouldSkipGroup(c)
+    );
 
-    let belumAbsen = [];
-    for (const user of allUsers) {
+    const msg = getMessage('evening_reminder');
+    for (const [groupId, config] of enabledGroups) {
         try {
-            const status = await cekStatusHarian(user.email, user.password);
-            if (status.success && !status.sudahAbsen) {
-                belumAbsen.push(user.phone);
-            }
+            await sock.sendMessage(groupId, { text: msg });
+            await new Promise(r => setTimeout(r, 2000));
         } catch (e) { }
-    }
-
-    if (belumAbsen.length > 0) {
-        console.log(chalk.cyan(`[SCHEDULER] Mengirim pengingat ke ${belumAbsen.length} user...`));
-        for (const phone of belumAbsen) {
-            try {
-                await sock.sendMessage(phone, {
-                    text: `*PENGINGAT ABSENSI* 🔔\n\nHalo! Kamu belum absen hari ini di MagangHub. Segera lapor ya sebelum jam 23:59 WITA.\n\nKetik *!absen* untuk mulai.`
-                });
-                await new Promise(r => setTimeout(r, 2000));
-            } catch (e) { }
-        }
     }
 }
 
@@ -125,7 +137,10 @@ async function runAutoReminder(sock) {
 async function runDraftPush(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running draft push (23:50 WITA)...'));
 
-    if (isWeekend()) return;
+    if (isWeekendOrHoliday()) {
+        console.log(chalk.yellow('[SCHEDULER] Skipping draft push - weekend or holiday.'));
+        return;
+    }
 
     const allUsers = getAllUsers();
     for (const user of allUsers) {
@@ -163,7 +178,10 @@ async function runDraftPush(sock) {
 async function runEmergencyAutoSubmit(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running emergency auto-submit (23:59 WITA)...'));
 
-    if (isWeekend()) return;
+    if (isWeekendOrHoliday()) {
+        console.log(chalk.yellow('[SCHEDULER] Skipping auto-submit - weekend or holiday.'));
+        return;
+    }
 
     const allUsers = getAllUsers();
     for (const user of allUsers) {
@@ -195,6 +213,36 @@ async function runEmergencyAutoSubmit(sock) {
     }
 }
 
+// TEST RUNNER for Development
+async function runTestScheduler(sock, type) {
+    const settings = loadGroupSettings();
+    // Filter groups strictly for testing
+    const testGroups = Object.entries(settings).filter(([_, c]) => c.isTesting);
+
+    if (testGroups.length === 0) {
+        return { success: false, message: 'No groups marked for testing' };
+    }
+
+    let msgKey = '';
+    if (type === 'morning') msgKey = 'morning_reminder';
+    else if (type === 'afternoon') msgKey = 'afternoon_reminder';
+    else if (type === 'evening') msgKey = 'evening_reminder';
+
+    const msg = getMessage(msgKey);
+    if (!msg) return { success: false, message: 'Invalid message type' };
+
+    console.log(chalk.cyan(`[TEST] Sending ${type} to ${testGroups.length} test groups...`));
+
+    for (const [groupId, config] of testGroups) {
+        try {
+            await sock.sendMessage(groupId, { text: `[TEST RUN]\n\n${msg}` });
+        } catch (e) {
+            console.error(`Failed test send to ${groupId}:`, e);
+        }
+    }
+    return { success: true, count: testGroups.length };
+}
+
 function initScheduler(sock) {
     // Morning reminder (08:00 WITA)
     cron.schedule('0 8 * * 1-5', () => runMorningReminder(sock), { timezone: "Asia/Makassar" });
@@ -215,4 +263,4 @@ function initScheduler(sock) {
     console.log(chalk.blue('[SCHEDULER] Schedule: 08:00 (Pagi), 16:00 (Markipul), 21:00, 23:00, 23:50 (Draft), 23:59 (Emergency) WITA'));
 }
 
-module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit, runMorningReminder, runAfternoonReminder };
+module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit, runMorningReminder, runAfternoonReminder, runTestScheduler };

@@ -4,6 +4,7 @@
  */
 
 const express = require('express');
+const session = require('express-session');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -87,29 +88,30 @@ async function getServerAddress() {
 function initAuthServer() {
     const app = express();
 
-    // Serve static files and handle authentication
-    app.use(express.static(path.join(__dirname, '../../public'))); // Serve static files from public directory
+    // Session middleware for dashboard
+    app.use(session({
+        secret: process.env.DASHBOARD_SECRET || 'absenbot-secret-key-change-this',
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+            secure: false, // Set to true if using HTTPS
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        }
+    }));
+
+    // Serve React App Assets
+    app.use('/dashboard', express.static(path.join(__dirname, '../../client/dist'))); // Serve React build at /dashboard
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
-    // Debug Route: Preview UI without token
-    app.get('/auth/preview', (req, res) => {
-        // Directly serve the login page for testing/preview
-        res.sendFile(path.join(__dirname, '../../public/login.html'));
-    });
+    // Dashboard routes
+    const dashboardRoutes = require('../routes/dashboardRoutes');
+    app.use('/dashboard', dashboardRoutes);
 
-    // Simple HTML page for login
-    app.get('/auth/:token', (req, res) => {
-        const token = req.params.token;
-        const authRequest = pendingAuths.get(token);
 
-        if (!authRequest) {
-            return res.status(404).send('<h1>Invalid or Expired Token</h1><p>This authentication link has expired or is invalid. Please try again.</p>');
-        }
-
-        // Serve the static login.html file
-        res.sendFile(path.join(__dirname, '../../public/login.html'));
-    });
+    // Legacy HTML routes replaced by React SPA
+    // app.get('/auth/preview') removed
+    // app.get('/auth/:token') removed - handled by React Router via dashboard catch-all
 
     // Handle login submission
     app.post('/auth/submit', async (req, res) => {
@@ -237,7 +239,7 @@ async function generateAuthUrl(phoneNumber, callback) {
 
     // Get server address (auto-detects IP)
     const baseUrl = await getServerAddress();
-    const authUrl = `${baseUrl}/auth/${token}`;
+    const authUrl = `${baseUrl}/dashboard/auth/${token}`;
 
     console.log(chalk.green(`[AUTH] Generated auth URL: ${authUrl}`));
     return authUrl;

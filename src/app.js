@@ -56,13 +56,43 @@ async function connectToWhatsApp() {
     sock.ev.on("connection.update", (update) => {
         const { connection, lastDisconnect } = update
         if (connection === "close") {
-            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut
-            if (shouldReconnect) connectToWhatsApp()
+            const reason = lastDisconnect.error?.output?.statusCode;
+            let failureReason = 'Unknown Error';
+
+            if (reason === DisconnectReason.badSession) failureReason = 'Bad Session File - Delete Session & Re-scan';
+            else if (reason === DisconnectReason.connectionClosed) failureReason = 'Connection Closed';
+            else if (reason === DisconnectReason.connectionLost) failureReason = 'Connection Lost from Server';
+            else if (reason === DisconnectReason.connectionReplaced) failureReason = 'Connection Replaced - Another Session Opened';
+            else if (reason === DisconnectReason.loggedOut) failureReason = 'Device Logged Out - Delete Session & Re-scan';
+            else if (reason === DisconnectReason.restartRequired) failureReason = 'Restart Required';
+            else if (reason === DisconnectReason.timedOut) failureReason = 'Connection Timed Out';
+
+            console.log(chalk.red(`❌ Connection Closed: ${failureReason}`));
+
+            // Update dashboard status
+            try {
+                const dashboardRoutes = require('./routes/dashboardRoutes');
+                dashboardRoutes.setBotConnected(false);
+                // FUTURE: We could pass the failureReason to the dashboard here
+            } catch (e) { }
+
+            const shouldReconnect = reason !== DisconnectReason.loggedOut;
+            if (shouldReconnect) {
+                console.log(chalk.yellow('🔄 Attempting to reconnect...'));
+                connectToWhatsApp();
+            } else {
+                console.log(chalk.bgRed('⛔ Session Invalid/Logged Out. Please delete session folder and restart.'));
+            }
         } else if (connection === "open") {
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
 
             // INIT AUTH SERVER (only once)
             initAuthServer();
+
+            // Pass socket to dashboard for broadcast/trigger features
+            const dashboardRoutes = require('./routes/dashboardRoutes');
+            dashboardRoutes.setBotSocket(sock);
+            dashboardRoutes.setBotConnected(true);
 
             // INIT SCHEDULER (only once)
             if (!schedulerInitialized) {
@@ -75,15 +105,40 @@ async function connectToWhatsApp() {
     sock.ev.on("messages.upsert", async (m) => {
         const msg = m.messages[0]
         if (!msg.message) return
-
-        // ABAIKAN STATUS
         if (msg.key.remoteJid === 'status@broadcast') return;
+        if (msg.key.remoteJid.includes('@newsletter')) return; // Ignore Channels
 
         const text = getMessageContent(msg);
         if (!text) return;
 
         const isMe = msg.key.fromMe;
-        console.log(chalk.blue(`📩 ${isMe ? 'ME' : 'USER'}: ${text.substring(0, 20)}...`));
+        const remoteJid = msg.key.remoteJid;
+        const isGroup = remoteJid.endsWith('@g.us');
+
+        // Get Sender Name
+        let senderName = msg.pushName || 'Unknown';
+        if (isMe) senderName = 'ME';
+
+        // Get Group Name (if applicable)
+        let contextInfo = '';
+        if (isGroup) {
+            try {
+                // Try to get group metadata from cache or fetch
+                const groupMetadata = await sock.groupMetadata(remoteJid);
+                contextInfo = chalk.yellow(`[${groupMetadata.subject}] `);
+            } catch (e) {
+                contextInfo = chalk.yellow(`[Group] `);
+            }
+        }
+
+        // Format Timestamp
+        const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        // Log Format: [TIME] [Group] Sender: Message
+        const prefix = chalk.gray(`[${time}]`);
+        const sender = isMe ? chalk.blue.bold('ME') : chalk.green.bold(senderName);
+
+        console.log(`${prefix} ${contextInfo}${sender}: ${text}`);
 
         try {
             msg.bodyTeks = text;

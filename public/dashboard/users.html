@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users - AbsenBot Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link rel="stylesheet" href="/dashboard/css/dashboard.css">
+</head>
+
+<body>
+    <div class="app">
+        <div class="sidebar-overlay"></div>
+
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <i data-feather="box"></i>
+                <span>AbsenBot</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="/dashboard" class="nav-link">
+                    <i data-feather="grid"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="/dashboard/users" class="nav-link active">
+                    <i data-feather="users"></i>
+                    <span>Users</span>
+                </a>
+                <a href="/dashboard/scheduler" class="nav-link">
+                    <i data-feather="clock"></i>
+                    <span>Scheduler</span>
+                </a>
+                <a href="/dashboard/settings" class="nav-link">
+                    <i data-feather="settings"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/dashboard/logout" class="nav-link" style="color: var(--danger)">
+                    <i data-feather="log-out"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <div class="main-content">
+            <header class="topbar">
+                <div style="display:flex; align-items:center; gap:1rem">
+                    <button class="mobile-toggle" id="sidebarToggle">
+                        <i data-feather="menu"></i>
+                    </button>
+                    <h3 class="page-title">User Management</h3>
+                </div>
+                <div>
+                    <button class="btn btn-primary btn-sm" onclick="loadUsers()">
+                        <i data-feather="refresh-cw" style="width:14px; height:14px"></i>
+                        <span>Refresh List</span>
+                    </button>
+                </div>
+            </header>
+
+            <main class="content-wrapper">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="card-title">Registered Users</h4>
+                    </div>
+                    <div class="card-body" style="padding: 0">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Email</th>
+                                        <th>Phone Number</th>
+                                        <th>Registered Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTable">
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; padding: 3rem;">
+                                            <span style="color: var(--text-muted)">Loading users...</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="/dashboard/js/dashboard.js"></script>
+</body>
+
+</html>

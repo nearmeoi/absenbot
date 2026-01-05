@@ -1,0 +1,16 @@
+{
+  "120363405760828990@g.us": {
+    "name": "Tes",
+    "schedulerEnabled": true,
+    "autoReply": true,
+    "isTesting": true,
+    "skipWeekends": true
+  },
+  "120363405673867279@g.us": {
+    "name": "siapa suruh ke sini?",
+    "schedulerEnabled": true,
+    "autoReply": true,
+    "isTesting": false,
+    "skipWeekends": true
+  }
+}

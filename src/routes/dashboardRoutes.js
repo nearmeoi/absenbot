@@ -1,0 +1,563 @@
+/**
+ * Dashboard Routes
+ * API endpoints and page routes for admin dashboard
+ */
+
+const express = require('express');
+const router = express.Router();
+const path = require('path');
+const { getAllUsers, deleteUser, getUserByPhone } = require('../services/database');
+const { cekStatusHarian, getRiwayat } = require('../services/magang');
+const { addHoliday, removeHoliday, getAllHolidays, isHoliday, getAllowedGroups } = require('../config/holidays');
+const { log, getLogs, getStats, LOG_TYPES } = require('../services/activityLogger');
+
+// Store bot reference and scheduler state
+let botSocket = null;
+let schedulerEnabled = true;
+let botConnected = false;
+let botStatus = 'online'; // 'online' | 'offline' | 'maintenance'
+
+// Dashboard password from env
+const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || 'admin123';
+
+// ========================================
+// MIDDLEWARE
+// ========================================
+
+function requireAuth(req, res, next) {
+    if (req.session && req.session.authenticated) {
+        return next();
+    }
+    if (req.path.startsWith('/api/')) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    return res.redirect('/dashboard/login');
+}
+
+// ========================================
+// PAGE ROUTES
+// ========================================
+
+// Login page
+// Login page (Handled by React)
+// router.get('/login', ... removed);
+
+// Login action
+router.post('/login', express.json(), (req, res) => {
+    const { password } = req.body;
+
+    if (password === DASHBOARD_PASSWORD) {
+        req.session.authenticated = true;
+        log(LOG_TYPES.AUTH, 'Admin logged in to dashboard');
+        return res.json({ success: true });
+    }
+
+    log(LOG_TYPES.WARNING, 'Failed login attempt to dashboard');
+    return res.status(401).json({ error: 'Password salah' });
+});
+
+// Logout
+router.get('/logout', (req, res) => {
+    req.session.destroy();
+    log(LOG_TYPES.AUTH, 'Admin logged out from dashboard');
+    res.redirect('/dashboard/login');
+});
+
+// Main dashboard (protected)
+// Main dashboard & SPA routes (Handled by catch-all at end)
+// router.get('/', ... removed);
+// router.get(spaRoutes, ... removed);
+
+// ========================================
+// API ROUTES
+// ========================================
+
+// Get dashboard stats
+router.get('/api/stats', requireAuth, async (req, res) => {
+    try {
+        const users = getAllUsers();
+        const holidays = getAllHolidays();
+        const groups = getAllowedGroups();
+        const logStats = getStats();
+
+        // Check today's attendance status for all users
+        // Check today's attendance status for all users
+        // DISABLED: Real-time checking causes excessive spam/load on the target server
+        // TODO: Implement a caching mechanism or read from a local daily status file
+        let absenToday = 0; // Placeholder
+        let pendingToday = users.length; // Placeholder
+
+        /* 
+        for (const user of users) {
+            try {
+                const status = await cekStatusHarian(user.email, user.password);
+                if (status.success && status.sudahAbsen) {
+                    absenToday++;
+                } else {
+                    pendingToday++;
+                }
+            } catch (e) {
+                pendingToday++;
+            }
+        }
+        */
+
+        res.json({
+            users: {
+                total: users.length,
+                absenToday,
+                pendingToday
+            },
+            holidays: {
+                total: holidays.length,
+                todayIsHoliday: isHoliday()
+            },
+            groups: {
+                total: groups.length
+            },
+            bot: {
+                connected: botConnected,
+                schedulerEnabled,
+                status: botStatus
+            },
+            logs: logStats
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get all users
+router.get('/api/users', requireAuth, (req, res) => {
+    const users = getAllUsers().map(u => ({
+        phone: u.phone,
+        email: u.email,
+        registeredAt: u.registeredAt,
+        lastLogin: u.lastLogin
+    }));
+    res.json(users);
+});
+
+// Delete user
+router.delete('/api/users/:phone', requireAuth, (req, res) => {
+    const phone = decodeURIComponent(req.params.phone);
+    const deleted = deleteUser(phone);
+
+    if (deleted) {
+        log(LOG_TYPES.INFO, `User ${phone} deleted via dashboard`);
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: 'User not found' });
+    }
+});
+
+// Check user status
+router.post('/api/users/:phone/check', requireAuth, async (req, res) => {
+    const phone = decodeURIComponent(req.params.phone);
+    const user = getUserByPhone(phone);
+
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    try {
+        const status = await cekStatusHarian(user.email, user.password);
+        log(LOG_TYPES.INFO, `Status check for ${user.email}: ${status.sudahAbsen ? 'sudah absen' : 'belum absen'}`);
+        res.json(status);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get user history
+router.get('/api/users/:phone/history', requireAuth, async (req, res) => {
+    const phone = decodeURIComponent(req.params.phone);
+    const days = parseInt(req.query.days) || 7;
+    const user = getUserByPhone(phone);
+
+    if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    try {
+        const history = await getRiwayat(user.email, user.password, days);
+        res.json(history);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get scheduler status
+router.get('/api/scheduler', requireAuth, (req, res) => {
+    const schedules = [
+        { time: '08:00', name: 'Morning Reminder', type: 'morning' },
+        { time: '16:00', name: 'Markipul', type: 'afternoon' },
+        { time: '21:00', name: 'Evening Reminder 1', type: 'evening1' },
+        { time: '23:00', name: 'Evening Reminder 2', type: 'evening2' },
+        { time: '23:50', name: 'Draft Push', type: 'draftpush' },
+        { time: '23:59', name: 'Emergency Auto-Submit', type: 'emergency' }
+    ];
+
+    res.json({
+        enabled: schedulerEnabled,
+        timezone: 'Asia/Makassar (WITA)',
+        schedules
+    });
+});
+
+// Toggle scheduler
+router.post('/api/scheduler/toggle', requireAuth, (req, res) => {
+    schedulerEnabled = !schedulerEnabled;
+    log(LOG_TYPES.SCHEDULER, `Scheduler ${schedulerEnabled ? 'enabled' : 'disabled'} via dashboard`);
+    res.json({ enabled: schedulerEnabled });
+});
+
+// Manual trigger scheduler
+router.post('/api/scheduler/trigger/:type', requireAuth, async (req, res) => {
+    const { type } = req.params;
+
+    if (!botSocket) {
+        return res.status(503).json({ error: 'Bot not connected' });
+    }
+
+    try {
+        const scheduler = require('../services/scheduler');
+
+        switch (type) {
+            case 'morning':
+                await scheduler.runMorningReminder(botSocket);
+                break;
+            case 'afternoon':
+                await scheduler.runAfternoonReminder(botSocket);
+                break;
+            case 'reminder':
+                await scheduler.runAutoReminder(botSocket);
+                break;
+            case 'emergency':
+                await scheduler.runEmergencyAutoSubmit(botSocket);
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid trigger type' });
+        }
+
+        log(LOG_TYPES.SCHEDULER, `Manual trigger: ${type} via dashboard`);
+        res.json({ success: true, triggered: type });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get holidays
+router.get('/api/holidays', requireAuth, (req, res) => {
+    res.json(getAllHolidays());
+});
+
+// Add holiday
+router.post('/api/holidays', requireAuth, express.json(), (req, res) => {
+    const { date } = req.body;
+    if (!date) {
+        return res.status(400).json({ error: 'Date required' });
+    }
+
+    const added = addHoliday(date);
+    log(LOG_TYPES.INFO, `Holiday ${date} ${added ? 'added' : 'already exists'} via dashboard`);
+    res.json({ success: added, holidays: getAllHolidays() });
+});
+
+// Delete holiday
+router.delete('/api/holidays/:date', requireAuth, (req, res) => {
+    const date = req.params.date;
+    const removed = removeHoliday(date);
+    log(LOG_TYPES.INFO, `Holiday ${date} ${removed ? 'removed' : 'not found'} via dashboard`);
+    res.json({ success: removed, holidays: getAllHolidays() });
+});
+
+// NEW: Batch Check All Users
+router.post('/api/users/check-all', requireAuth, async (req, res) => {
+    // Return immediately to avoid timeout
+    res.json({ success: true, message: 'Batch check started in background' });
+
+    const users = getAllUsers();
+    log(LOG_TYPES.INFO, `Batch check started for ${users.length} users`);
+
+    // Process in background
+    (async () => {
+        let count = 0;
+        for (const user of users) {
+            try {
+                // 2 second delay to avoid rate limits
+                await new Promise(r => setTimeout(r, 2000));
+
+                const status = await cekStatusHarian(user.email, user.password);
+                log(LOG_TYPES.INFO, `[Batch] ${user.email}: ${status.sudahAbsen ? 'Done' : 'Pending'}`);
+                count++;
+            } catch (e) {
+                log(LOG_TYPES.ERROR, `[Batch] Error checking ${user.email}: ${e.message}`);
+            }
+        }
+        log(LOG_TYPES.SUCCESS, `Batch check finished. Processed ${count}/${users.length} users`);
+    })();
+});
+
+// ========================================
+// BOT STATUS CONTROL
+// ========================================
+
+// Get bot status
+router.get('/api/bot/status', requireAuth, (req, res) => {
+    res.json({ status: botStatus });
+});
+
+// Set bot status
+router.post('/api/bot/status', requireAuth, express.json(), (req, res) => {
+    const { status } = req.body;
+    if (!['online', 'offline', 'maintenance'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Must be: online, offline, or maintenance' });
+    }
+    botStatus = status;
+    log(LOG_TYPES.WARNING, `Bot status changed to: ${status.toUpperCase()}`);
+    res.json({ success: true, status: botStatus });
+});
+
+// Export getter for messageHandler
+module.exports.getBotStatus = () => botStatus;
+
+
+// ========================================
+// GROUP SETTINGS ROUTES
+// ========================================
+
+const { loadGroupSettings, updateGroup, removeGroup: deleteGroupSettings } = require('../services/groupSettings');
+
+// Get all groups with settings
+router.get('/api/groups', requireAuth, (req, res) => {
+    res.json(loadGroupSettings());
+});
+
+// Add/Update group
+router.post('/api/groups', requireAuth, express.json(), (req, res) => {
+    const { groupId, name, schedulerEnabled, isTesting, holidays, skipWeekends } = req.body;
+    if (!groupId) {
+        return res.status(400).json({ error: 'Group ID required' });
+    }
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (schedulerEnabled !== undefined) updates.schedulerEnabled = schedulerEnabled;
+    if (isTesting !== undefined) updates.isTesting = isTesting;
+    if (holidays !== undefined) updates.holidays = holidays;
+    if (skipWeekends !== undefined) updates.skipWeekends = skipWeekends;
+
+    const group = updateGroup(groupId, updates);
+    log(LOG_TYPES.INFO, `Group ${groupId} updated via dashboard`);
+    res.json({ success: true, group, groups: loadGroupSettings() });
+});
+
+// ... (existing Delete and Active Groups code)
+
+// ========================================
+// DEVELOPMENT / TESTING ROUTES
+// ========================================
+
+const { loadMessages, updateMessage } = require('../services/messageService');
+const { runTestScheduler } = require('../services/scheduler');
+
+// Get all message templates
+router.get('/api/messages', requireAuth, (req, res) => {
+    res.json(loadMessages());
+});
+
+// Update a message template
+router.post('/api/messages', requireAuth, express.json(), (req, res) => {
+    const { key, content } = req.body;
+    if (!key || !content) return res.status(400).json({ error: 'Key and Content required' });
+
+    updateMessage(key, content);
+    log(LOG_TYPES.WARNING, `Message template '${key}' updated by admin`);
+    res.json({ success: true });
+});
+
+// Trigger Test Run (Only sends to Testing Groups)
+router.post('/api/test/trigger', requireAuth, express.json(), async (req, res) => {
+    const { type } = req.body; // 'morning', 'afternoon'
+
+    if (!botSocket) return res.status(503).json({ error: 'Bot not connected' });
+
+    const result = await runTestScheduler(botSocket, type);
+    if (!result.success) {
+        return res.status(400).json(result);
+    }
+
+    res.json({ success: true, count: result.count });
+});
+
+// Delete group
+router.delete('/api/groups/:groupId', requireAuth, (req, res) => {
+    const groupId = decodeURIComponent(req.params.groupId);
+    const removed = deleteGroupSettings(groupId);
+    log(LOG_TYPES.INFO, `Group ${groupId} ${removed ? 'removed' : 'not found'} via dashboard`);
+    res.json({ success: removed, groups: loadGroupSettings() });
+});
+
+// ========================================
+// ACTIVE GROUPS (FROM BAILEYS)
+// ========================================
+
+// Get all groups where bot is participating
+router.get('/api/groups/active', requireAuth, async (req, res) => {
+    if (!botSocket) {
+        return res.status(503).json({ error: 'Bot not connected' });
+    }
+
+    try {
+        // Fetch all groups the bot is participating in
+        const allGroups = await botSocket.groupFetchAllParticipating();
+
+        // Transform to array with useful info
+        const groups = Object.values(allGroups).map(g => ({
+            id: g.id,
+            name: g.subject,
+            description: g.desc || '',
+            owner: g.owner || 'Unknown',
+            creation: g.creation ? new Date(g.creation * 1000).toLocaleDateString('id-ID') : 'Unknown',
+            participantCount: g.participants?.length || 0,
+            isAnnounce: g.announce || false, // Only admins can send
+            isRestrict: g.restrict || false, // Only admins can edit info
+        }));
+
+        // Sort by name
+        groups.sort((a, b) => a.name.localeCompare(b.name));
+
+        res.json(groups);
+    } catch (e) {
+        console.error('Error fetching groups:', e);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Broadcast message
+router.post('/api/broadcast', requireAuth, express.json(), async (req, res) => {
+    const { message, target } = req.body; // target: 'all' | 'groups' | array of phones
+
+    if (!message) {
+        return res.status(400).json({ error: 'Message required' });
+    }
+
+    if (!botSocket) {
+        return res.status(503).json({ error: 'Bot not connected' });
+    }
+
+    try {
+        let sent = 0;
+        let failed = 0;
+
+        if (target === 'all' || !target) {
+            const users = getAllUsers();
+            for (const user of users) {
+                try {
+                    await botSocket.sendMessage(user.phone, { text: message });
+                    sent++;
+                    await new Promise(r => setTimeout(r, 500)); // Rate limit
+                } catch (e) {
+                    failed++;
+                }
+            }
+        } else if (target === 'groups') {
+            const groups = getAllowedGroups();
+            for (const groupId of groups) {
+                try {
+                    await botSocket.sendMessage(groupId, { text: message });
+                    sent++;
+                    await new Promise(r => setTimeout(r, 500));
+                } catch (e) {
+                    failed++;
+                }
+            }
+        } else if (Array.isArray(target)) {
+            for (const phone of target) {
+                try {
+                    await botSocket.sendMessage(phone, { text: message });
+                    sent++;
+                    await new Promise(r => setTimeout(r, 500));
+                } catch (e) {
+                    failed++;
+                }
+            }
+        }
+
+        log(LOG_TYPES.INFO, `Broadcast sent: ${sent} success, ${failed} failed`);
+        res.json({ success: true, sent, failed });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Stream activity logs (SSE)
+router.get('/api/logs/stream', requireAuth, (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const { onLog } = require('../services/activityLogger');
+
+    // Send initial keep-alive
+    res.write(': keep-alive\n\n');
+
+    // Listener for new logs
+    const listener = (log) => {
+        res.write(`data: ${JSON.stringify(log)}\n\n`);
+    };
+
+    onLog(listener);
+
+    req.on('close', () => {
+        const { removeListener } = require('../services/activityLogger');
+        removeListener(listener);
+    });
+});
+
+// Get activity logs
+router.get('/api/logs', requireAuth, (req, res) => {
+    const limit = parseInt(req.query.limit) || 50;
+    const type = req.query.type || null;
+    res.json(getLogs(limit, type));
+});
+
+// Get bot status
+router.get('/api/bot/status', requireAuth, (req, res) => {
+    res.json({
+        connected: botConnected,
+        schedulerEnabled
+    });
+});
+
+// ========================================
+// SOCKET INJECTION (called from app.js)
+// ========================================
+
+function setBotSocket(sock) {
+    botSocket = sock;
+}
+
+function setBotConnected(connected) {
+    botConnected = connected;
+    log(connected ? LOG_TYPES.SUCCESS : LOG_TYPES.WARNING,
+        `WhatsApp ${connected ? 'connected' : 'disconnected'}`);
+}
+
+function isSchedulerEnabled() {
+    return schedulerEnabled;
+}
+
+module.exports = router;
+module.exports.setBotSocket = setBotSocket;
+module.exports.setBotConnected = setBotConnected;
+// SPA Catch-all (Must be last)
+router.get(/(.*)/, (req, res) => {
+    // Serve React App for any other GET request not handled above
+    res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+});
+
+module.exports.isSchedulerEnabled = isSchedulerEnabled;
+module.exports.getBotStatus = () => botStatus;
