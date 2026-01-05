@@ -29,15 +29,24 @@ export default function Groups() {
         }
     }, [editGroup]);
 
+    const [isOffline, setIsOffline] = useState(false);
+
     const loadGroups = async () => {
         try {
-            const [resSettings, resActive] = await Promise.all([
-                api.get('/groups'), // Saved settings
-                api.get('/groups/active').catch(() => ({ data: [] })) // Live groups (might fail if offline)
-            ]);
+            // First check if bot is connected
+            let activeGroups = [];
+            try {
+                const resActive = await api.get('/groups/active');
+                activeGroups = resActive.data || [];
+                setIsOffline(false);
+            } catch (e) {
+                // If 503 or failed, assume offline/waiting
+                setIsOffline(true);
+                activeGroups = [];
+            }
 
+            const resSettings = await api.get('/groups');
             const settings = resSettings.data || {};
-            const activeGroups = resActive.data || [];
 
             // Merge logic:
             // 1. Map active groups and attach settings if available
@@ -105,6 +114,17 @@ export default function Groups() {
                 <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
                     <Typography variant="h6">Group Assignments ({groups.length})</Typography>
                 </Box>
+                {isOffline && (
+                    <Box sx={{ p: 2, bgcolor: 'warning.light', color: 'warning.dark' }}>
+                        <Typography variant="body2" fontWeight={600}>
+                            ⚠️ Bot Offline / Disconnected
+                        </Typography>
+                        <Typography variant="caption">
+                            Only saved groups are shown. Connect the bot to see all WhatsApp groups.
+                        </Typography>
+                    </Box>
+                )}
+
                 <TableContainer>
                     <Table size="medium">
                         <TableHead>
