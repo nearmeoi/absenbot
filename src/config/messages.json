@@ -21,7 +21,7 @@
   "absen_failed_ai": "Maaf, gagal memproses laporan AI: {error}",
   "absen_too_short": "⚠️ *Laporan Terlalu Singkat*\n\n{errors}\n\nSilakan panjangkan lagi laporannya (minimal 100 karakter per bagian).",
   "draft_preview": "*DRAF LAPORAN ANDA*\n\n*Aktivitas:* ({aktivitas_len} karakter)\n{aktivitas}\n\n*Pembelajaran:* ({pembelajaran_len} karakter)\n{pembelajaran}\n\n*Kendala:* ({kendala_len} karakter)\n{kendala}\n\n_Ketik *ya* untuk mengirim laporan ini ke web MagangHub._",
-  "draft_updated": "*DRAF DIPERBARUI* ✨\n\n*Aktivitas:* ({aktivitas_len} karakter)\n{aktivitas}\n\n*Pembelajaran:* ({pembelajaran_len} karakter)\n{pembelajaran}\n\n*Kendala:* ({kendala_len} karakter)\n{kendala}\n\n_Ketik *ya* untuk kirim, atau revisi lagi dengan membalas pesan ini._",
+  "draft_updated": "*DRAF DIPERBARUI* ✨\n\n*Aktivitas:* ({aktivitas_len} karakter)\n{aktivitas}\n\n*Pembelajaran:* ({pembelajaran_len} karakter)\n{pembelajaran}\n\n*Kendala:* ({kendala_len} karakter)\n{kendala}\n\n_Ketik *ya* untuk kirim._",
   "draft_update_loading": "_Memperbarui laporan berdasarkan revisi Anda..._",
   "draft_update_failed": "Gagal memperbarui laporan. Silakan coba lagi atau ketik sesuai format manual.",
   "draft_manual_updated": "✅ *Draf berhasil diperbarui manual*.\n\nKetik *ya* untuk mengirim.",
