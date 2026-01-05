@@ -817,13 +817,36 @@ module.exports = async (sock, msg) => {
 };
 
 function parseDraftFromMessage(text) {
+    // Remove template instruction text before parsing
+    let cleanText = text;
+
+    // Remove common template instructions - more specific patterns
+    // Remove text after the last content section that contains instructions
+    const instructionPatterns = [
+        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim\._.*$/i,
+        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub\._.*$/i,
+        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub.*$/i,
+        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+kirim.*$/i,
+        /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\).*$/i
+    ];
+
+    for (const pattern of instructionPatterns) {
+        cleanText = cleanText.replace(pattern, '');
+    }
+
+    // Remove just the "ya" command if it appears as standalone text but keep it if it's part of actual content
+    cleanText = cleanText.replace(/(?<!\w)\*ya\*(?!\w)/g, ''); // Only remove *ya* when it's not part of a word
+
+    // Clean up extra whitespace after removal
+    cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
     const parseSection = (label) => {
         // Regex to capture content between *Label:* and the next *Label:* or end of string
         const regex = new RegExp(`\\*${label}:\\*\\s*\\([\\d]+\\s*karakter\\)\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
         const regexBackup = new RegExp(`\\*${label}:\\*\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
 
-        let match = text.match(regex);
-        if (!match) match = text.match(regexBackup);
+        let match = cleanText.match(regex);
+        if (!match) match = cleanText.match(regexBackup);
 
         return match ? match[1].trim() : '';
     };
