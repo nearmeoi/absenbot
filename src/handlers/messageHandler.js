@@ -606,6 +606,33 @@ module.exports = async (sock, msg) => {
             return;
         }
 
+        // --- CORE LOGIC: YA (CONFIRMATION) ---
+        if (textMessage.toLowerCase().trim() === 'ya') {
+            const cachedDraft = getDraft(senderNumber);
+            if (!cachedDraft) return;
+
+            const user = getUserByPhone(senderNumber);
+            if (!user) return;
+
+            await sock.sendMessage(sender, { react: { text: "🚀", key: msgObj.key } });
+
+            const loginResult = await prosesLoginDanAbsen({
+                email: user.email,
+                password: user.password,
+                aktivitas: cachedDraft.aktivitas,
+                pembelajaran: cachedDraft.pembelajaran,
+                kendala: cachedDraft.kendala
+            });
+
+            if (loginResult.success) {
+                await sock.sendMessage(sender, { text: getMessage('submit_success') }, { quoted: msgObj });
+                deleteDraft(senderNumber);
+            } else {
+                await sock.sendMessage(sender, { text: getMessage('submit_failed').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
+            }
+            return;
+        }
+
         // --- CORE LOGIC: EDIT BY COPY-PASTE ---
         const pendingDraft = getDraft(senderNumber);
         if (pendingDraft && !isCommand) { // If there is a draft and message is not a command
@@ -683,33 +710,6 @@ module.exports = async (sock, msg) => {
                 await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                 return;
             }
-        }
-
-        // --- CORE LOGIC: YA (CONFIRMATION) ---
-        if (textMessage.toLowerCase().trim() === 'ya') {
-            const cachedDraft = getDraft(senderNumber);
-            if (!cachedDraft) return;
-
-            const user = getUserByPhone(senderNumber);
-            if (!user) return;
-
-            await sock.sendMessage(sender, { react: { text: "🚀", key: msgObj.key } });
-
-            const loginResult = await prosesLoginDanAbsen({
-                email: user.email,
-                password: user.password,
-                aktivitas: cachedDraft.aktivitas,
-                pembelajaran: cachedDraft.pembelajaran,
-                kendala: cachedDraft.kendala
-            });
-
-            if (loginResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('submit_success') }, { quoted: msgObj });
-                deleteDraft(senderNumber);
-            } else {
-                await sock.sendMessage(sender, { text: getMessage('submit_failed').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
-            }
-            return;
         }
 
         // --- CORE LOGIC: !CEK ---
