@@ -634,7 +634,16 @@ module.exports = async (sock, msg) => {
                 }
 
                 setDraft(senderNumber, parsedEdit);
-                await sock.sendMessage(sender, { text: getMessage('draft_manual_updated') }, { quoted: msgObj });
+
+                const previewText = getMessage('draft_updated')
+                    .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
+                    .replace('{aktivitas}', parsedEdit.aktivitas)
+                    .replace('{pembelajaran_len}', parsedEdit.pembelajaran.length)
+                    .replace('{pembelajaran}', parsedEdit.pembelajaran)
+                    .replace('{kendala_len}', parsedEdit.kendala.length)
+                    .replace('{kendala}', parsedEdit.kendala);
+
+                await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                 return;
             }
             // OPTION 2: USER SENT FREE TEXT REVISION (AUTO UPDATE WITH AI)
