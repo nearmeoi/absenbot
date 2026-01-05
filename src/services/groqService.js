@@ -129,7 +129,7 @@ TUGAS UTAMA:
    - JANGAN terlalu gaul atau informal
    - JANGAN pakai kata robot seperti "melakukan koordinasi intensif" atau "memberikan wawasan mendalam yang komprehensif"
    - Tulis natural tapi tetap formal
-   - PANJANG: 100-150 karakter per bagian (WAJIB!)
+   - PANJANG: 100-170 karakter per bagian (WAJIB!)
 
 CONTOH ANALISIS KONSISTENSI:
 Jika user sering pakai: "melakukan", "bersama tim", "sistem", "database"
@@ -147,12 +147,12 @@ ANALISIS riwayat di atas dan temukan:
 Lalu buatkan laporan hari ini dengan GAYA YANG SAMA PERSIS.
 Gunakan KATA-KATA YANG SAMA yang user sering pakai!
 
-PENTING: 100-150 karakter per bagian, JANGAN lebih!
+PENTING: 100-170 karakter per bagian, JANGAN lebih!
 
 Format:
-AKTIVITAS: [isi 100-150 karakter, pakai kata-kata user]
-PEMBELAJARAN: [isi 100-150 karakter, pakai kata-kata user]
-KENDALA: [isi 100-150 karakter, pakai kata-kata user]`;
+AKTIVITAS: [isi 100-170 karakter, pakai kata-kata user]
+PEMBELAJARAN: [isi 100-170 karakter, pakai kata-kata user]
+KENDALA: [isi 100-170 karakter, pakai kata-kata user]`;
 
     try {
         console.log(chalk.cyan('[GROQ] Generating attendance report...'));
@@ -194,7 +194,7 @@ KENDALA: [isi 100-150 karakter, pakai kata-kata user]`;
 
         // Padding and Truncation Logic
         const MIN_CHARS = 100;
-        const MAX_CHARS = 150;
+        const MAX_CHARS = 170;
 
         // Detect team preference from history
         const teamPref = detectTeamPreference(previousLogs);
@@ -274,7 +274,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
 
     let context = '';
     if (previousLogs.length > 0) {
-        context = 'Riwayat gaya bahasa user:\n' + previousLogs.slice(0, 5).map(log => log.activity_log).join('\n') + '\n\n';
+        context = 'Riwayat gaya bahasa user:\n' + previousLogs.slice(0, 3).map(log => log.activity_log).join('\n') + '\n\n'; // Reduced from 5 to 3 for efficiency
     }
 
     const systemPrompt = `Kamu membantu mengubah cerita singkat jadi laporan magang yang PROFESIONAL namun NATURAL.
@@ -284,7 +284,7 @@ ATURAN:
 2. Gunakan kata-kata yang SAMA dengan yang user sering pakai
 3. Tetap profesional dan sopan, JANGAN terlalu gaul
 4. JANGAN pakai frasa robot seperti "melakukan koordinasi intensif yang komprehensif"
-5. PANJANG: 100-150 karakter per bagian (WAJIB!)
+5. PANJANG: 100-170 karakter per bagian (WAJIB!)
 6. KOLABORASI: Jangan sebut "teman" atau "tim" KECUALI user pernah menyebutnya di riwayat. Jika user kerja sendiri, jangan tambahkan elemen kolaborasi.
 
 CONTOH YANG BAIK:
@@ -295,14 +295,14 @@ CONTOH YANG BAIK:
     const userPrompt = `${context}
 Cerita User: "${userText}"
 
-Buatkan laporan dari cerita di atas. 
+Buatkan laporan dari cerita di atas.
 Tetap profesional tapi natural, JANGAN terlalu gaul!
-PENTING: 100-150 karakter per bagian, JANGAN lebih!
+PENTING: 100-170 karakter per bagian, JANGAN lebih!
 
 Format:
-AKTIVITAS: [isi 100-150 karakter, profesional]
-PEMBELAJARAN: [isi 100-150 karakter, profesional]
-KENDALA: [isi 100-150 karakter, profesional]`;
+AKTIVITAS: [isi 100-170 karakter, profesional]
+PEMBELAJARAN: [isi 100-170 karakter, profesional]
+KENDALA: [isi 100-170 karakter, profesional]`;
 
     try {
         const response = await axios.post(GROQ_API_URL, {
@@ -311,10 +311,11 @@ KENDALA: [isi 100-150 karakter, profesional]`;
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
             ],
-            temperature: 0.7
+            temperature: 0.7,
+            max_tokens: 800 // Reduced from default for faster response
         }, {
             headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            timeout: 30000
+            timeout: 25000 // Reduced timeout for better responsiveness
         });
 
         const content = response.data.choices[0]?.message?.content;
@@ -332,7 +333,7 @@ KENDALA: [isi 100-150 karakter, profesional]`;
 
         // Padding and Truncation
         const MIN_CHARS = 100;
-        const MAX_CHARS = 150;
+        const MAX_CHARS = 170;
 
         // Detect team preference from history
         const teamPref = detectTeamPreference(previousLogs);
@@ -345,16 +346,16 @@ KENDALA: [isi 100-150 karakter, profesional]`;
             if (text.length < MIN_CHARS) {
                 const suffixes = {
                     A: [
-                        " dan melakukan dokumentasi hasil kerja",
-                        " serta melakukan review terhadap progress"
+                        " dan dokumentasi hasil kerja",
+                        " serta review progress"
                     ],
                     P: [
-                        " yang sangat bermanfaat untuk pengembangan skill",
-                        " dan menambah wawasan tentang best practices"
+                        " bermanfaat untuk skill",
+                        " menambah wawasan best practices"
                     ],
                     K: [
-                        " dan semua berjalan lancar",
-                        " sehingga pekerjaan dapat diselesaikan"
+                        " dan berjalan lancar",
+                        " sehingga selesai tepat waktu"
                     ]
                 };
 
@@ -371,8 +372,6 @@ KENDALA: [isi 100-150 karakter, profesional]`;
 
             return text;
         };
-
-
 
         if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
         if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');

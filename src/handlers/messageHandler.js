@@ -555,9 +555,10 @@ module.exports = async (sock, msg) => {
                     type: 'manual'
                 };
 
+                // For manual tag input (!absen #aktivitas #pembelajaran), validate minimum 100 characters
                 const errors = [];
                 const MIN_CHARS = 100;
-                const MAX_CHARS = 150;
+                const MAX_CHARS = 10000; // Very high maximum to effectively remove limit
 
                 if (reportData.aktivitas.length < MIN_CHARS) {
                     errors.push(`Aktivitas: ${reportData.aktivitas.length} karakter (minimal ${MIN_CHARS})`);
@@ -612,8 +613,8 @@ module.exports = async (sock, msg) => {
 
             // OPTION 1: USER COPIED & EDITED THE DRAFT MANUALLY (FORMATTED)
             if (parsedEdit) {
-                const MIN_CHARS = 100;
-                const MAX_CHARS = 150;
+                const MIN_CHARS = 100; // Minimum 100 characters for manual edits
+                const MAX_CHARS = 10000; // Very high maximum to effectively remove limit
                 const errors = [];
 
                 if (parsedEdit.aktivitas.length < MIN_CHARS) errors.push(`Aktivitas kurang (${parsedEdit.aktivitas.length}/${MIN_CHARS})`);
