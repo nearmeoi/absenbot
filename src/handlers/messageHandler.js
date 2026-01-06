@@ -555,9 +555,10 @@ module.exports = async (sock, msg) => {
                     type: 'manual'
                 };
 
+                // For manual tag input (!absen #aktivitas #pembelajaran), validate minimum 100 characters
                 const errors = [];
                 const MIN_CHARS = 100;
-                const MAX_CHARS = 150;
+                const MAX_CHARS = 10000; // Very high maximum to effectively remove limit
 
                 if (reportData.aktivitas.length < MIN_CHARS) {
                     errors.push(`Aktivitas: ${reportData.aktivitas.length} karakter (minimal ${MIN_CHARS})`);
@@ -605,6 +606,33 @@ module.exports = async (sock, msg) => {
             return;
         }
 
+        // --- CORE LOGIC: YA (CONFIRMATION) ---
+        if (textMessage.toLowerCase().trim() === 'ya') {
+            const cachedDraft = getDraft(senderNumber);
+            if (!cachedDraft) return;
+
+            const user = getUserByPhone(senderNumber);
+            if (!user) return;
+
+            await sock.sendMessage(sender, { react: { text: "🚀", key: msgObj.key } });
+
+            const loginResult = await prosesLoginDanAbsen({
+                email: user.email,
+                password: user.password,
+                aktivitas: cachedDraft.aktivitas,
+                pembelajaran: cachedDraft.pembelajaran,
+                kendala: cachedDraft.kendala
+            });
+
+            if (loginResult.success) {
+                await sock.sendMessage(sender, { text: getMessage('submit_success') }, { quoted: msgObj });
+                deleteDraft(senderNumber);
+            } else {
+                await sock.sendMessage(sender, { text: getMessage('submit_failed').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
+            }
+            return;
+        }
+
         // --- CORE LOGIC: EDIT BY COPY-PASTE ---
         const pendingDraft = getDraft(senderNumber);
         if (pendingDraft && !isCommand) { // If there is a draft and message is not a command
@@ -612,8 +640,8 @@ module.exports = async (sock, msg) => {
 
             // OPTION 1: USER COPIED & EDITED THE DRAFT MANUALLY (FORMATTED)
             if (parsedEdit) {
-                const MIN_CHARS = 100;
-                const MAX_CHARS = 150;
+                const MIN_CHARS = 100; // Minimum 100 characters for manual edits
+                const MAX_CHARS = 10000; // Very high maximum to effectively remove limit
                 const errors = [];
 
                 if (parsedEdit.aktivitas.length < MIN_CHARS) errors.push(`Aktivitas kurang (${parsedEdit.aktivitas.length}/${MIN_CHARS})`);
@@ -633,7 +661,16 @@ module.exports = async (sock, msg) => {
                 }
 
                 setDraft(senderNumber, parsedEdit);
-                await sock.sendMessage(sender, { text: getMessage('draft_manual_updated') }, { quoted: msgObj });
+
+                const previewText = getMessage('draft_updated')
+                    .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
+                    .replace('{aktivitas}', parsedEdit.aktivitas)
+                    .replace('{pembelajaran_len}', parsedEdit.pembelajaran.length)
+                    .replace('{pembelajaran}', parsedEdit.pembelajaran)
+                    .replace('{kendala_len}', parsedEdit.kendala.length)
+                    .replace('{kendala}', parsedEdit.kendala);
+
+                await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                 return;
             }
             // OPTION 2: USER SENT FREE TEXT REVISION (AUTO UPDATE WITH AI)
@@ -673,33 +710,6 @@ module.exports = async (sock, msg) => {
                 await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                 return;
             }
-        }
-
-        // --- CORE LOGIC: YA (CONFIRMATION) ---
-        if (textMessage.toLowerCase().trim() === 'ya') {
-            const cachedDraft = getDraft(senderNumber);
-            if (!cachedDraft) return;
-
-            const user = getUserByPhone(senderNumber);
-            if (!user) return;
-
-            await sock.sendMessage(sender, { react: { text: "🚀", key: msgObj.key } });
-
-            const loginResult = await prosesLoginDanAbsen({
-                email: user.email,
-                password: user.password,
-                aktivitas: cachedDraft.aktivitas,
-                pembelajaran: cachedDraft.pembelajaran,
-                kendala: cachedDraft.kendala
-            });
-
-            if (loginResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('submit_success') }, { quoted: msgObj });
-                deleteDraft(senderNumber);
-            } else {
-                await sock.sendMessage(sender, { text: getMessage('submit_failed').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
-            }
-            return;
         }
 
         // --- CORE LOGIC: !CEK ---
@@ -807,13 +817,36 @@ module.exports = async (sock, msg) => {
 };
 
 function parseDraftFromMessage(text) {
+    // Remove template instruction text before parsing
+    let cleanText = text;
+
+    // Remove common template instructions - more specific patterns
+    // Remove text after the last content section that contains instructions
+    const instructionPatterns = [
+        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim\._.*$/i,
+        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub\._.*$/i,
+        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub.*$/i,
+        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+kirim.*$/i,
+        /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\).*$/i
+    ];
+
+    for (const pattern of instructionPatterns) {
+        cleanText = cleanText.replace(pattern, '');
+    }
+
+    // Remove just the "ya" command if it appears as standalone text but keep it if it's part of actual content
+    cleanText = cleanText.replace(/(?<!\w)\*ya\*(?!\w)/g, ''); // Only remove *ya* when it's not part of a word
+
+    // Clean up extra whitespace after removal
+    cleanText = cleanText.replace(/\s+/g, ' ').trim();
+
     const parseSection = (label) => {
         // Regex to capture content between *Label:* and the next *Label:* or end of string
         const regex = new RegExp(`\\*${label}:\\*\\s*\\([\\d]+\\s*karakter\\)\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
         const regexBackup = new RegExp(`\\*${label}:\\*\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
 
-        let match = text.match(regex);
-        if (!match) match = text.match(regexBackup);
+        let match = cleanText.match(regex);
+        if (!match) match = cleanText.match(regexBackup);
 
         return match ? match[1].trim() : '';
     };

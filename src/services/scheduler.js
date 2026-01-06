@@ -73,10 +73,38 @@ async function runMorningReminder(sock) {
     );
     console.log(chalk.cyan(`[SCHEDULER] Broadcasting to ${enabledGroups.length} groups...`));
 
+    const allUsers = getAllUsers();
     const msg = getMessage('morning_reminder');
+
     for (const [groupId, config] of enabledGroups) {
         try {
-            await sock.sendMessage(groupId, { text: msg });
+            // Get users who haven't submitted attendance yet
+            let belumAbsen = [];
+            for (const user of allUsers) {
+                try {
+                    const status = await cekStatusHarian(user.email, user.password);
+                    if (status.success && !status.sudahAbsen) {
+                        belumAbsen.push(user.phone);
+                    } else if (!status.success) {
+                        belumAbsen.push(user.phone);
+                    }
+                } catch (e) { }
+            }
+
+            if (belumAbsen.length > 0) {
+                // Create hidetag message by including mentions in the message but using mentions array
+                let msgAlert = getMessage('siapa_header') + `\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\n`;
+                belumAbsen.forEach(
+                    num => (msgAlert += `- @${num.split("@")[0]}\n`)
+                );
+                msgAlert += `\n${getMessage('morning_reminder')}`;
+
+                await sock.sendMessage(groupId, { text: msgAlert, mentions: belumAbsen }, { ephemeralExpiration: 86400 });
+            } else {
+                // Send general reminder if everyone has submitted
+                await sock.sendMessage(groupId, { text: getMessage('siapa_all_done') });
+            }
+
             await new Promise(r => setTimeout(r, 2000));
         } catch (e) {
             console.error(chalk.red(`[SCHEDULER] Failed group broadcast to ${groupId}`));
@@ -100,10 +128,38 @@ async function runAfternoonReminder(sock) {
     );
     console.log(chalk.cyan(`[SCHEDULER] Broadcasting Markipul to ${enabledGroups.length} groups...`));
 
+    const allUsers = getAllUsers();
     const msg = getMessage('afternoon_reminder');
+
     for (const [groupId, config] of enabledGroups) {
         try {
-            await sock.sendMessage(groupId, { text: msg });
+            // Get users who haven't submitted attendance yet
+            let belumAbsen = [];
+            for (const user of allUsers) {
+                try {
+                    const status = await cekStatusHarian(user.email, user.password);
+                    if (status.success && !status.sudahAbsen) {
+                        belumAbsen.push(user.phone);
+                    } else if (!status.success) {
+                        belumAbsen.push(user.phone);
+                    }
+                } catch (e) { }
+            }
+
+            if (belumAbsen.length > 0) {
+                // Create hidetag message by including mentions in the message but using mentions array
+                let msgAlert = getMessage('siapa_header') + `\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\n`;
+                belumAbsen.forEach(
+                    num => (msgAlert += `- @${num.split("@")[0]}\n`)
+                );
+                msgAlert += `\n${getMessage('afternoon_reminder')}`;
+
+                await sock.sendMessage(groupId, { text: msgAlert, mentions: belumAbsen }, { ephemeralExpiration: 86400 });
+            } else {
+                // Send general reminder if everyone has submitted
+                await sock.sendMessage(groupId, { text: getMessage('siapa_all_done') });
+            }
+
             await new Promise(r => setTimeout(r, 2000));
         } catch (e) { }
     }
@@ -124,10 +180,38 @@ async function runAutoReminder(sock) {
         c.schedulerEnabled && !shouldSkipGroup(c)
     );
 
+    const allUsers = getAllUsers();
     const msg = getMessage('evening_reminder');
+
     for (const [groupId, config] of enabledGroups) {
         try {
-            await sock.sendMessage(groupId, { text: msg });
+            // Get users who haven't submitted attendance yet
+            let belumAbsen = [];
+            for (const user of allUsers) {
+                try {
+                    const status = await cekStatusHarian(user.email, user.password);
+                    if (status.success && !status.sudahAbsen) {
+                        belumAbsen.push(user.phone);
+                    } else if (!status.success) {
+                        belumAbsen.push(user.phone);
+                    }
+                } catch (e) { }
+            }
+
+            if (belumAbsen.length > 0) {
+                // Create hidetag message by including mentions in the message but using mentions array
+                let msgAlert = getMessage('siapa_header') + `\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\n`;
+                belumAbsen.forEach(
+                    num => (msgAlert += `- @${num.split("@")[0]}\n`)
+                );
+                msgAlert += `\n${getMessage('evening_reminder')}`;
+
+                await sock.sendMessage(groupId, { text: msgAlert, mentions: belumAbsen }, { ephemeralExpiration: 86400 });
+            } else {
+                // Send general reminder if everyone has submitted
+                await sock.sendMessage(groupId, { text: getMessage('siapa_all_done') });
+            }
+
             await new Promise(r => setTimeout(r, 2000));
         } catch (e) { }
     }
