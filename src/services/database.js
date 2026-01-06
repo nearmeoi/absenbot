@@ -1,6 +1,22 @@
 const fs = require("fs");
 const { USERS_FILE } = require('../config/constants');
 
+// Write queue to prevent race conditions
+let writeQueue = Promise.resolve();
+const safeWriteFile = (path, data) => {
+    writeQueue = writeQueue.then(() => {
+        return new Promise((resolve, reject) => {
+            fs.writeFile(path, data, 'utf8', (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    }).catch(err => {
+        console.error('[DATABASE] Write error:', err.message);
+    });
+    return writeQueue;
+};
+
 // Cek apakah file database ada
 if (!fs.existsSync(USERS_FILE)) {
     fs.writeFileSync(USERS_FILE, JSON.stringify([]));
@@ -11,6 +27,7 @@ const loadUsers = () => {
         const data = fs.readFileSync(USERS_FILE, "utf8");
         return JSON.parse(data);
     } catch (e) {
+        console.error('[DATABASE] Load error:', e.message);
         return [];
     }
 };
@@ -123,7 +140,7 @@ const saveUser = (phoneNumber, email, password) => {
         });
     }
 
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
     return true;
 };
 
@@ -141,7 +158,7 @@ const updateUserLid = (realPhoneNumber, lid) => {
             users[index].identifiers.push(lid);
         }
 
-        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+        safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
         return true;
     }
     return false;
@@ -162,7 +179,7 @@ const deleteUser = (phoneNumber) => {
 
     if (index !== -1) {
         users.splice(index, 1);
-        fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+        safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
         return true;
     }
     return false;

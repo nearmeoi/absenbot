@@ -485,72 +485,34 @@ async function cekKredensial(email, password) {
 }
 
 async function cekStatusHarian(email, password) {
-    const apiResult = await apiService.checkAttendanceStatus(email);
-
-    if (apiResult.success) {
-        return apiResult;
-    }
-
-    if (apiResult.needsLogin) {
-        const loginResult = await puppeteerLogin(email, password, false);
-        if (!loginResult.success) {
-            return { success: false, pesan: loginResult.pesan };
-        }
-
-        await new Promise(r => setTimeout(r, 1000));
-
-        const retryResult = await apiService.checkAttendanceStatus(email);
-        if (retryResult.success) {
-            return retryResult;
-        }
-    }
-
-    return { success: false, sudahAbsen: false, pesan: apiResult.pesan || "Unknown error" };
+    // --- DEBUG MODE: BYPASS LOGIN, ASSUME NOT ABSENT ---
+    console.log(chalk.yellow(`[DEBUG] Cek status harian bypass untuk: ${email}`));
+    return { success: true, sudahAbsen: false, data: null };
 }
 
 async function prosesLoginDanAbsen(dataUser) {
+    // --- DEBUG MODE: MOCK SUBMIT ---
     const { email, password, aktivitas, pembelajaran, kendala } = dataUser;
 
-    const apiResult = await apiService.submitAttendanceReport(email, {
-        aktivitas, pembelajaran, kendala
-    });
+    console.log(chalk.magenta.bold("\n[DEBUG SUBMIT] Data Siap Kirim (Mock):"));
+    console.log(chalk.magenta(`Email: ${email}`));
+    console.log(chalk.cyan(`Aktivitas: "${aktivitas}"`));
+    console.log(chalk.cyan(`Pembelajaran: "${pembelajaran}"`));
+    console.log(chalk.cyan(`Kendala: "${kendala}"`));
+    console.log(chalk.magenta("-------------------------------------------\n"));
 
-    if (apiResult.success) {
-        return {
-            success: true,
-            nama: email,
-            foto: null,
-            pesan_tambahan: "(Fast Mode - API)"
-        };
-    }
-
-    return await puppeteerSubmit(email, password, { aktivitas, pembelajaran, kendala });
+    return {
+        success: true,
+        nama: email,
+        foto: null,
+        pesan_tambahan: "(DEBUG MODE - DATA TIDAK DIKIRIM)"
+    };
 }
 
 async function getRiwayat(email, password, days = 1) {
-    // Try API first
-    const apiResult = await apiService.getAttendanceHistory(email, days);
-
-    if (apiResult.success) {
-        return apiResult;
-    }
-
-    // If session expired, try to login and retry
-    if (apiResult.needsLogin) {
-        const loginResult = await puppeteerLogin(email, password, false);
-        if (!loginResult.success) {
-            return { success: false, logs: [], pesan: loginResult.pesan };
-        }
-
-        await new Promise(r => setTimeout(r, 1000));
-
-        const retryResult = await apiService.getAttendanceHistory(email, days);
-        if (retryResult.success) {
-            return retryResult;
-        }
-    }
-
-    return { success: false, logs: [], pesan: apiResult.pesan || "Gagal mengambil riwayat" };
+    // --- DEBUG MODE: MOCK HISTORY ---
+    console.log(chalk.yellow(`[DEBUG] Get riwayat bypass untuk: ${email}`));
+    return { success: true, logs: [], data: [] };
 }
 
 module.exports = {

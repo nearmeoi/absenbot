@@ -5,6 +5,7 @@
 
 const axios = require('axios');
 const chalk = require('chalk');
+const { getMessage } = require('./messageService');
 
 const FormData = require('form-data');
 const fs = require('fs');
@@ -196,8 +197,8 @@ KENDALA: [isi 100-170 karakter, pakai kata-kata user]`;
         const MIN_CHARS = 100;
         const MAX_CHARS = 170;
 
-        // Detect team preference from history
-        const teamPref = detectTeamPreference(previousLogs);
+        // Detect team preference from history (for future use)
+        // const teamPref = detectTeamPreference(previousLogs);
 
         const pad = (text, type) => {
             // Truncate if too long
@@ -272,115 +273,112 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { success: false, error: 'GROQ_API_KEY tidak dikonfigurasi' };
 
-    let context = '';
+    // --- GEMINI IMPLEMENTATION (Style Adaptive) ---
+    // User prefers "Ketepatan" (Accuracy) over Speed.
+    // Gemini 1.5 Flash proved superior in mimicking user style.
+
+    const contextMessages = [];
     if (previousLogs.length > 0) {
-        context = 'Riwayat gaya bahasa user:\n' + previousLogs.slice(0, 3).map(log => log.activity_log).join('\n') + '\n\n'; // Reduced from 5 to 3 for efficiency
-    }
-
-    const systemPrompt = `Kamu membantu mengubah cerita singkat jadi laporan magang yang PROFESIONAL namun NATURAL.
-
-ATURAN:
-1. Analisis riwayat user (jika ada) untuk menemukan kata-kata yang sering dipakai
-2. Gunakan kata-kata yang SAMA dengan yang user sering pakai
-3. Tetap profesional dan sopan, JANGAN terlalu gaul
-4. JANGAN pakai frasa robot seperti "melakukan koordinasi intensif yang komprehensif"
-5. PANJANG: 100-170 karakter per bagian (WAJIB!)
-6. KOLABORASI: Jangan sebut "teman" atau "tim" KECUALI user pernah menyebutnya di riwayat. Jika user kerja sendiri, jangan tambahkan elemen kolaborasi.
-
-CONTOH YANG BAIK:
-"Melakukan testing fitur login dan memperbaiki bug yang ditemukan"
-"Belajar tentang authentication flow dan implementasi JWT"
-"Kendala pada integrasi API, diselesaikan dengan bantuan mentor"`;
-
-    const userPrompt = `${context}
-Cerita User: "${userText}"
-
-Buatkan laporan dari cerita di atas.
-Tetap profesional tapi natural, JANGAN terlalu gaul!
-PENTING: 100-170 karakter per bagian, JANGAN lebih!
-
-Format:
-AKTIVITAS: [isi 100-170 karakter, profesional]
-PEMBELAJARAN: [isi 100-170 karakter, profesional]
-KENDALA: [isi 100-170 karakter, profesional]`;
-
-    try {
-        const response = await axios.post(GROQ_API_URL, {
-            model: GROQ_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.7,
-            max_tokens: 800 // Reduced from default for faster response
-        }, {
-            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            timeout: 25000 // Reduced timeout for better responsiveness
+        // Construct history context for Gemini
+        let historyText = "RIWAYAT LAPORAN TERAKHIR USER (Pelajari Gaya Bahasanya):\n";
+        previousLogs.forEach((log, i) => {
+            historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
         });
-
-        const content = response.data.choices[0]?.message?.content;
-        if (!content) return { success: false, error: 'AI tidak merespon' };
-
-        const parseSection = (label, text) => {
-            const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
-            const match = text.match(regex);
-            return match ? match[1].trim() : '';
-        };
-
-        let aktivitas = parseSection('AKTIVITAS', content);
-        let pembelajaran = parseSection('PEMBELAJARAN', content);
-        let kendala = parseSection('KENDALA', content);
-
-        // Padding and Truncation
-        const MIN_CHARS = 100;
-        const MAX_CHARS = 170;
-
-        // Detect team preference from history
-        const teamPref = detectTeamPreference(previousLogs);
-
-        const pad = (text, type) => {
-            if (text.length > MAX_CHARS) {
-                return text.substring(0, MAX_CHARS).trim();
-            }
-
-            if (text.length < MIN_CHARS) {
-                const suffixes = {
-                    A: [
-                        " dan dokumentasi hasil kerja",
-                        " serta review progress"
-                    ],
-                    P: [
-                        " bermanfaat untuk skill",
-                        " menambah wawasan best practices"
-                    ],
-                    K: [
-                        " dan berjalan lancar",
-                        " sehingga selesai tepat waktu"
-                    ]
-                };
-
-                let padded = text;
-                let suffixIndex = 0;
-
-                while (padded.length < MIN_CHARS && suffixIndex < suffixes[type].length) {
-                    padded += suffixes[type][suffixIndex];
-                    suffixIndex++;
-                }
-
-                return padded.length > MAX_CHARS ? padded.substring(0, MAX_CHARS).trim() : padded;
-            }
-
-            return text;
-        };
-
-        if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
-        if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');
-        if (kendala.length < MIN_CHARS) kendala = pad(kendala, 'K');
-
-        return { success: true, aktivitas, pembelajaran, kendala };
-    } catch (error) {
-        return { success: false, error: error.message };
+        contextMessages.push(historyText);
     }
+
+    const systemPrompt = `Kamu adalah asisten pribadi yang tugasnya MEMBUAT LAPORAN MAGANG berdasarkan cerita user.
+
+INSTRUKSI UTAMA: "TIRU GAYA BAHASA USER"
+1. Lihat "RIWAYAT LAPORAN TERAKHIR USER" di atas.
+2. Analisis gaya penulisannya:
+   - Apakah formal ("Uraian aktivitas...") atau santai?
+   - Apakah pakai bullet points atau paragraf?
+   - Kosa kata apa yang sering dipakai?
+3. Buat laporan baru berdasarkan cerita user dengan GAYA YANG SAMA PERSIS dengan riwayat tersebut.
+
+ATURAN LAIN:
+- JANGAN pakai gaya robot/default jika ada riwayat. Ikuti riwayat!
+- Tetap sopan dan profesional (kecuali riwayat user sangat santai).
+- PANJANG: 100-170 karakter per bagian (WAJIB!).
+
+Format Output:
+AKTIVITAS: [isi]
+PEMBELAJARAN: [isi]
+KENDALA: [isi]`;
+
+    const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: "${userText}"\n\nBuatkan laporan dengan gaya saya!`;
+
+    // --- RATE LIMIT HANDLER ---
+    const callGeminiWithRetry = async (prompt, retries = 1) => {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const response = await axios.post(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY}`,
+                    { contents: [{ parts: [{ text: prompt }] }] },
+                    { timeout: 60000 }
+                );
+                return { success: true, data: response.data };
+            } catch (err) {
+                const statusCode = err.response?.status;
+                console.warn(chalk.yellow(`[GEMINI] Attempt ${attempt + 1} failed: ${statusCode || err.message}`));
+
+                if (statusCode === 429 && attempt < retries) {
+                    console.log(chalk.blue('[GEMINI] Rate limited. Waiting 15s before retry...'));
+                    await new Promise(r => setTimeout(r, 15000));
+                    continue;
+                }
+                // Log error for debugging, but don't expose to user
+                console.error(chalk.red('[GEMINI] Final Error:'), err.response?.data || err.message);
+                return { success: false, error: getMessage('ai_rate_limit') };
+            }
+        }
+    };
+
+    const geminiResult = await callGeminiWithRetry(fullPrompt);
+    if (!geminiResult.success) {
+        return { success: false, error: geminiResult.error };
+    }
+
+    const content = geminiResult.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!content) return { success: false, error: getMessage('ai_empty_response') };
+
+    const parseSection = (label, text) => {
+        const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
+        const match = text.match(regex);
+        return match ? match[1].trim() : '';
+    };
+
+    let aktivitas = parseSection('AKTIVITAS', content);
+    let pembelajaran = parseSection('PEMBELAJARAN', content);
+    let kendala = parseSection('KENDALA', content);
+
+    const MIN_CHARS = 100;
+    const MAX_CHARS = 170;
+
+    const pad = (text, type) => {
+        if (text.length > MAX_CHARS) return text.substring(0, MAX_CHARS).trim();
+        if (text.length < MIN_CHARS) {
+            const suffixes = {
+                A: [" dan melakukan dokumentasi hasil kerja", " serta review progress"],
+                P: [" bermanfaat untuk skill", " menambah wawasan best practices"],
+                K: [" dan berjalan lancar", " sehingga selesai tepat waktu"]
+            };
+            let padded = text;
+            let i = 0;
+            while (padded.length < MIN_CHARS && i < suffixes[type].length) {
+                padded += suffixes[type][i++];
+            }
+            return padded;
+        }
+        return text;
+    };
+
+    if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
+    if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');
+    if (kendala.length < MIN_CHARS) kendala = pad(kendala, 'K');
+
+    return { success: true, aktivitas, pembelajaran, kendala };
 }
 
 module.exports = { generateAttendanceReport, processFreeTextToReport, transcribeAudio };

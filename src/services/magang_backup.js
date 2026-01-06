@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer-core");
+﻿const puppeteer = require("puppeteer-core");
 const fs = require("fs");
 const path = require("path");
 const chalk = require("chalk");
@@ -62,20 +62,14 @@ async function launchBrowser() {
         "--mute-audio",
         "--no-first-run",
         "--safebrowsing-disable-auto-update",
-        "--disable-dev-shm-usage", // Fix for containerized envs
+        // AGGRESSIVE MEMORY OPTIMIZATION for low-resource VPS (1 core, 2GB RAM)
+        "--js-flags=--max-old-space-size=128",
+        "--disable-dev-shm-usage",
         "--disable-accelerated-2d-canvas",
         "--disable-gpu",
+        "--renderer-process-limit=1",
+        "--single-process"
     ];
-
-    // Production (Linux) Optimization
-    if (process.platform === 'linux') {
-        commonArgs.push(
-            "--single-process", // Save memory on VPS
-            "--no-zygote",      // Save memory
-            "--renderer-process-limit=1",
-            "--js-flags=--max-old-space-size=512" // Limit heap to 512MB (safer than 128MB)
-        );
-    }
 
     const allArgs = [...new Set([...PUPPETEER_ARGS, ...commonArgs])];
 
@@ -130,25 +124,9 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         await page.setViewport({ width: 800, height: 600 });
 
         // Login process
-        // Retry logic for navigation failure (Frame Detached fix - kept for stability)
-        let navSuccess = false;
-        for (let i = 0; i < 3; i++) {
-            try {
-                await page.goto(API_ENDPOINTS.LOGIN_URL, {
-                    waitUntil: i === 0 ? "networkidle2" : "domcontentloaded",
-                    timeout: 60000
-                });
-                navSuccess = true;
-                break;
-            } catch (e) {
-                if (i === 2) throw e;
-                await new Promise(r => setTimeout(r, 2000));
-            }
-        }
-
+        await page.goto(API_ENDPOINTS.LOGIN_URL, { waitUntil: "networkidle2", timeout: 60000 });
 
         const needsLogin = page.url().includes("account.kemnaker.go.id") || page.url().includes("auth/login");
-
 
         if (needsLogin) {
             // Robust selector for username/identity
@@ -185,17 +163,40 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
                 throw new Error(`Could not find login input. URL: ${page.url()}`);
             }
 
-            await new Promise(r => setTimeout(r, 3000)); // Wait for page stability
+            await new Promise(r => setTimeout(r, 200));
 
-            // Direct form fill (no retries)
-            await page.evaluate((sel, user, pass) => {
-                const userEl = document.querySelector(sel);
-                const passEl = document.querySelector('#password') || document.querySelector('input[type="password"]');
-                if (userEl) { userEl.focus(); userEl.value = user; userEl.dispatchEvent(new Event('input', { bubbles: true })); }
-                if (passEl) { passEl.focus(); passEl.value = pass; passEl.dispatchEvent(new Event('input', { bubbles: true })); }
-            }, identityInput, email, password);
+            // Retry loop for form interaction (handles frame detachment/refresh)
+            let loginSuccess = false;
+            for (let i = 0; i < 3; i++) {
+                try {
+                    // Re-verify input existence in case of refresh
+                    await page.waitForSelector(identityInput, { visible: true, timeout: 5000 });
 
-            await new Promise(r => setTimeout(r, 1000));
+                    await page.evaluate((sel, user, pass) => {
+                        const userEl = document.querySelector(sel);
+                        const passEl = document.querySelector('input[type="password"]');
+                        if (userEl) userEl.value = user;
+                        if (passEl) passEl.value = pass;
+                        // Trigger input events for React/Vue
+                        if (userEl) userEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        if (passEl) passEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    }, identityInput, email, password);
+
+                    loginSuccess = true;
+                    break;
+                } catch (e) {
+                    if (e.message.includes('detached') || e.message.includes('Context')) {
+                        console.log(`[PUPPETEER] Frame detached, retrying login fill (Attempt ${i + 1})...`);
+                        await new Promise(r => setTimeout(r, 1000));
+                        continue;
+                    }
+                    throw e;
+                }
+            }
+
+            if (!loginSuccess) throw new Error("Failed to fill login form after retries");
+
+            await new Promise(r => setTimeout(r, 150));
 
             // Submit with robust error handling for frame detachment
             try {
@@ -212,6 +213,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
                     await page.keyboard.press('Enter');
                 }
             } catch (e) {
+                // If frame detaches during click, it often means navigation started (success)
                 if (!e.message.includes('detached') && !e.message.includes('Session closed')) {
                     throw e;
                 }
@@ -220,39 +222,51 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
             await new Promise(r => setTimeout(r, 1500));
         }
 
-        // DIRECT NAVIGATION to Monev (bypass SSO redirect chain)
-        console.log(chalk.yellow(`[BROWSER] Direct navigation to Monev dashboard...`));
-        await new Promise(r => setTimeout(r, 5000)); // Wait for login to process
+        // Wait for redirect or error
+        const maxWaitTime = 30000;
+        const checkInterval = 500;
+        const startTime = Date.now();
+        let loggedInToSiapkerja = false;
+        let loginError = null;
 
-        try {
-            await page.goto('https://monev.maganghub.kemnaker.go.id/dashboard', {
-                waitUntil: 'networkidle2',
-                timeout: 60000
-            });
-        } catch (e) {
-            console.log(chalk.yellow(`[BROWSER] Navigation timeout (continuing anyway)...`));
-        }
+        while (Date.now() - startTime < maxWaitTime) {
+            const currentUrl = page.url();
 
-        await new Promise(r => setTimeout(r, 3000));
-
-        // Check if we're logged in
-        const currentUrl = page.url();
-        const loggedInToSiapkerja = currentUrl.includes('monev.maganghub') || currentUrl.includes('dashboard');
-
-        if (!loggedInToSiapkerja) {
-            // Check for login error
-            const errorText = await page.evaluate(() => {
-                const el = document.querySelector('.alert-error, .error-message, div[role="alert"]');
-                return el ? el.innerText : null;
-            }).catch(() => null);
-
-            if (errorText) {
-                throw new Error(`Login Gagal: ${errorText}`);
+            // 1. Success Checks (Wait for redirection to Monev/Dashboard)
+            if (currentUrl.includes("monev.maganghub") || currentUrl.includes("dashboard")) {
+                loggedInToSiapkerja = true;
+                break;
             }
-            throw new Error(`Login Timeout - stuck at: ${currentUrl}`);
+
+            // Allow SiapKerja Home as intermediate success, but prefer Monev
+            if (currentUrl.includes("siapkerja.kemnaker.go.id") && currentUrl.includes("/app/")) {
+                // Wait a bit more to see if it redirects naturally to monev, otherwise we force it later
+                if (Date.now() - startTime > 10000) {
+                    loggedInToSiapkerja = true;
+                    break;
+                }
+            }
+
+            // 2. Error Checks (Fast Fail)
+            try {
+                const errorText = await page.evaluate(() => {
+                    const el = document.querySelector('.alert-error, .error-message, .validation-error, div[role="alert"]');
+                    return el ? el.innerText : null;
+                });
+                if (errorText) {
+                    loginError = errorText;
+                    break;
+                }
+            } catch (e) { /* ignore detached frames during check */ }
+
+            await new Promise(r => setTimeout(r, checkInterval));
         }
 
-        console.log(chalk.green(`[BROWSER] ✅ Login successful! URL: ${currentUrl}`));
+        if (!loggedInToSiapkerja && loginError) {
+            throw new Error(`Login Gagal: ${loginError}`);
+        } else if (!loggedInToSiapkerja) {
+            throw new Error("Login Timeout: Tidak dialihkan ke Dashboard/Monev dalam waktu 30 detik.");
+        }
 
         await new Promise(r => setTimeout(r, 2000)); // Wait for cookies to settle
 
@@ -295,7 +309,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
             .forEach(c => cookieMap.set(`${c.name}@${c.domain}`, c));
         cookies = Array.from(cookieMap.values());
 
-        console.log(chalk.cyan(`[BROWSER] ✅ Got ${cookies.length} cookies from all domains`));
+        console.log(chalk.cyan(`[BROWSER] âœ… Got ${cookies.length} cookies from all domains`));
 
         // Get CSRF Token and Access Token from localStorage
         let accessToken = null;
@@ -317,7 +331,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
             accessToken = tokens.accessToken || tokens.cookieToken;
 
             if (accessToken) {
-                console.log(chalk.green(`[BROWSER] ✅ Found accessToken!`));
+                console.log(chalk.green(`[BROWSER] âœ… Found accessToken!`));
             }
         } catch (e) { }
 
@@ -342,8 +356,6 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         return { success: true, foto: screenshotPath };
 
     } catch (error) {
-        console.log(chalk.red(`[DEBUG] ❌ LOGIN ERROR: ${error.message}`));
-        console.log(chalk.red(`[DEBUG] Stack: ${error.stack}`));
         if (cookies.length > 0) {
             try { apiService.saveSession(email, cookies, csrfToken); } catch (e) { }
         }

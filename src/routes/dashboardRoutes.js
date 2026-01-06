@@ -6,16 +6,17 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const fs = require('fs');
 const { getAllUsers, deleteUser, getUserByPhone } = require('../services/database');
 const { cekStatusHarian, getRiwayat } = require('../services/magang');
 const { addHoliday, removeHoliday, getAllHolidays, isHoliday, getAllowedGroups } = require('../config/holidays');
 const { log, getLogs, getStats, LOG_TYPES } = require('../services/activityLogger');
+const botState = require('../services/botState');
 
-// Store bot reference and scheduler state
+// Dashboard client path
+const clientDistPath = path.join(__dirname, '../../client/dist/index.html');
+// Store bot socket reference (only socket is local, state is in botState.js)
 let botSocket = null;
-let schedulerEnabled = true;
-let botConnected = false;
-let botStatus = 'online'; // 'online' | 'offline' | 'maintenance'
 
 // Dashboard password from env
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || 'admin123';
@@ -116,9 +117,9 @@ router.get('/api/stats', requireAuth, async (req, res) => {
                 total: groups.length
             },
             bot: {
-                connected: botConnected,
-                schedulerEnabled,
-                status: botStatus
+                connected: botState.isBotConnected(),
+                schedulerEnabled: botState.isSchedulerEnabled(),
+                status: botState.getBotStatus()
             },
             logs: logStats
         });
@@ -199,7 +200,7 @@ router.get('/api/scheduler', requireAuth, (req, res) => {
     ];
 
     res.json({
-        enabled: schedulerEnabled,
+        enabled: botState.isSchedulerEnabled(),
         timezone: 'Asia/Makassar (WITA)',
         schedules
     });
@@ -207,9 +208,11 @@ router.get('/api/scheduler', requireAuth, (req, res) => {
 
 // Toggle scheduler
 router.post('/api/scheduler/toggle', requireAuth, (req, res) => {
-    schedulerEnabled = !schedulerEnabled;
-    log(LOG_TYPES.SCHEDULER, `Scheduler ${schedulerEnabled ? 'enabled' : 'disabled'} via dashboard`);
-    res.json({ enabled: schedulerEnabled });
+    const current = botState.isSchedulerEnabled();
+    botState.setSchedulerEnabled(!current);
+    const newState = botState.isSchedulerEnabled();
+    log(LOG_TYPES.SCHEDULER, `Scheduler ${newState ? 'enabled' : 'disabled'} via dashboard`);
+    res.json({ enabled: newState });
 });
 
 // Manual trigger scheduler
@@ -303,9 +306,13 @@ router.post('/api/users/check-all', requireAuth, async (req, res) => {
 // BOT STATUS CONTROL
 // ========================================
 
-// Get bot status
+// Get bot status (consolidated - includes all status info)
 router.get('/api/bot/status', requireAuth, (req, res) => {
-    res.json({ status: botStatus });
+    res.json({
+        status: botState.getBotStatus(),
+        connected: botState.isBotConnected(),
+        schedulerEnabled: botState.isSchedulerEnabled()
+    });
 });
 
 // Set bot status
@@ -314,13 +321,13 @@ router.post('/api/bot/status', requireAuth, express.json(), (req, res) => {
     if (!['online', 'offline', 'maintenance'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status. Must be: online, offline, or maintenance' });
     }
-    botStatus = status;
+    botState.setBotStatus(status);
     log(LOG_TYPES.WARNING, `Bot status changed to: ${status.toUpperCase()}`);
-    res.json({ success: true, status: botStatus });
+    res.json({ success: true, status: botState.getBotStatus() });
 });
 
-// Export getter for messageHandler
-module.exports.getBotStatus = () => botStatus;
+// Export getter for messageHandler (using botState)
+module.exports.getBotStatus = () => botState.getBotStatus();
 
 
 // ========================================
@@ -406,7 +413,7 @@ router.delete('/api/groups/:groupId', requireAuth, (req, res) => {
 // Get all groups where bot is participating
 router.get('/api/groups/active', requireAuth, async (req, res) => {
     console.log('[API] /api/groups/active called');
-    
+
     if (!botSocket) {
         console.error('[API] Error: botSocket is null/undefined');
         return res.status(503).json({ error: 'Bot not connected (Socket is null)' });
@@ -534,13 +541,7 @@ router.get('/api/logs', requireAuth, (req, res) => {
     res.json(getLogs(limit, type));
 });
 
-// Get bot status
-router.get('/api/bot/status', requireAuth, (req, res) => {
-    res.json({
-        connected: botConnected,
-        schedulerEnabled
-    });
-});
+// Bot status route moved to line 307 (consolidated)
 
 // ========================================
 // SOCKET INJECTION (called from app.js)
@@ -551,23 +552,33 @@ function setBotSocket(sock) {
 }
 
 function setBotConnected(connected) {
-    botConnected = connected;
+    botState.setBotConnected(connected);
     log(connected ? LOG_TYPES.SUCCESS : LOG_TYPES.WARNING,
         `WhatsApp ${connected ? 'connected' : 'disconnected'}`);
 }
 
-function isSchedulerEnabled() {
-    return schedulerEnabled;
-}
+// SPA Catch-all (Must be last route before exports)
+router.get(/(.*)/, (req, res) => {
+    // Serve React App for any other GET request not handled above
+    if (fs.existsSync(clientDistPath)) {
+        res.sendFile(clientDistPath);
+    } else {
+        res.status(503).send(`
+            <html>
+            <head><title>Dashboard Not Built</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1>⚠️ Dashboard Not Ready</h1>
+                <p>React dashboard belum di-build.</p>
+                <p>Jalankan: <code>cd client && npm install && npm run build</code></p>
+                <p>Bot WhatsApp tetap berjalan normal.</p>
+            </body>
+            </html>
+        `);
+    }
+});
 
 module.exports = router;
 module.exports.setBotSocket = setBotSocket;
 module.exports.setBotConnected = setBotConnected;
-// SPA Catch-all (Must be last)
-router.get(/(.*)/, (req, res) => {
-    // Serve React App for any other GET request not handled above
-    res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
-});
-
-module.exports.isSchedulerEnabled = isSchedulerEnabled;
-module.exports.getBotStatus = () => botStatus;
+module.exports.isSchedulerEnabled = () => botState.isSchedulerEnabled();
+module.exports.getBotStatus = () => botState.getBotStatus();

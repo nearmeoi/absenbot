@@ -111,17 +111,19 @@ async function connectToWhatsApp() {
         if (msg.key.remoteJid === 'status@broadcast') return;
         if (msg.key.remoteJid.includes('@newsletter')) return; // Ignore Channels
 
-        // Ignore old messages (timestamp < startup time)
+        // Ignore old messages (only if older than 1 hour before startup)
         const msgTime = (typeof msg.messageTimestamp === 'number')
             ? msg.messageTimestamp
             : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
 
-        if (msgTime < STARTUP_TIME) {
-            // console.log(chalk.gray(`[IGNORE] Old message from ${msgTime} < ${STARTUP_TIME}`));
+        const TOLERANCE = 3600; // 1 hour tolerance
+        if (msgTime < (STARTUP_TIME - TOLERANCE)) {
+            console.log(chalk.gray(`[IGNORE] Old message (> 1 hour old)`));
             return;
         }
 
         const text = getMessageContent(msg);
+
         if (!text) return;
 
         const isMe = msg.key.fromMe;

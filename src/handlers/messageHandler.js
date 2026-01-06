@@ -2,7 +2,7 @@ const { prosesLoginDanAbsen, cekKredensial, cekStatusHarian, getRiwayat } = requ
 const { saveUser, getUserByPhone, updateUserLid, getAllUsers, deleteUser } = require('../services/database');
 const { GROUP_ID_FILE, ADMIN_NUMBERS } = require('../config/constants');
 const { generateAuthUrl, initAuthServer } = require('../services/secureAuth');
-const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = require('../services/groqService');
+const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = require('../services/aiService');
 const { setDraft, getDraft, deleteDraft } = require('../services/previewService');
 const { addHoliday, removeHoliday, isHoliday, getAllHolidays, addAllowedGroup, removeAllowedGroup, getAllowedGroups } = require('../config/holidays');
 const { loadGroupSettings } = require('../services/groupSettings');
@@ -17,6 +17,14 @@ module.exports = async (sock, msg) => {
     try {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
+
+        // Helper: Normalisasi nomor ke format standar
+        const normalizeToStandard = (phone) => {
+            if (!phone) return '';
+            // Ambil angka saja (hapus @lid, @s.whatsapp.net, :device, dll)
+            let digits = phone.split('@')[0].split(':')[0].replace(/\D/g, '');
+            return digits + '@s.whatsapp.net';
+        };
 
         // --- BOT STATUS CHECK ---
         const botStatus = getBotStatus();
@@ -59,7 +67,10 @@ module.exports = async (sock, msg) => {
         const isDraftContent = textMessage.includes("*DRAF LAPORAN ANDA*");
         const isConfirmation = textMessage.toLowerCase().trim() === 'ya';
 
-        if (!isCommand && !isLaporanContent && !isDraftContent && !isConfirmation) return;
+        // Fix: Allow message processing if user has a pending draft (for edits)
+        const hasPendingDraft = !!getDraft(normalizeToStandard(isGroup ? (msgObj.key.participant || msgObj.participant) : sender));
+
+        if (!isCommand && !isLaporanContent && !isDraftContent && !isConfirmation && !hasPendingDraft) return;
 
         // If bot is MAINTENANCE, respond with maintenance message
         if (botStatus === 'maintenance') {
@@ -73,13 +84,7 @@ module.exports = async (sock, msg) => {
             ? msgObj.key.participant || msgObj.participant
             : sender;
 
-        // Helper: Normalisasi nomor ke format standar
-        const normalizeToStandard = (phone) => {
-            if (!phone) return '';
-            // Ambil angka saja (hapus @lid, @s.whatsapp.net, :device, dll)
-            let digits = phone.split('@')[0].split(':')[0].replace(/\D/g, '');
-            return digits + '@s.whatsapp.net';
-        };
+
 
         // Handle LID (Linked ID) di grup
         if (isGroup && senderNumber && senderNumber.includes('@lid')) {
@@ -98,6 +103,7 @@ module.exports = async (sock, msg) => {
                     }
                 } catch (e) {
                     console.error(chalk.red('[HANDLER] Error getting group metadata:'), e.message);
+                    // Silent fail or log
                 }
             }
         }
@@ -115,10 +121,20 @@ module.exports = async (sock, msg) => {
             const coverPath = require('path').join(__dirname, '../../public/img/cover.png');
             const info = getMessage('menu');
 
-            if (fs.existsSync(coverPath)) {
-                await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
-            } else {
-                await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+            try {
+                if (fs.existsSync(coverPath)) {
+                    await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
+                } else {
+                    await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+                }
+            } catch (menuError) {
+                console.error(chalk.red('[HANDLER] Error sending menu with image:'), menuError.message);
+                // Fallback to text-only if image fails
+                try {
+                    await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+                } catch (textError) {
+                    console.error(chalk.red('[HANDLER] Error sending menu text:'), textError.message);
+                }
             }
             return;
         }
@@ -230,7 +246,7 @@ module.exports = async (sock, msg) => {
             if (!isGroup) {
                 await sock.sendMessage(
                     sender,
-                    { text: "Perintah ini hanya bisa digunakan di dalam grup." },
+                    { text: getMessage('ingatkan_not_group') },
                     { quoted: msgObj }
                 );
                 return;
@@ -240,13 +256,13 @@ module.exports = async (sock, msg) => {
             if (allUsers.length === 0) {
                 await sock.sendMessage(
                     sender,
-                    { text: "Belum ada user terdaftar." },
+                    { text: getMessage('ingatkan_empty') },
                     { quoted: msgObj }
                 );
                 return;
             }
 
-            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
 
             let belumAbsen = [];
             let checked = 0;
@@ -368,10 +384,10 @@ module.exports = async (sock, msg) => {
             if (subCmd === 'showid') {
                 const chatId = sender;
                 const isGroup = sender.endsWith('@g.us');
-                const message = `*DEV: CHAT ID*\n\n` +
+                const message = getMessage('dev_chat_id_header') +
                     `Chat Type: ${isGroup ? 'Group' : 'Private'}\n` +
                     `ID: \`${chatId}\`\n\n` +
-                    `${isGroup ? 'Kirim ke grup: `!dev grup add ' + chatId + '`' : ''}`;
+                    `${isGroup ? getMessage('dev_chat_group_add_hint').replace('{id}', chatId) : ''}`;
 
                 // Always DM to admin
                 await sock.sendMessage(senderNumber, { text: message });
@@ -383,8 +399,8 @@ module.exports = async (sock, msg) => {
                 const dateStr = params[0] || new Date().toISOString().split('T')[0];
                 const added = addHoliday(dateStr);
                 const reply = added
-                    ? `✅ Tanggal ${dateStr} ditandai sebagai libur.`
-                    : `⚠️ Tanggal ${dateStr} sudah ada di daftar libur.`;
+                    ? getMessage('dev_holiday_added').replace('{date}', dateStr)
+                    : getMessage('dev_holiday_exists').replace('{date}', dateStr);
                 await sock.sendMessage(senderNumber, { text: reply });
                 return;
             }
@@ -394,8 +410,8 @@ module.exports = async (sock, msg) => {
                 const dateStr = params[0] || new Date().toISOString().split('T')[0];
                 const removed = removeHoliday(dateStr);
                 const reply = removed
-                    ? `✅ Tanggal ${dateStr} dihapus dari daftar libur.`
-                    : `⚠️ Tanggal ${dateStr} tidak ada di daftar libur.`;
+                    ? getMessage('dev_holiday_removed').replace('{date}', dateStr)
+                    : getMessage('dev_holiday_not_found').replace('{date}', dateStr);
                 await sock.sendMessage(senderNumber, { text: reply });
                 return;
             }
@@ -407,7 +423,7 @@ module.exports = async (sock, msg) => {
                 const today = new Date().toISOString().split('T')[0];
                 const todayIsHoliday = isHoliday();
 
-                const statusMsg = `*DEV: SYSTEM STATUS*\n\n` +
+                const statusMsg = getMessage('dev_status_header') +
                     `Hari ini: ${today}\n` +
                     `Status: ${todayIsHoliday ? '🔴 LIBUR' : '🟢 KERJA'}\n\n` +
                     `📅 Custom Holidays (${holidays.length}):\n${holidays.length > 0 ? holidays.map(d => `  • ${d}`).join('\n') : '  (kosong)'}\n\n` +
@@ -432,18 +448,18 @@ module.exports = async (sock, msg) => {
                 if (action === 'add') {
                     const added = addAllowedGroup(groupId);
                     const reply = added
-                        ? `✅ Grup ${groupId} ditambahkan ke whitelist.`
-                        : `⚠️ Grup ${groupId} sudah ada di whitelist.`;
+                        ? getMessage('dev_group_added').replace('{id}', groupId)
+                        : getMessage('dev_group_exists').replace('{id}', groupId);
                     await sock.sendMessage(senderNumber, { text: reply });
                 } else if (action === 'remove') {
                     const removed = removeAllowedGroup(groupId);
                     const reply = removed
-                        ? `✅ Grup ${groupId} dihapus dari whitelist.`
-                        : `⚠️ Grup ${groupId} tidak ada di whitelist.`;
+                        ? getMessage('dev_group_removed').replace('{id}', groupId)
+                        : getMessage('dev_group_not_found').replace('{id}', groupId);
                     await sock.sendMessage(senderNumber, { text: reply });
                 } else {
                     await sock.sendMessage(senderNumber, {
-                        text: `⚠️ Action tidak valid. Gunakan 'add' atau 'remove'.`
+                        text: getMessage('dev_invalid_action')
                     });
                 }
                 return;
@@ -451,12 +467,7 @@ module.exports = async (sock, msg) => {
 
             // Unknown subcommand
             await sock.sendMessage(senderNumber, {
-                text: `*DEV COMMANDS*\n\n` +
-                    `!dev showid - Get chat ID\n` +
-                    `!dev libur [date] - Set holiday\n` +
-                    `!dev hapus-libur [date] - Remove holiday\n` +
-                    `!dev status - System status\n` +
-                    `!dev grup add/remove [id] - Manage groups`
+                text: getMessage('dev_help')
             });
             return;
         }
@@ -502,9 +513,30 @@ module.exports = async (sock, msg) => {
                 return;
             }
 
+            // --- Pre-Check: Apakah user sudah absen hari ini? ---
+            try {
+                // Jangan cek jika user mengirim tag manual #aktivitas atau #pembelajaran (mungkin revisi)
+                // Tapi user minta "cek dlu sudah absen belum", jadi kita cek di semua flow !absen
+                const statusCheck = await cekStatusHarian(user.email, user.password);
+                if (statusCheck.success && statusCheck.sudahAbsen) {
+                    const log = statusCheck.data;
+                    const reply = getMessage('cek_sudah_absen')
+                        .replace('{date}', log.date)
+                        .replace('{activity}', log.activity_log ? log.activity_log.substring(0, 50) + '...' : '-');
+
+                    await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+                    return; // STOP jika sudah absen
+                }
+            } catch (e) {
+                console.error("[HANDLER] Error pre-check absen:", e);
+                // Lanjut saja jika error (fail open) atau mau stop? 
+                // Kita lanjut saja supaya user tidak terblokir jika server lagi down
+            }
+
+
             if (!args || args.trim() === '') {
                 // Zero-input mode: Auto-generate from history
-                await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
+                await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
                 await sock.sendMessage(sender, { text: getMessage('absen_loading') }, { quoted: msgObj });
 
                 const history = await getRiwayat(user.email, user.password, 3);
@@ -537,7 +569,7 @@ module.exports = async (sock, msg) => {
                 return;
             }
 
-            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
 
             let reportData = { aktivitas: '', pembelajaran: '', kendala: '', type: '' };
 
@@ -614,7 +646,7 @@ module.exports = async (sock, msg) => {
             const user = getUserByPhone(senderNumber);
             if (!user) return;
 
-            await sock.sendMessage(sender, { react: { text: "🚀", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_rocket'), key: msgObj.key } });
 
             const loginResult = await prosesLoginDanAbsen({
                 email: user.email,
@@ -675,7 +707,7 @@ module.exports = async (sock, msg) => {
             }
             // OPTION 2: USER SENT FREE TEXT REVISION (AUTO UPDATE WITH AI)
             else {
-                await sock.sendMessage(sender, { react: { text: "✍️", key: msgObj.key } });
+                await sock.sendMessage(sender, { react: { text: getMessage('reaction_write'), key: msgObj.key } });
                 await sock.sendMessage(sender, { text: getMessage('draft_update_loading') }, { quoted: msgObj });
 
                 const user = getUserByPhone(senderNumber);
@@ -716,15 +748,15 @@ module.exports = async (sock, msg) => {
         if (command === "!cek") {
             const user = getUserByPhone(senderNumber);
             if (!user) {
-                await sock.sendMessage(sender, { text: "Anda belum terdaftar." }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
                 return;
             }
 
-            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
             const status = await cekStatusHarian(user.email, user.password);
 
             if (status.success) {
-                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
+                await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
                 if (status.sudahAbsen) {
                     const log = status.data;
                     let reply = getMessage('cek_sudah_absen')
@@ -735,7 +767,7 @@ module.exports = async (sock, msg) => {
                     await sock.sendMessage(sender, { text: getMessage('cek_belum_absen') }, { quoted: msgObj });
                 }
             } else {
-                await sock.sendMessage(sender, { react: { text: "❌", key: msgObj.key } });
+                await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
                 await sock.sendMessage(sender, { text: getMessage('cek_error').replace('{error}', status.pesan) }, { quoted: msgObj });
             }
             return;
@@ -745,18 +777,18 @@ module.exports = async (sock, msg) => {
         if (command === "!riwayat") {
             const user = getUserByPhone(senderNumber);
             if (!user) {
-                await sock.sendMessage(sender, { text: "Anda belum terdaftar." }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
                 return;
             }
             let days = 1;
             if (args && !isNaN(parseInt(args))) {
                 days = Math.min(Math.max(parseInt(args), 1), 7);
             }
-            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
             const result = await getRiwayat(user.email, user.password, days);
 
             if (result.success && result.logs.length > 0) {
-                await sock.sendMessage(sender, { react: { text: "✅", key: msgObj.key } });
+                await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
                 let historyText = getMessage('riwayat_header') + '\n';
                 result.logs.forEach(log => {
                     historyText += `\n━━━━━━━━━━━━━━━━━━\n`;
@@ -784,30 +816,61 @@ module.exports = async (sock, msg) => {
 
         // --- ADMIN LOGIC: !BROADCAST ---
         if (command === '!broadcast') {
-            const ADMIN_NUMBERS = ['6285657025300', '6289517153324', '117948895244409'];
-            let isAdmin = false;
-            const senderBase = senderNumber.replace(/@.*/, '').replace(/:.*/, '');
-            if (ADMIN_NUMBERS.some(num => senderBase.includes(num))) isAdmin = true;
+            // Use centralized ADMIN_NUMBERS from constants (env-based)
+            const senderDigits = senderNumber.split('@')[0].replace(/:/g, '');
+            const isAdmin = ADMIN_NUMBERS.some(num => senderDigits.includes(num) || num.includes(senderDigits));
 
             if (!isAdmin) {
-                await sock.sendMessage(sender, { text: "Hanya untuk admin." }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('broadcast_admin_only') }, { quoted: msgObj });
                 return;
             }
 
             if (!args) {
-                await sock.sendMessage(sender, { text: "Format: !broadcast [pesan]" }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('broadcast_format') }, { quoted: msgObj });
                 return;
             }
 
             const allUsers = getAllUsers();
-            await sock.sendMessage(sender, { react: { text: "📢", key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_broadcast'), key: msgObj.key } });
             for (const u of allUsers) {
                 try {
                     await sock.sendMessage(u.phone, { text: args });
                     await new Promise(r => setTimeout(r, 500));
                 } catch (e) { }
             }
-            await sock.sendMessage(sender, { text: "Broadcast selesai." }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('broadcast_done') }, { quoted: msgObj });
+            return;
+        }
+
+        // --- PUBLIC LOGIC: !ALL (formerly hidetag) ---
+        if (command === '!all') {
+            // REMOVED ADMIN CHECK per user request
+            // const senderDigits = senderNumber.split('@')[0].replace(/:/g, '');
+            // const isAdmin = ADMIN_NUMBERS.some(num => senderDigits.includes(num) || num.includes(senderDigits));
+
+            // if (!isAdmin) {
+            //     await sock.sendMessage(sender, { text: getMessage('hidetag_admin_only') }, { quoted: msgObj });
+            //     return;
+            // }
+
+            if (!isGroup) {
+                await sock.sendMessage(sender, { text: getMessage('hidetag_not_group') }, { quoted: msgObj });
+                return;
+            }
+
+            const message = args || 'Attention!';
+
+            try {
+                const metadata = await sock.groupMetadata(sender);
+                const participants = metadata.participants.map(p => p.id);
+
+                await sock.sendMessage(sender, {
+                    text: message,
+                    mentions: participants
+                });
+            } catch (e) {
+                console.error(chalk.red("[HANDLER] Error hidetag:"), e);
+            }
             return;
         }
 

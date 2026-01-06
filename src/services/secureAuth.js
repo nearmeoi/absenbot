@@ -20,6 +20,7 @@ const pendingAuths = new Map(); // Store pending authentication requests
 let authServer = null;
 let serverPort = process.env.AUTH_PORT || 3000;
 let detectedIP = null;
+let cleanupInterval = null; // Single interval for token cleanup
 
 // Generate a secure random token
 function generateToken(length = 32) {
@@ -169,9 +170,13 @@ function initAuthServer() {
                 saveUser(authRequest.phone, email, password);
 
 
-                // Call the WhatsApp notification callback
+                // Call the WhatsApp notification callback (wrapped in try-catch to prevent crash)
                 if (authRequest.callback) {
-                    authRequest.callback({ success: true, message: 'Registrasi berhasil!' });
+                    try {
+                        authRequest.callback({ success: true, message: 'Registrasi berhasil!' });
+                    } catch (callbackErr) {
+                        console.error(chalk.red('[AUTH] Callback error:'), callbackErr.message);
+                    }
                 }
 
                 // Clean up the token
@@ -257,8 +262,11 @@ async function generateAuthUrl(phoneNumber, callback) {
     // Store token temporarily
     tempTokens.set(token, Date.now());
 
-    // Clean up expired tokens periodically
-    setTimeout(cleanExpiredTokens, 10 * 60 * 1000); // 10 minutes
+    // Start cleanup interval if not already running (SINGLE interval, not per-request)
+    if (!cleanupInterval) {
+        cleanupInterval = setInterval(cleanExpiredTokens, 10 * 60 * 1000); // 10 minutes
+        console.log(chalk.cyan('[AUTH] Token cleanup interval started'));
+    }
 
     // Get server address (auto-detects IP)
     const baseUrl = await getServerAddress();

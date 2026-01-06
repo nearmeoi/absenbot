@@ -4,12 +4,13 @@ const cron = require('node-cron');
 const { GROUP_ID_FILE } = require('../config/constants');
 const { getAllUsers } = require('./database');
 const { cekStatusHarian, getRiwayat, prosesLoginDanAbsen } = require('./magang');
-const { generateAttendanceReport } = require('./groqService');
+const { generateAttendanceReport } = require('./aiService');
 const { setDraft } = require('./previewService');
 const { getAllowedGroups, isHoliday } = require('../config/holidays');
 
 const { loadGroupSettings } = require('./groupSettings');
 const { getMessage } = require('./messageService');
+const { isSchedulerEnabled } = require('./botState'); // Use centralized state to avoid circular dependency
 
 // Check if today is weekend or holiday
 function isWeekendOrHoliday() {
@@ -83,7 +84,9 @@ async function broadcastToGroup(sock, groupId, msgKey) {
                         belumAbsenNames.push(`@${user.phone.split('@')[0]}`);
                     }
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error(chalk.red(`[SCHEDULER] Error checking user ${user.email}:`), e.message);
+            }
         }
 
         let msgText = "";
@@ -113,6 +116,10 @@ async function broadcastToGroup(sock, groupId, msgKey) {
 // Morning reminder (08:00 WITA) - GROUP BROADCAST ONLY
 async function runMorningReminder(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running morning reminder (08:00)...'));
+    if (!isSchedulerEnabled()) {
+        console.log(chalk.yellow('[SCHEDULER] Scheduler disabled, skipping.'));
+        return;
+    }
     if (isWeekendOrHoliday()) return;
 
     const settings = loadGroupSettings();
@@ -127,6 +134,10 @@ async function runMorningReminder(sock) {
 // Afternoon reminder (16:00 WITA - Markipul) - GROUP BROADCAST ONLY
 async function runAfternoonReminder(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running afternoon reminder (16:00 - Markipul)...'));
+    if (!isSchedulerEnabled()) {
+        console.log(chalk.yellow('[SCHEDULER] Scheduler disabled, skipping.'));
+        return;
+    }
     if (isWeekendOrHoliday()) return;
 
     const settings = loadGroupSettings();
@@ -141,6 +152,10 @@ async function runAfternoonReminder(sock) {
 // Evening reminder (21:00, 23:00) - GROUP BROADCAST + OPTIONAL PRIVATE CHAT
 async function runAutoReminder(sock, enablePrivateChat = false) {
     console.log(chalk.magenta(`[SCHEDULER] Running evening reminder (PrivateChat: ${enablePrivateChat})...`));
+    if (!isSchedulerEnabled()) {
+        console.log(chalk.yellow('[SCHEDULER] Scheduler disabled, skipping.'));
+        return;
+    }
     if (isWeekendOrHoliday()) return;
 
     // 1. Group Broadcasts
@@ -209,7 +224,9 @@ async function runDraftPush(sock) {
 
                 await sock.sendMessage(user.phone, { text: msg });
             }
-        } catch (e) { }
+        } catch (e) {
+            console.error(chalk.red(`[DRAFT-PUSH] Error for ${user.email}:`), e.message);
+        }
     }
 }
 
@@ -248,7 +265,9 @@ async function runEmergencyAutoSubmit(sock) {
                     });
                 }
             }
-        } catch (e) { }
+        } catch (e) {
+            console.error(chalk.red(`[AUTO-SUBMIT] Error for ${user.email}:`), e.message);
+        }
     }
 }
 
