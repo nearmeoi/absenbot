@@ -57,113 +57,64 @@ function shouldSkipGroup(config) {
     return isGroupHoliday(config) || isGroupWeekend(config);
 }
 
-// Helper: Broadcast to Group with Hidetag (Tag All)
-async function broadcastToGroup(sock, groupId, msgKey) {
+// Helper: Broadcast Simple Message with Hidetag (Tag All) - User Request
+async function broadcastSimpleWithHidetag(sock, groupId, msgKey) {
     try {
-        // Fetch Group Metadata to get ALL participants (for Hidetag)
         const groupMetadata = await sock.groupMetadata(groupId);
         const allParticipants = groupMetadata.participants.map(p => p.id);
+        const msgText = getMessage(msgKey);
 
-        // Get users who haven't submitted (for the list in the message text)
-        const allUsers = getAllUsers();
-        let belumAbsenNames = [];
-
-        for (const user of allUsers) {
-            try {
-                // Check if user is actually in this group? 
-                // Currently we don't track User->Group mapping strictly, 
-                // but we can check if the user's phone is in allParticipants
-                const userJid = user.phone.endsWith('@s.whatsapp.net') ? user.phone : `${user.phone}@s.whatsapp.net`;
-
-                if (allParticipants.includes(userJid)) {
-                    const status = await cekStatusHarian(user.email, user.password);
-                    if (!status.success || !status.sudahAbsen) {
-                        // Try to get pushName from metadata if possible, or fallback to phone
-                        const participant = groupMetadata.participants.find(p => p.id === userJid);
-                        // We don't have easy access to contact names here without store, so use @phone
-                        belumAbsenNames.push(`@${user.phone.split('@')[0]}`);
-                    }
-                }
-            } catch (e) {
-                console.error(chalk.red(`[SCHEDULER] Error checking user ${user.email}:`), e.message);
-            }
-        }
-
-        let msgText = "";
-
-        // If everyone done
-        if (belumAbsenNames.length === 0) {
-            msgText = getMessage('siapa_all_done');
-        } else {
-            // Construct Message
-            msgText = getMessage('siapa_header') + `\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\n`;
-            belumAbsenNames.forEach(name => msgText += `- ${name}\n`);
-            msgText += `\n${getMessage(msgKey)}`;
-        }
-
-        // HIDETAG: Send to group, but mention EVERYONE in the 'mentions' array
-        // This makes everyone get a notification, even if not explicitly named in text
         await sock.sendMessage(groupId, {
             text: msgText,
-            mentions: allParticipants // <--- HIDETAG ALL
-        }, { ephemeralExpiration: 86400 });
-
+            mentions: allParticipants
+        });
     } catch (e) {
-        console.error(chalk.red(`[SCHEDULER] Failed broadcast to ${groupId}:`), e.message);
+        console.error(chalk.red(`[SCHEDULER] Failed simple hidetag to ${groupId}:`), e.message);
     }
 }
 
-// Morning reminder (08:00 WITA) - GROUP BROADCAST ONLY
+// Morning reminder (08:00 WITA)
 async function runMorningReminder(sock) {
     console.log(chalk.magenta('[SCHEDULER] Running morning reminder (08:00)...'));
-    if (!isSchedulerEnabled()) {
-        console.log(chalk.yellow('[SCHEDULER] Scheduler disabled, skipping.'));
-        return;
-    }
+    if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday()) return;
 
     const settings = loadGroupSettings();
     const enabledGroups = Object.entries(settings).filter(([_, c]) => c.schedulerEnabled && !shouldSkipGroup(c));
 
     for (const [groupId, _] of enabledGroups) {
-        await broadcastToGroup(sock, groupId, 'morning_reminder');
+        await broadcastSimpleWithHidetag(sock, groupId, 'morning_reminder');
         await new Promise(r => setTimeout(r, 2000));
     }
 }
 
-// Afternoon reminder (16:00 WITA - Markipul) - GROUP BROADCAST ONLY
+// Afternoon reminder (16:00 WITA)
 async function runAfternoonReminder(sock) {
-    console.log(chalk.magenta('[SCHEDULER] Running afternoon reminder (16:00 - Markipul)...'));
-    if (!isSchedulerEnabled()) {
-        console.log(chalk.yellow('[SCHEDULER] Scheduler disabled, skipping.'));
-        return;
-    }
+    console.log(chalk.magenta('[SCHEDULER] Running afternoon reminder (16:00)...'));
+    if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday()) return;
 
     const settings = loadGroupSettings();
     const enabledGroups = Object.entries(settings).filter(([_, c]) => c.schedulerEnabled && !shouldSkipGroup(c));
 
     for (const [groupId, _] of enabledGroups) {
-        await broadcastToGroup(sock, groupId, 'afternoon_reminder');
+        await broadcastSimpleWithHidetag(sock, groupId, 'afternoon_reminder');
         await new Promise(r => setTimeout(r, 2000));
     }
 }
 
-// Evening reminder (21:00, 23:00) - GROUP BROADCAST + OPTIONAL PRIVATE CHAT
+// Evening reminder (21:00, 23:00)
 async function runAutoReminder(sock, enablePrivateChat = false) {
     console.log(chalk.magenta(`[SCHEDULER] Running evening reminder (PrivateChat: ${enablePrivateChat})...`));
-    if (!isSchedulerEnabled()) {
-        console.log(chalk.yellow('[SCHEDULER] Scheduler disabled, skipping.'));
-        return;
-    }
+    if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday()) return;
 
-    // 1. Group Broadcasts
+    // 1. Group Broadcasts (Simple Hidetag)
     const settings = loadGroupSettings();
     const enabledGroups = Object.entries(settings).filter(([_, c]) => c.schedulerEnabled && !shouldSkipGroup(c));
 
     for (const [groupId, _] of enabledGroups) {
-        await broadcastToGroup(sock, groupId, 'evening_reminder');
+        await broadcastSimpleWithHidetag(sock, groupId, 'evening_reminder');
         await new Promise(r => setTimeout(r, 2000));
     }
 
@@ -176,7 +127,7 @@ async function runAutoReminder(sock, enablePrivateChat = false) {
                 const status = await cekStatusHarian(user.email, user.password);
                 if (!status.success || !status.sudahAbsen) {
                     await sock.sendMessage(user.phone, {
-                        text: getMessage('evening_reminder') // OR custom japri message
+                        text: getMessage('evening_reminder')
                     });
                     await new Promise(r => setTimeout(r, 1000));
                 }
