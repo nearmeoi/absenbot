@@ -109,9 +109,32 @@ function initAuthServer() {
     app.use('/dashboard', dashboardRoutes);
 
 
-    // Legacy HTML routes replaced by React SPA
-    // app.get('/auth/preview') removed
-    // app.get('/auth/:token') removed - handled by React Router via dashboard catch-all
+    // Serve the Kemnaker-style Login Page (Restored)
+    app.get('/auth/preview', (req, res) => {
+        const loginPagePath = path.join(__dirname, '../../public/login.html');
+        if (fs.existsSync(loginPagePath)) {
+            res.sendFile(loginPagePath);
+        } else {
+            res.status(404).send('Login page not found (public/login.html missing)');
+        }
+    });
+
+    app.get('/auth/:token', (req, res) => {
+        const token = req.params.token;
+        const authRequest = pendingAuths.get(token);
+
+        // Also allow debug token or verify if token exists
+        if (token !== 'debug-preview-token' && !authRequest) {
+            return res.send('Link kadaluarsa atau tidak valid.');
+        }
+
+        const loginPagePath = path.join(__dirname, '../../public/login.html');
+        if (fs.existsSync(loginPagePath)) {
+            res.sendFile(loginPagePath);
+        } else {
+            res.status(404).send('Login page not found (public/login.html missing)');
+        }
+    });
 
     // Handle login submission
     app.post('/auth/submit', async (req, res) => {
@@ -239,7 +262,7 @@ async function generateAuthUrl(phoneNumber, callback) {
 
     // Get server address (auto-detects IP)
     const baseUrl = await getServerAddress();
-    const authUrl = `${baseUrl}/dashboard/auth/${token}`;
+    const authUrl = `${baseUrl}/auth/${token}`;
 
     console.log(chalk.green(`[AUTH] Generated auth URL: ${authUrl}`));
     return authUrl;

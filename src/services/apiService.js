@@ -42,7 +42,7 @@ function loadSession(email) {
         if (isStale) {
             console.log(chalk.yellow(`[API] Session stale for ${email} (${ageMinutes} min), but attempting reuse...`));
         } else {
-            console.log(chalk.cyan(`[API] Loaded session for ${email} (age: ${ageMinutes} min, ${session.cookies.length} cookies)`));
+            console.log(chalk.cyan(`[API] Session loaded: ${email}`));
         }
         return session;
     } catch (e) {

@@ -405,13 +405,22 @@ router.delete('/api/groups/:groupId', requireAuth, (req, res) => {
 
 // Get all groups where bot is participating
 router.get('/api/groups/active', requireAuth, async (req, res) => {
+    console.log('[API] /api/groups/active called');
+    
     if (!botSocket) {
-        return res.status(503).json({ error: 'Bot not connected' });
+        console.error('[API] Error: botSocket is null/undefined');
+        return res.status(503).json({ error: 'Bot not connected (Socket is null)' });
     }
 
     try {
+        console.log('[API] Check bot connection state...');
+        // Optional: Check if socket is actually connected if possible
+        // if (botSocket.ws.readyState !== 1) console.warn('[API] Warning: WS State is', botSocket.ws.readyState);
+
+        console.log('[API] Fetching participating groups...');
         // Fetch all groups the bot is participating in
         const allGroups = await botSocket.groupFetchAllParticipating();
+        console.log(`[API] Raw groups fetched: ${Object.keys(allGroups).length}`);
 
         // Transform to array with useful info
         const groups = Object.values(allGroups).map(g => ({
@@ -427,10 +436,11 @@ router.get('/api/groups/active', requireAuth, async (req, res) => {
 
         // Sort by name
         groups.sort((a, b) => a.name.localeCompare(b.name));
+        console.log(`[API] Returning ${groups.length} groups to client`);
 
         res.json(groups);
     } catch (e) {
-        console.error('Error fetching groups:', e);
+        console.error('[API] Error fetching groups:', e);
         res.status(500).json({ error: e.message });
     }
 });

@@ -57,7 +57,7 @@ export default function Login() {
                             required
                             fullWidth
                             name="password"
-                            label="Access Password"
+                            label="Admin PIN"
                             type="password"
                             id="password"
                             autoComplete="current-password"
@@ -65,6 +65,8 @@ export default function Login() {
                             onChange={(e) => setPassword(e.target.value)}
                             disabled={isLoading}
                             autoFocus
+                            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
+                            placeholder="Enter Dashboard PIN"
                             sx={{ mb: 3 }}
                         />
 
