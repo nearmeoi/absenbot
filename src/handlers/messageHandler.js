@@ -817,38 +817,36 @@ module.exports = async (sock, msg) => {
 };
 
 function parseDraftFromMessage(text) {
-    // Remove template instruction text before parsing
     let cleanText = text;
 
-    // Remove common template instructions - more specific patterns
-    // Remove text after the last content section that contains instructions
+    // 1. Remove Header
+    cleanText = cleanText.replace(/\*DRAF LAPORAN ANDA\*/i, '');
+    cleanText = cleanText.replace(/\*DRAF DIPERBARUI\*[^\n]*/i, ''); // Remove DRAF DIPERBARUI and any following chars (like emoji) on that line
+
+    // 2. Remove Footer Instructions (Strict Regex)
     const instructionPatterns = [
         /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim\._.*$/i,
         /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub\._.*$/i,
         /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub.*$/i,
-        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+kirim.*$/i,
-        /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\).*$/i
+        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim.*$/i,
+        /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\).*$/i,
+        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim,\s+atau\s+revisi\s+lagi.*$/i
     ];
 
     for (const pattern of instructionPatterns) {
         cleanText = cleanText.replace(pattern, '');
     }
 
-    // Remove just the "ya" command if it appears as standalone text but keep it if it's part of actual content
-    cleanText = cleanText.replace(/(?<!\w)\*ya\*(?!\w)/g, ''); // Only remove *ya* when it's not part of a word
+    // 3. Remove standalone "ya" command
+    cleanText = cleanText.replace(/(?<!\w)\*ya\*(?!\w)/g, '');
 
-    // Clean up extra whitespace after removal
-    cleanText = cleanText.replace(/\s+/g, ' ').trim();
-
+    // 4. Parse Sections
     const parseSection = (label) => {
         // Regex to capture content between *Label:* and the next *Label:* or end of string
-        const regex = new RegExp(`\\*${label}:\\*\\s*\\([\\d]+\\s*karakter\\)\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
-        const regexBackup = new RegExp(`\\*${label}:\\*\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
-
-        let match = cleanText.match(regex);
-        if (!match) match = cleanText.match(regexBackup);
-
-        return match ? match[1].trim() : '';
+        // Handles optional (xxx karakter) count which user might delete or keep
+        const regex = new RegExp(`\\*${label}:\\*\\s*(\\([\\d]+\\s*karakter\\))?\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
+        const match = cleanText.match(regex);
+        return match ? match[2].trim() : '';
     };
 
     const aktivitas = parseSection('Aktivitas');
