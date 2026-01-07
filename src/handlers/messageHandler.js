@@ -828,17 +828,29 @@ const messageHandler = async (sock, msg) => {
         const pendingDraft = getDraft(senderNumber);
         if (pendingDraft && !isCommand) {
             const lowerText = textMessage.toLowerCase();
+
+            // 1. Strict Keyword Check
             const hasAllKeywords = lowerText.includes('aktivitas') &&
                 lowerText.includes('pembelajaran') &&
                 lowerText.includes('kendala');
 
+            // 2. Specific Header Check (User Request: "cek heading saja")
+            // If user copy-pastes the bot's draft, it includes these headers.
+            // We treat this as a strong intent, bypassing the "Reply" requirement for groups.
+            const hasDraftHeader = lowerText.includes('draf laporan otomatis') ||
+                lowerText.includes('draf laporan anda') ||
+                lowerText.includes('draf diperbarui');
+
             // In groups, strictly require a reply (quote) to the bot's message
+            // UNLESS the message explicitly contains the unique Draft Header.
             const contextInfo = msgObj.message.extendedTextMessage?.contextInfo;
             const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
             const isReplyToBot = contextInfo?.participant === botJid || contextInfo?.participant === sock.user.id;
 
-            // Only process if it has all keywords AND (if in group, must be a reply to bot)
-            const shouldProcessRevision = hasAllKeywords && (!isGroup || isReplyToBot);
+            // Logic: 
+            // - If Header is present -> VALID (Strong intent, ignore Reply rule)
+            // - If Keywords present -> VALID ONLY IF (Private Chat OR Reply to Bot)
+            const shouldProcessRevision = hasDraftHeader || (hasAllKeywords && (!isGroup || isReplyToBot));
 
             if (shouldProcessRevision) {
                 const parsedEdit = parseDraftFromMessage(textMessage);

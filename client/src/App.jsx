@@ -30,7 +30,7 @@ const PublicRoute = ({ children }) => {
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import theme from './theme';
 
-import TestSystem from './pages/TestSystem';
+import TestSystem from './pages/TestSystem.jsx';
 
 function App() {
   return (
