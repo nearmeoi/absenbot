@@ -1103,4 +1103,6 @@ function parseDraftFromMessage(text) {
     };
 }
 
-module.exports = { messageHandler, parseDraftFromMessage };
+// Export both for production (default) and testing (named)
+messageHandler.parseDraftFromMessage = parseDraftFromMessage;
+module.exports = messageHandler;
