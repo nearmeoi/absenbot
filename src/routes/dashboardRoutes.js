@@ -729,7 +729,7 @@ router.post('/api/test/send-menu', requireAuth, async (req, res) => {
 });
 
 // React Router Catch-All (Must be last)
-router.get('*', (req, res) => {
+router.use((req, res) => {
     if (fs.existsSync(clientDistPath)) {
         res.sendFile(clientDistPath);
     } else {

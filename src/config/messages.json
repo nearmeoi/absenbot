@@ -1,5 +1,5 @@
 {
-  "morning_reminder": "Selamat Pagi Guys\nSemangat buat hari ini.",
+  "morning_reminder": "Pagi guys\nSemangat buat hari ini.",
   "afternoon_reminder": "*MARKIPUL* \nSudah jam 16:00, waktunya balik!\nJangan lupa isi absen hari ini.",
   "evening_reminder": "*PENGINGAT ABSENSI* 🔔\n\nBagi yang belum absen hari ini, segera absen sebelum jam *23:59*.\n*!absen [aktivitas, pembelajaran, kendala hari ini]*\n_Contoh: !absen belajar react membuat komponen, pembelajaran hari ini mengetahui tentang react componen, kendala hari ini tidak ada_ \n\natau langsung kesini https://monev.maganghub.kemnaker.go.id/dashboard",
   "draft_alert": "*DARURAT DRAF ABSENSI OTOMATIS* ⚠️\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan untukmu. Balas *ya* untuk kirim.",
