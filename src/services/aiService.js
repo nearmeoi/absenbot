@@ -283,13 +283,8 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return { success: false, error: 'GROQ_API_KEY tidak dikonfigurasi' };
 
-    // --- GEMINI IMPLEMENTATION (Style Adaptive) ---
-    // User prefers "Ketepatan" (Accuracy) over Speed.
-    // Gemini 1.5 Flash proved superior in mimicking user style.
-
     const contextMessages = [];
     if (previousLogs.length > 0) {
-        // Construct history context for Gemini
         let historyText = "RIWAYAT LAPORAN TERAKHIR USER (Pelajari Gaya Bahasanya):\n";
         previousLogs.forEach((log, i) => {
             historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
@@ -321,8 +316,29 @@ KENDALA: [isi]`;
 
     const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: "${userText}"\n\nBuatkan laporan dengan gaya saya!`;
 
-    // --- RATE LIMIT HANDLER ---
-    const callGeminiWithRetry = async (prompt, retries = 1) => {
+    // --- ENGINE 1: GROQ (Primary - Higher Request Limits) ---
+    const callGroq = async (prompt) => {
+        try {
+            const response = await axios.post(GROQ_API_URL, {
+                model: GROQ_MODEL,
+                messages: [
+                    { role: 'system', content: 'Generate internship report in structured format.' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.7
+            }, {
+                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+                timeout: 30000
+            });
+            return { success: true, content: response.data.choices[0]?.message?.content };
+        } catch (err) {
+            console.warn(chalk.yellow(`[GROQ-REVISI] Primary engine failed: ${err.message}`));
+            return { success: false };
+        }
+    };
+
+    // --- ENGINE 2: GEMINI (Fallback - Accurate but strict rate limits) ---
+    const callGeminiFallback = async (prompt, retries = 1) => {
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
                 const response = await axios.post(
@@ -330,31 +346,32 @@ KENDALA: [isi]`;
                     { contents: [{ parts: [{ text: prompt }] }] },
                     { timeout: 60000 }
                 );
-                return { success: true, data: response.data };
+                return { success: true, content: response.data.candidates?.[0]?.content?.parts?.[0]?.text };
             } catch (err) {
                 const statusCode = err.response?.status;
-                console.warn(chalk.yellow(`[GEMINI] Attempt ${attempt + 1} failed: ${statusCode || err.message}`));
+                console.warn(chalk.yellow(`[GEMINI-FALLBACK] Attempt ${attempt + 1} failed: ${statusCode || err.message}`));
 
                 if (statusCode === 429 && attempt < retries) {
-                    console.log(chalk.blue('[GEMINI] Rate limited. Waiting 15s before retry...'));
-                    await new Promise(r => setTimeout(r, 15000));
+                    console.log(chalk.blue('[GEMINI-FALLBACK] Rate limited. Waiting 30s before final retry...'));
+                    await new Promise(r => setTimeout(r, 30000));
                     continue;
                 }
-                // Log error for debugging, but don't expose to user
-                console.error(chalk.red('[GEMINI] Final Error:'), err.response?.data || err.message);
-                return { success: false, error: getMessage('ai_rate_limit') };
+                return { success: false };
             }
         }
     };
 
-    const geminiResult = await callGeminiWithRetry(fullPrompt);
-    if (!geminiResult.success) {
-        return { success: false, error: geminiResult.error };
+    let result = await callGroq(fullPrompt);
+    if (!result.success || !result.content) {
+        console.log(chalk.magenta('[AI-SYNC] Switching to Gemini Fallback...'));
+        result = await callGeminiFallback(fullPrompt);
     }
 
-    const content = geminiResult.data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!content) return { success: false, error: getMessage('ai_empty_response') };
+    if (!result.success || !result.content) {
+        return { success: false, error: 'Gagal memproses laporan (Semua engine AI sibuk).' };
+    }
 
+    const content = result.content;
     const parseSection = (label, text) => {
         const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
         const match = text.match(regex);
