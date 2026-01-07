@@ -1,3 +1,4 @@
+require('dotenv').config();
 const { parseDraftFromMessage } = require('../src/handlers/messageHandler');
 const chalk = require('chalk');
 

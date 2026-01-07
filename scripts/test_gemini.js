@@ -1,5 +1,5 @@
-const axios = require('axios');
 require('dotenv').config();
+const axios = require('axios');
 const chalk = require('chalk');
 
 async function testGemini() {

@@ -1,5 +1,5 @@
-const { processFreeTextToReport } = require('../src/services/aiService');
 require('dotenv').config();
+const { processFreeTextToReport } = require('../src/services/aiService');
 const chalk = require('chalk');
 
 async function runStressTest() {
