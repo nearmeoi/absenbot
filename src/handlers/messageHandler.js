@@ -1059,6 +1059,7 @@ function parseDraftFromMessage(text) {
 
     // 1. Remove Header
     cleanText = cleanText.replace(/\*DRAF LAPORAN ANDA\*/i, '');
+    cleanText = cleanText.replace(/\*DRAF LAPORAN OTOMATIS\*/i, '');
     cleanText = cleanText.replace(/\*DRAF DIPERBARUI\*[^\n]*/i, ''); // Remove DRAF DIPERBARUI and any following chars (like emoji) on that line
 
     // 2. Remove Footer Instructions (Strict Regex)
@@ -1068,7 +1069,8 @@ function parseDraftFromMessage(text) {
         /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub.*$/i,
         /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim.*$/i,
         /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\).*$/i,
-        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim,\s+atau\s+revisi\s+lagi.*$/i
+        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim,\s+atau\s+revisi\s+lagi.*$/i,
+        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+kirim,\s+atau\s+ceritakan\s+aktivitas\s+Anda.*$/i
     ];
 
     for (const pattern of instructionPatterns) {
