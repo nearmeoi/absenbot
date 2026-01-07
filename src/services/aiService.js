@@ -125,35 +125,38 @@ TUGAS UTAMA:
    - Pertahankan tingkat formalitas yang sama
    - Jika user pakai istilah tertentu (misal: "koordinasi", "evaluasi", "implementasi"), GUNAKAN LAGI
 
-3. ATURAN PENULISAN:
-   - Tetap profesional dan sopan
-   - JANGAN terlalu gaul atau informal
-   - JANGAN pakai kata robot seperti "melakukan koordinasi intensif" atau "memberikan wawasan mendalam yang komprehensif"
-   - Tulis natural tapi tetap formal
-   - PANJANG: 100-170 karakter per bagian (WAJIB!)
+128. ATURAN PENULISAN:
+    - Tetap profesional dan sopan
+    - Tulis natural tapi tetap formal
+    - PANJANG: 100-170 karakter per bagian (WAJIB!)
+    - HANYA KELUARKAN LAPORAN. Dilarang menyertakan analisis, kata pengantar, atau komentar apa pun!
 
-CONTOH ANALISIS KONSISTENSI:
+129. PENGECEKAN LOGIKA (COHERENCE):
+    - Pastikan Aktivitas, Pembelajaran, dan Kendala saling "nyambung" secara logis sebagai satu hari kerja.
+    - Hindari pengulangan kalimat yang sama di bagian yang berbeda.
+
+CONTOH ANALISIS KONSISTENSI (Internal saja, jangan ditulis di output!):
 Jika user sering pakai: "melakukan", "bersama tim", "sistem", "database"
 Maka gunakan kata-kata tersebut dalam laporan baru.
 
-Ingat: Tiru gaya user, jangan buat gaya sendiri!`;
+Ingat: Tiru gaya user, jangan buat gaya sendiri! HANYA OUTPUT FORMAT DI BAWAH!`;
 
     const userPrompt = `${context}
 
-ANALISIS riwayat di atas dan temukan:
-- Kata-kata apa yang SERING MUNCUL?
-- Istilah teknis apa yang KONSISTEN dipakai?
-- Bagaimana pola kalimat user?
-
-Lalu buatkan laporan hari ini dengan GAYA YANG SAMA PERSIS.
+Tugas: Buatkan laporan hari ini dengan GAYA YANG SAMA PERSIS dengan riwayat di atas.
 Gunakan KATA-KATA YANG SAMA yang user sering pakai!
 
-PENTING: 100-170 karakter per bagian, JANGAN lebih!
+PENTING:
+- Pastikan isi Aktivitas, Pembelajaran, dan Kendala SALING NYAMBUNG dan logis.
+- HANYA KELUARKAN ISI LAPORAN.
+- DILARANG menyertakan analisis, daftar kata kunci, atau penjelasan gaya bahasa di dalam output.
+- JANGAN ADA TEKS LAIN selain format AKTIVITAS, PEMBELAJARAN, dan KENDALA di bawah.
+- Panjang 100-170 karakter per bagian.
 
 Format:
-AKTIVITAS: [isi 100-170 karakter, pakai kata-kata user]
-PEMBELAJARAN: [isi 100-170 karakter, pakai kata-kata user]
-KENDALA: [isi 100-170 karakter, pakai kata-kata user]`;
+AKTIVITAS: [isi]
+PEMBELAJARAN: [isi]
+KENDALA: [isi]`;
 
     try {
         console.log(chalk.cyan('[GROQ] Generating attendance report...'));
@@ -200,14 +203,12 @@ KENDALA: [isi 100-170 karakter, pakai kata-kata user]`;
         // Detect team preference from history (for future use)
         // const teamPref = detectTeamPreference(previousLogs);
 
-        const pad = (text, type) => {
-            // Truncate if too long
-            if (text.length > MAX_CHARS) {
-                return text.substring(0, MAX_CHARS).trim();
-            }
+        // Clamping Logic: Pad if too short, Truncate if too long
+        const clamp = (text, type) => {
+            let result = text;
 
-            // Pad if too short - add suffix ONCE, not in a loop
-            if (text.length < MIN_CHARS) {
+            // Pad if too short
+            if (result.length < MIN_CHARS) {
                 const suffixes = {
                     A: [
                         " dan melakukan dokumentasi hasil kerja",
@@ -226,25 +227,29 @@ KENDALA: [isi 100-170 karakter, pakai kata-kata user]`;
                     ]
                 };
 
-                let padded = text;
                 let suffixIndex = 0;
-
-                // Add suffixes one by one until min reached (max 2 suffixes)
-                while (padded.length < MIN_CHARS && suffixIndex < suffixes[type].length) {
-                    padded += suffixes[type][suffixIndex];
+                while (result.length < MIN_CHARS && suffixIndex < suffixes[type].length) {
+                    result += suffixes[type][suffixIndex];
                     suffixIndex++;
                 }
-
-                // Final truncate if over max
-                return padded.length > MAX_CHARS ? padded.substring(0, MAX_CHARS).trim() : padded;
             }
 
-            return text;
+            // Truncate if too long (final guard)
+            if (result.length > MAX_CHARS) {
+                result = result.substring(0, MAX_CHARS).trim();
+                // Ensure we don't end in the middle of a word if possible
+                const lastSpace = result.lastIndexOf(' ');
+                if (lastSpace > MAX_CHARS - 20) {
+                    result = result.substring(0, lastSpace);
+                }
+            }
+
+            return result;
         };
 
-        if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
-        if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');
-        if (kendala.length < MIN_CHARS) kendala = pad(kendala, 'K');
+        aktivitas = clamp(aktivitas, 'A');
+        pembelajaran = clamp(pembelajaran, 'P');
+        kendala = clamp(kendala, 'K');
 
         console.log(chalk.gray(`[GROQ] Final Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
 
@@ -298,11 +303,13 @@ INSTRUKSI UTAMA: "TIRU GAYA BAHASA USER"
 3. Buat laporan baru berdasarkan cerita user dengan GAYA YANG SAMA PERSIS dengan riwayat tersebut.
 
 ATURAN LAIN:
+- HANYA KELUARKAN LAPORAN. DILARANG menyertakan analisis, kata pengantar, atau penjelasan apa pun.
+- PASTIKAN isi Aktivitas, Pembelajaran, dan Kendala SALING NYAMBUNG secara logis.
 - JANGAN pakai gaya robot/default jika ada riwayat. Ikuti riwayat!
 - Tetap sopan dan profesional (kecuali riwayat user sangat santai).
 - PANJANG: 100-170 karakter per bagian (WAJIB!).
 
-Format Output:
+Format Output (Hanya teks di bawah, tanpa tambahan lain!):
 AKTIVITAS: [isi]
 PEMBELAJARAN: [isi]
 KENDALA: [isi]`;
@@ -356,27 +363,30 @@ KENDALA: [isi]`;
     const MIN_CHARS = 100;
     const MAX_CHARS = 170;
 
-    const pad = (text, type) => {
-        if (text.length > MAX_CHARS) return text.substring(0, MAX_CHARS).trim();
-        if (text.length < MIN_CHARS) {
+    const clamp = (text, type) => {
+        let result = text;
+        if (result.length < MIN_CHARS) {
             const suffixes = {
                 A: [" dan melakukan dokumentasi hasil kerja", " serta review progress"],
                 P: [" bermanfaat untuk skill", " menambah wawasan best practices"],
                 K: [" dan berjalan lancar", " sehingga selesai tepat waktu"]
             };
-            let padded = text;
             let i = 0;
-            while (padded.length < MIN_CHARS && i < suffixes[type].length) {
-                padded += suffixes[type][i++];
+            while (result.length < MIN_CHARS && i < suffixes[type].length) {
+                result += suffixes[type][i++];
             }
-            return padded;
         }
-        return text;
+        if (result.length > MAX_CHARS) {
+            result = result.substring(0, MAX_CHARS).trim();
+            const lastSpace = result.lastIndexOf(' ');
+            if (lastSpace > MAX_CHARS - 20) result = result.substring(0, lastSpace);
+        }
+        return result;
     };
 
-    if (aktivitas.length < MIN_CHARS) aktivitas = pad(aktivitas, 'A');
-    if (pembelajaran.length < MIN_CHARS) pembelajaran = pad(pembelajaran, 'P');
-    if (kendala.length < MIN_CHARS) kendala = pad(kendala, 'K');
+    aktivitas = clamp(aktivitas, 'A');
+    pembelajaran = clamp(pembelajaran, 'P');
+    kendala = clamp(kendala, 'K');
 
     return { success: true, aktivitas, pembelajaran, kendala };
 }
