@@ -20,7 +20,8 @@ if (!fs.existsSync(dataDir)) {
 const DEFAULT_SETTINGS = {
     name: '',
     schedulerEnabled: true,
-    autoReply: true
+    autoReply: true,
+    timezone: 'Asia/Makassar' // Default to WITA
 };
 
 /**

@@ -204,7 +204,7 @@ router.get('/api/scheduler', requireAuth, (req, res) => {
 
     res.json({
         enabled: botState.isSchedulerEnabled(),
-        timezone: 'Asia/Makassar (WITA)',
+        timezone: 'Multi-timezone (WIB/WITA/WIT)',
         schedules
     });
 });
