@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
 
-module.exports = async (sock, msg) => {
+const messageHandler = async (sock, msg) => {
     try {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
@@ -1064,20 +1064,20 @@ function parseDraftFromMessage(text) {
 
     // 2. Remove Footer Instructions (Strict Regex)
     const instructionPatterns = [
-        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim\._.*$/i,
-        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub\._.*$/i,
-        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub.*$/i,
-        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim.*$/i,
-        /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\).*$/i,
-        /(\n\s*)?_Ketik\s+\*ya\*\s+untuk\s+kirim,\s+atau\s+revisi\s+lagi.*$/i,
-        /(\n\s*)?Ketik\s+\*ya\*\s+untuk\s+kirim,\s+atau\s+ceritakan\s+aktivitas\s+Anda.*$/i
+        /(\n\s*)?_Ketik\s+(\*ya\*)?\s*untuk\s+kirim\._[\s\S]*$/i,
+        /(\n\s*)?_Ketik\s+(\*ya\*)?\s*untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub\._[\s\S]*$/i,
+        /(\n\s*)?Ketik\s+(\*ya\*)?\s*untuk\s+mengirim\s+laporan\s+ini\s+ke\s+web\s+MagangHub[\s\S]*$/i,
+        /(\n\s*)?_Ketik\s+(\*ya\*)?\s*untuk\s+kirim[\s\S]*$/i,
+        /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\)[\s\S]*$/i,
+        /(\n\s*)?_Ketik\s+(\*ya\*)?\s*untuk\s+kirim,\s+atau\s+revisi\s+lagi[\s\S]*$/i,
+        /(\n\s*)?Ketik\s+(\*ya\*)?\s*untuk\s+kirim,\s+atau\s+ceritakan\s+aktivitas\s+Anda[\s\S]*$/i
     ];
 
     for (const pattern of instructionPatterns) {
         cleanText = cleanText.replace(pattern, '');
     }
 
-    // 3. Remove standalone "ya" command
+    // 3. Remove standalone "ya" command (only after footers are gone)
     cleanText = cleanText.replace(/(?<!\w)\*ya\*(?!\w)/g, '');
 
     // 4. Parse Sections
@@ -1103,3 +1103,4 @@ function parseDraftFromMessage(text) {
     };
 }
 
+module.exports = { messageHandler, parseDraftFromMessage };
