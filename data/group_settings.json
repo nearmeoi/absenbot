@@ -8,7 +8,7 @@
   },
   "120363405673867279@g.us": {
     "name": "siapa suruh ke sini?",
-    "schedulerEnabled": true,
+    "schedulerEnabled": false,
     "autoReply": true,
     "isTesting": false,
     "skipWeekends": true
@@ -17,7 +17,7 @@
     "name": "Magang Di Pluit🎷💸",
     "schedulerEnabled": true,
     "autoReply": true,
-    "isTesting": false,
+    "isTesting": true,
     "skipWeekends": true
   }
 }
