@@ -9,9 +9,12 @@ const path = require('path');
 const fs = require('fs');
 const { getAllUsers, deleteUser, getUserByPhone } = require('../services/database');
 const { cekStatusHarian, getRiwayat } = require('../services/magang');
+const { generateAuthUrl } = require('../services/secureAuth');
+const { getMessage } = require('../services/messageService');
 const { addHoliday, removeHoliday, getAllHolidays, isHoliday, getAllowedGroups } = require('../config/holidays');
 const { log, getLogs, getStats, LOG_TYPES } = require('../services/activityLogger');
 const botState = require('../services/botState');
+const { processFreeTextToReport } = require('../services/aiService'); // Note: remote renamed groqService to aiService
 
 // Dashboard client path
 const clientDistPath = path.join(__dirname, '../../client/dist/index.html');
@@ -574,6 +577,154 @@ router.get(/(.*)/, (req, res) => {
             </body>
             </html>
         `);
+    }
+});
+
+// --- SYSTEM TEST ENDPOINTS ---
+
+router.post('/api/test/simulation', requireAuth, async (req, res) => {
+    try {
+        const { email, aktivitas, pembelajaran, kendala } = req.body;
+
+        const akt = aktivitas || 'Melakukan aktivitas testing dashboard';
+        const plj = pembelajaran || 'Mempelajari cara kerja sistem testing';
+        const knd = kendala || 'Tidak ada kendala berarti';
+
+        // Format exactly like real bot draft_preview from messages.json
+        const draftPreview = `*DRAF LAPORAN ANDA*\n\n*Aktivitas:* (${akt.length} karakter)\n${akt}\n\n*Pembelajaran:* (${plj.length} karakter)\n${plj}\n\n*Kendala:* (${knd.length} karakter)\n${knd}\n\n_Ketik *ya* untuk kirim._`;
+
+        const successMessage = `✅ *BERHASIL!*\nLaporan Anda telah terkirim ke web MagangHub.\n\n_(Ini adalah simulasi, data tidak benar-benar dikirim)_`;
+
+        res.json({
+            success: true,
+            message: successMessage,
+            preview: draftPreview
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Test AI Parsing (Groq) - Actually calls Groq API to test AI capability
+router.post('/api/test/ai-parse', requireAuth, async (req, res) => {
+    try {
+        const { story } = req.body;
+
+        if (!story || story.length < 10) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cerita terlalu pendek (minimal 10 karakter)'
+            });
+        }
+
+        console.log('[TEST] AI Parse request:', story.substring(0, 50) + '...');
+
+        // Call the actual Groq AI
+        const result = await processFreeTextToReport(story, []);
+
+        if (!result.success) {
+            return res.json({
+                success: false,
+                message: result.error || 'AI gagal memproses cerita',
+                preview: `❌ *AI PARSE FAILED*\n\nError: ${result.error}`
+            });
+        }
+
+        // Format like real bot draft_preview
+        const draftPreview = `*DRAF LAPORAN AI*
+
+*Aktivitas:* (${result.aktivitas.length} karakter)
+${result.aktivitas}
+
+*Pembelajaran:* (${result.pembelajaran.length} karakter)
+${result.pembelajaran}
+
+*Kendala:* (${result.kendala.length} karakter)
+${result.kendala}
+
+_Diproses oleh Groq AI (llama-3.3-70b)_`;
+
+        res.json({
+            success: true,
+            message: 'AI berhasil memproses cerita',
+            preview: draftPreview,
+            raw: result
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/api/test/check', requireAuth, async (req, res) => {
+    try {
+        const { email } = req.body; // Password typically not needed for just status check if session exists, but `cekStatusHarian` takes it for login retry
+        // For security, maybe just use what's in DB if not provided, or Require password.
+        // For now, let's assume the frontend sends what it has, or we look up the user.
+
+        const user = getUserByPhone(email) || getAllUsers().find(u => u.email === email);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        const result = await cekStatusHarian(user.email, user.password);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/api/test/riwayat', requireAuth, async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = getUserByPhone(email) || getAllUsers().find(u => u.email === email);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        const result = await getRiwayat(user.email, user.password, 3);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/api/test/gen-link', requireAuth, async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = getUserByPhone(email) || getAllUsers().find(u => u.email === email);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        // Format exactly like real bot registration_link_private from messages.json
+        const mockUrl = `https://monev-absenbot.my.id/auth/MOCK_${Date.now().toString(36)}`;
+        const preview = `*PENDAFTARAN AKUN*
+
+Pastikan Anda mendaftar menggunakan email dan password akun *Monev / SiapKerja* asli agar bot dapat melakukan absensi secara otomatis. Klik link di bawah ini untuk menghubungkan akun MagangHub kamu:
+
+${mockUrl}
+
+(Link ini aman tidak menyimpan password kamu, hanya menyimpan cookies login, hanya berlaku 10 menit)
+
+_(Ini adalah simulasi, link tidak valid)_`;
+
+        res.json({ success: true, url: mockUrl, preview });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/api/test/send-menu', requireAuth, async (req, res) => {
+    try {
+        const { email, simulation } = req.body;
+        const user = getUserByPhone(email) || getAllUsers().find(u => u.email === email);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        // Return real menu format (no TEST prefix, pure simulation)
+        const info = getMessage('menu');
+
+        // Always simulation mode - never send to WA
+        res.json({
+            success: true,
+            message: 'Menu preview generated',
+            preview: info
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

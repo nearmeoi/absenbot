@@ -23,12 +23,22 @@ function setDraft(sender, draft) {
 }
 
 /**
- * Get draft for a user
+ * Get draft for a user (Checks for expiration)
  * @param {string} sender 
  * @returns {Object|null}
  */
 function getDraft(sender) {
-    return pendingPreviews.get(sender) || null;
+    const draft = pendingPreviews.get(sender);
+    if (!draft) return null;
+
+    // 15-minute timeout
+    const expiry = 15 * 60 * 1000;
+    if (Date.now() - draft.timestamp > expiry) {
+        pendingPreviews.delete(sender);
+        return null;
+    }
+
+    return draft;
 }
 
 /**
@@ -44,7 +54,7 @@ function deleteDraft(sender) {
  */
 function cleanup() {
     const now = Date.now();
-    const expiry = 24 * 60 * 60 * 1000;
+    const expiry = 15 * 60 * 1000; // 15 minutes
 
     let count = 0;
     for (const [sender, data] of pendingPreviews.entries()) {

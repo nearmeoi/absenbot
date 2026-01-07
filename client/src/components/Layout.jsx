@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
     Menu as MenuIcon, LayoutGrid, Users, Layers, Calendar,
-    MessageSquare, Terminal, Settings, LogOut
+    MessageSquare, Terminal, Settings, LogOut, FlaskConical
 } from 'lucide-react';
 
 const DRAWER_WIDTH = 280;
@@ -33,6 +33,7 @@ export default function Layout() {
         if (path === '/development') return 'Development';
         if (path === '/terminal') return 'Terminal';
         if (path === '/settings') return 'Settings';
+        if (path === '/test-system') return 'System Test';
         return 'Dashboard';
     };
 
@@ -43,6 +44,7 @@ export default function Layout() {
         { text: 'Scheduler', icon: <Calendar size={20} />, path: '/scheduler' },
         { text: 'Development', icon: <MessageSquare size={20} />, path: '/development' },
         { text: 'Terminal', icon: <Terminal size={20} />, path: '/terminal' },
+        { text: 'System Test', icon: <FlaskConical size={20} />, path: '/test-system' },
         { text: 'Settings', icon: <Settings size={20} />, path: '/settings' },
     ];
 

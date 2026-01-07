@@ -509,7 +509,20 @@ async function cekStatusHarian(email, password) {
 }
 
 async function prosesLoginDanAbsen(dataUser) {
-    const { email, password, aktivitas, pembelajaran, kendala } = dataUser;
+    const { email, password, aktivitas, pembelajaran, kendala, simulation } = dataUser;
+
+    // --- SIMULATION MODE ---
+    if (simulation) {
+        console.log(chalk.yellow(`[SIMULATION] Simulating attendance for ${email}...`));
+        await new Promise(r => setTimeout(r, 2000)); // Fake processing delay
+
+        return {
+            success: true,
+            nama: email,
+            foto: null, // No screenshot in simulation
+            pesan_tambahan: "(MODE SIMULASI - Data tidak dikirim ke server)"
+        };
+    }
 
     const apiResult = await apiService.submitAttendanceReport(email, {
         aktivitas, pembelajaran, kendala

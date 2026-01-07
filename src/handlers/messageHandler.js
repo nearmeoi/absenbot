@@ -146,6 +146,154 @@ module.exports = async (sock, msg) => {
         }
 
         // ----------------------------------------------------
+        // !TEST (SYSTEM TESTING MENU)
+        // ----------------------------------------------------
+        if (command === '!test') {
+            const subCommand = args.split(' ')[0].toLowerCase();
+            const content = args.substring(subCommand.length).trim();
+
+            // 1. !TEST (Dashboard)
+            if (!subCommand) {
+                const menu = `*🛠️ SYSTEM TEST MENU (ALL FEATURES)*\n\n` +
+                    `1. *!test menu* - Cek tampilan menu utama\n` +
+                    `2. *!test daftar* - Coba generate link registrasi\n` +
+                    `3. *!test absen* - Simulasi flow absen (Tanpa parameter)\n` +
+                    `4. *!test absen [cerita]* - Simulasi absen dengan cerita AI\n` +
+                    `5. *!test absen manual #aktivitas...* - Simulasi absen manual full\n` +
+                    `6. *!test cek* - Cek status harian (Real)\n` +
+                    `7. *!test riwayat* - Cek riwayat (Real)\n\n` +
+                    `_Semua perintah !test aman: Transaksi 'submit' hanya simulasi._`;
+                await sock.sendMessage(sender, { text: menu }, { quoted: msgObj });
+                return;
+            }
+
+            // 2. !TEST MENU (Feature Test)
+            if (subCommand === 'menu') {
+                const coverPath = path.join(__dirname, '../../public/img/cover.png');
+                const info = `*[TEST MODE] MAIN MENU*\n\n` + getMessage('menu');
+
+                if (fs.existsSync(coverPath)) {
+                    await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
+                } else {
+                    await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+                }
+                return;
+            }
+
+            // 2. !TEST DAFTAR
+            if (subCommand === 'daftar') {
+                await sock.sendMessage(sender, { text: "🔄 *[TEST]* Generating Registration Link..." }, { quoted: msgObj });
+                const authUrl = await generateAuthUrl(senderNumber, async (result) => { });
+                const response = getMessage('registration_link_private').replace('{url}', authUrl);
+                await sock.sendMessage(sender, { text: `*[TEST MODE]*\n${response}` }, { quoted: msgObj });
+                return;
+            }
+
+            // 3. !TEST ABSEN (Scenario: User types !absen with NO args)
+            if (subCommand === 'absen' && !content) {
+                const user = getUserByPhone(senderNumber);
+                if (!user) return sock.sendMessage(sender, { text: getMessage('not_registered') });
+
+                await sock.sendMessage(sender, { text: `🔄 *[TEST]* Menjalankan flow '!absen' (tanpa cerita)...` }, { quoted: msgObj });
+                await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
+                await new Promise(r => setTimeout(r, 1000));
+
+                // Simulate "Loading history" message
+                await sock.sendMessage(sender, { text: getMessage('absen_loading') }, { quoted: msgObj });
+
+                // In real flow, this triggers AI for history. In test, we can just say "Ready".
+                await new Promise(r => setTimeout(r, 1500));
+                await sock.sendMessage(sender, { text: "✅ *[TEST]* Data riwayat (pura-pura) diambil.\nBot menunggu cerita Anda... (Reply pesan ini untuk lanjut test)" }, { quoted: msgObj });
+                return;
+            }
+
+            // 4. !TEST ABSEN [CERITA] (Scenario: User types !absen with story)
+            if (subCommand === 'absen' && content && !content.startsWith('manual')) {
+                const user = getUserByPhone(senderNumber);
+                if (!user) return sock.sendMessage(sender, { text: getMessage('not_registered') });
+
+                await sock.sendMessage(sender, { text: "🔄 *[SIMULASI]* Memproses laporan dengan AI..." }, { quoted: msgObj });
+
+                // 2. Kirim ke AI untuk dirapikan
+                const aiResult = await processFreeTextToReport(content);
+                if (!aiResult.success) {
+                    return sock.sendMessage(sender, { text: "Gagal memproses AI." });
+                }
+
+                // 3. Simpan Draft & Minta Konfirmasi (Sama seperti flow asli, tapi tandai simulasi)
+                const mockDraft = {
+                    aktivitas: aiResult.aktivitas,
+                    pembelajaran: aiResult.pembelajaran,
+                    kendala: aiResult.kendala,
+                    type: 'simulation' // Special type
+                };
+                setDraft(senderNumber, mockDraft);
+
+                const draftMsg = `*🛠️ [SIMULASI] DRAF LAPORAN*\n\n` +
+                    `*Aktivitas:* (${aiResult.aktivitas.length} char)\n${aiResult.aktivitas}\n\n` +
+                    `*Pembelajaran:* (${aiResult.pembelajaran.length} char)\n${aiResult.pembelajaran}\n\n` +
+                    `*Kendala:* (${aiResult.kendala.length} char)\n${aiResult.kendala}\n\n` +
+                    `_Ketik *ya* untuk lanjut (Simulasi Submit)._`;
+
+                await sock.sendMessage(sender, { text: draftMsg }, { quoted: msgObj });
+                return;
+            }
+
+            // 5. !TEST MANUAL (Scenario: User uses #tags or !test absen manual)
+            if (subCommand === 'manual' || (subCommand === 'absen' && content.startsWith('manual'))) {
+                let rawText = content;
+                if (subCommand === 'absen' && content.startsWith('manual')) {
+                    rawText = content.substring(6).trim();
+                }
+
+                // Reuse parseDraftFromMessage logic on the 'content'
+                // We need to simulate the "!absen " prefix if parseDraft expects it, or just pass text
+                const fakeMessage = "!absen " + (rawText || "#aktivitas test #pembelajaran test #kendala test");
+                const parsed = parseDraftFromMessage(fakeMessage); // Try parsing
+
+                // Fallback if parse fails or needs specific format
+                if (!parsed || !parsed.aktivitas) {
+                    return sock.sendMessage(sender, { text: "❌ *[TEST]* Gagal parse format manual. Pastikan format: `!test manual #aktivitas isi #pembelajaran isi...`" });
+                }
+
+                const mockDraft = { ...parsed, type: 'simulation' };
+                setDraft(senderNumber, mockDraft);
+
+                const draftMsg = `*🛠️ [SIMULASI MANUAL] DRAF TERBACA*\n\n` +
+                    `*Aktivitas:* (${parsed.aktivitas.length})\n${parsed.aktivitas}\n\n` +
+                    `*Pembelajaran:* (${parsed.pembelajaran.length})\n${parsed.pembelajaran}\n\n` +
+                    `*Kendala:* (${parsed.kendala.length})\n${parsed.kendala}\n\n` +
+                    `_Ketik *ya* untuk lanjut (Simulasi Submit)._`;
+                await sock.sendMessage(sender, { text: draftMsg }, { quoted: msgObj });
+                return;
+            }
+
+            // 6. !TEST CEK
+            if (subCommand === 'cek') {
+                const user = getUserByPhone(senderNumber);
+                if (!user) return sock.sendMessage(sender, { text: "Belum daftar." });
+                await sock.sendMessage(sender, { text: "🔄 *[TEST]* Menjalankan !cek (Real Mode)..." });
+
+                const status = await cekStatusHarian(user.email, user.password);
+                await sock.sendMessage(sender, { text: `*[TEST RESULT]*\nJSON: ${JSON.stringify(status, null, 2)}` });
+                return;
+            }
+
+            // 7. !TEST RIWAYAT
+            if (subCommand === 'riwayat') {
+                const user = getUserByPhone(senderNumber);
+                if (!user) return sock.sendMessage(sender, { text: "Belum daftar." });
+                await sock.sendMessage(sender, { text: "🔄 *[TEST]* Menjalankan !riwayat (Real Mode)..." });
+
+                const result = await getRiwayat(user.email, user.password, 1);
+                await sock.sendMessage(sender, { text: `*[TEST RESULT]*\nSuccess: ${result.success}\nLogs Found: ${result.logs?.length || 0}` });
+                return;
+            }
+
+            return;
+        }
+
+        // ----------------------------------------------------
         // !SETGROUP (SETUP LOKASI ALARM OTOMATIS)
         // ----------------------------------------------------
         if (command === "!setgroup") {
@@ -643,6 +791,17 @@ module.exports = async (sock, msg) => {
             const cachedDraft = getDraft(senderNumber);
             if (!cachedDraft) return;
 
+            // --- SIMULATION CHECK ---
+            if (cachedDraft.type === 'simulation') {
+                await sock.sendMessage(sender, { react: { text: "🛠️", key: msgObj.key } });
+                await new Promise(r => setTimeout(r, 1000));
+                await sock.sendMessage(sender, {
+                    text: `✅ *[SIMULASI BERHASIL]*\n\nDraft ini valid, tapi TIDAK dikirim ke server karena ini mode test.\n\n_Draft dihapus dari memori._`
+                }, { quoted: msgObj });
+                deleteDraft(senderNumber);
+                return;
+            }
+
             const user = getUserByPhone(senderNumber);
             if (!user) return;
 
@@ -667,81 +826,97 @@ module.exports = async (sock, msg) => {
 
         // --- CORE LOGIC: EDIT BY COPY-PASTE ---
         const pendingDraft = getDraft(senderNumber);
-        if (pendingDraft && !isCommand) { // If there is a draft and message is not a command
-            const parsedEdit = parseDraftFromMessage(textMessage);
+        if (pendingDraft && !isCommand) {
+            const lowerText = textMessage.toLowerCase();
+            const hasAllKeywords = lowerText.includes('aktivitas') &&
+                lowerText.includes('pembelajaran') &&
+                lowerText.includes('kendala');
 
-            // OPTION 1: USER COPIED & EDITED THE DRAFT MANUALLY (FORMATTED)
-            if (parsedEdit) {
-                const MIN_CHARS = 100; // Minimum 100 characters for manual edits
-                const MAX_CHARS = 10000; // Very high maximum to effectively remove limit
-                const errors = [];
+            // In groups, strictly require a reply (quote) to the bot's message
+            const contextInfo = msgObj.message.extendedTextMessage?.contextInfo;
+            const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+            const isReplyToBot = contextInfo?.participant === botJid || contextInfo?.participant === sock.user.id;
 
-                if (parsedEdit.aktivitas.length < MIN_CHARS) errors.push(`Aktivitas kurang (${parsedEdit.aktivitas.length}/${MIN_CHARS})`);
-                if (parsedEdit.aktivitas.length > MAX_CHARS) errors.push(`Aktivitas lebih (${parsedEdit.aktivitas.length}/${MAX_CHARS})`);
+            // Only process if it has all keywords AND (if in group, must be a reply to bot)
+            const shouldProcessRevision = hasAllKeywords && (!isGroup || isReplyToBot);
 
-                if (parsedEdit.pembelajaran.length < MIN_CHARS) errors.push(`Pembelajaran kurang (${parsedEdit.pembelajaran.length}/${MIN_CHARS})`);
-                if (parsedEdit.pembelajaran.length > MAX_CHARS) errors.push(`Pembelajaran lebih (${parsedEdit.pembelajaran.length}/${MAX_CHARS})`);
+            if (shouldProcessRevision) {
+                const parsedEdit = parseDraftFromMessage(textMessage);
 
-                if (parsedEdit.kendala !== 'Tidak ada kendala.') {
-                    if (parsedEdit.kendala.length < MIN_CHARS) errors.push(`Kendala kurang (${parsedEdit.kendala.length}/${MIN_CHARS})`);
-                    if (parsedEdit.kendala.length > MAX_CHARS) errors.push(`Kendala lebih (${parsedEdit.kendala.length}/${MAX_CHARS})`);
-                }
+                // OPTION 1: USER COPIED & EDITED THE DRAFT MANUALLY (FORMATTED)
+                if (parsedEdit) {
+                    const MIN_CHARS = 100; // Minimum 100 characters for manual edits
+                    const MAX_CHARS = 10000; // Very high maximum to effectively remove limit
+                    const errors = [];
 
-                if (errors.length > 0) {
-                    await sock.sendMessage(sender, { text: getMessage('draft_format_error').replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
+                    if (parsedEdit.aktivitas.length < MIN_CHARS) errors.push(`Aktivitas kurang (${parsedEdit.aktivitas.length}/${MIN_CHARS})`);
+                    if (parsedEdit.aktivitas.length > MAX_CHARS) errors.push(`Aktivitas lebih (${parsedEdit.aktivitas.length}/${MAX_CHARS})`);
+
+                    if (parsedEdit.pembelajaran.length < MIN_CHARS) errors.push(`Pembelajaran kurang (${parsedEdit.pembelajaran.length}/${MIN_CHARS})`);
+                    if (parsedEdit.pembelajaran.length > MAX_CHARS) errors.push(`Pembelajaran lebih (${parsedEdit.pembelajaran.length}/${MAX_CHARS})`);
+
+                    if (parsedEdit.kendala !== 'Tidak ada kendala.') {
+                        if (parsedEdit.kendala.length < MIN_CHARS) errors.push(`Kendala kurang (${parsedEdit.kendala.length}/${MIN_CHARS})`);
+                        if (parsedEdit.kendala.length > MAX_CHARS) errors.push(`Kendala lebih (${parsedEdit.kendala.length}/${MAX_CHARS})`);
+                    }
+
+                    if (errors.length > 0) {
+                        await sock.sendMessage(sender, { text: getMessage('draft_format_error').replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
+                        return;
+                    }
+
+                    setDraft(senderNumber, parsedEdit);
+
+                    const previewText = getMessage('draft_updated')
+                        .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
+                        .replace('{aktivitas}', parsedEdit.aktivitas)
+                        .replace('{pembelajaran_len}', parsedEdit.pembelajaran.length)
+                        .replace('{pembelajaran}', parsedEdit.pembelajaran)
+                        .replace('{kendala_len}', parsedEdit.kendala.length)
+                        .replace('{kendala}', parsedEdit.kendala);
+
+                    await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                     return;
                 }
+                // OPTION 2: USER SENT FREE TEXT REVISION (AUTO UPDATE WITH AI)
+                else {
+                    await sock.sendMessage(sender, { react: { text: getMessage('reaction_write'), key: msgObj.key } });
+                    await sock.sendMessage(sender, { text: getMessage('draft_update_loading') }, { quoted: msgObj });
 
-                setDraft(senderNumber, parsedEdit);
+                    const user = getUserByPhone(senderNumber);
+                    const history = await getRiwayat(user.email, user.password, 3);
 
-                const previewText = getMessage('draft_updated')
-                    .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
-                    .replace('{aktivitas}', parsedEdit.aktivitas)
-                    .replace('{pembelajaran_len}', parsedEdit.pembelajaran.length)
-                    .replace('{pembelajaran}', parsedEdit.pembelajaran)
-                    .replace('{kendala_len}', parsedEdit.kendala.length)
-                    .replace('{kendala}', parsedEdit.kendala);
+                    // Combine previous context (draft type) + new text
+                    const revisionContext = pendingDraft.type === 'ai' ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual: ';
+                    const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
 
-                await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
-                return;
-            }
-            // OPTION 2: USER SENT FREE TEXT REVISION (AUTO UPDATE WITH AI)
-            else {
-                await sock.sendMessage(sender, { react: { text: getMessage('reaction_write'), key: msgObj.key } });
-                await sock.sendMessage(sender, { text: getMessage('draft_update_loading') }, { quoted: msgObj });
+                    if (!aiResult.success) {
+                        await sock.sendMessage(sender, { text: getMessage('draft_update_failed') }, { quoted: msgObj });
+                        return;
+                    }
 
-                const user = getUserByPhone(senderNumber);
-                const history = await getRiwayat(user.email, user.password, 3);
+                    const reportData = {
+                        aktivitas: aiResult.aktivitas,
+                        pembelajaran: aiResult.pembelajaran,
+                        kendala: aiResult.kendala,
+                        type: 'ai'
+                    };
 
-                // Combine previous context (draft type) + new text
-                const revisionContext = pendingDraft.type === 'ai' ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual: ';
-                const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
+                    setDraft(senderNumber, reportData);
 
-                if (!aiResult.success) {
-                    await sock.sendMessage(sender, { text: getMessage('draft_update_failed') }, { quoted: msgObj });
+                    const previewText = getMessage('draft_updated')
+                        .replace('{aktivitas_len}', reportData.aktivitas.length)
+                        .replace('{aktivitas}', reportData.aktivitas)
+                        .replace('{pembelajaran_len}', reportData.pembelajaran.length)
+                        .replace('{pembelajaran}', reportData.pembelajaran)
+                        .replace('{kendala_len}', reportData.kendala.length)
+                        .replace('{kendala}', reportData.kendala);
+
+                    await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                     return;
                 }
-
-                const reportData = {
-                    aktivitas: aiResult.aktivitas,
-                    pembelajaran: aiResult.pembelajaran,
-                    kendala: aiResult.kendala,
-                    type: 'ai'
-                };
-
-                setDraft(senderNumber, reportData);
-
-                const previewText = getMessage('draft_updated')
-                    .replace('{aktivitas_len}', reportData.aktivitas.length)
-                    .replace('{aktivitas}', reportData.aktivitas)
-                    .replace('{pembelajaran_len}', reportData.pembelajaran.length)
-                    .replace('{pembelajaran}', reportData.pembelajaran)
-                    .replace('{kendala_len}', reportData.kendala.length)
-                    .replace('{kendala}', reportData.kendala);
-
-                await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
-                return;
             }
+            return; // If it's a non-command and draft is pending but keywords don't match, STOP.
         }
 
         // --- CORE LOGIC: !CEK ---
