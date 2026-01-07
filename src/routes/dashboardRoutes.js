@@ -728,6 +728,15 @@ router.post('/api/test/send-menu', requireAuth, async (req, res) => {
     }
 });
 
+// React Router Catch-All (Must be last)
+router.get('*', (req, res) => {
+    if (fs.existsSync(clientDistPath)) {
+        res.sendFile(clientDistPath);
+    } else {
+        res.status(404).send('Dashboard build not found. Run npm run build in client folder.');
+    }
+});
+
 module.exports = router;
 module.exports.setBotSocket = setBotSocket;
 module.exports.setBotConnected = setBotConnected;
