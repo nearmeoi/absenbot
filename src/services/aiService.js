@@ -14,11 +14,16 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
-// Validate API key on startup
+// Validate API keys on startup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+
 if (!GROQ_API_KEY) {
     console.error(chalk.red('[GROQ] ❌ GROQ_API_KEY not found in .env file!'));
-    console.error(chalk.yellow('[GROQ] Get your free API key at: https://console.groq.com'));
+    process.exit(1);
+}
+if (!GEMINI_API_KEY) {
+    console.error(chalk.red('[GEMINI] ❌ GEMINI_API_KEY not found in .env file!'));
     process.exit(1);
 }
 
@@ -321,7 +326,7 @@ KENDALA: [isi]`;
         for (let attempt = 0; attempt <= retries; attempt++) {
             try {
                 const response = await axios.post(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY || process.env.GROQ_API_KEY}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
                     { contents: [{ parts: [{ text: prompt }] }] },
                     { timeout: 60000 }
                 );
