@@ -30,7 +30,7 @@ const PublicRoute = ({ children }) => {
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import theme from './theme';
 
-import TestSystem from './pages/TestSystem.jsx';
+import SystemTest from './pages/SystemTest.jsx';
 
 function App() {
   return (
@@ -51,7 +51,7 @@ function App() {
               <Route path="development" element={<Development />} />
               <Route path="terminal" element={<Terminal />} />
               <Route path="settings" element={<Settings />} />
-              <Route path="test-system" element={<TestSystem />} />
+              <Route path="test-system" element={<SystemTest />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -52,7 +52,7 @@ const formatMessage = (text) => {
     return html;
 };
 
-const TestSystem = () => {
+const SystemTest = () => {
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState('');
     const [loading, setLoading] = useState(false);
@@ -448,4 +448,4 @@ const TestSystem = () => {
     );
 };
 
-export default TestSystem;
+export default SystemTest;
