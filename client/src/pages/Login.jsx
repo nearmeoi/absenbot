@@ -18,7 +18,9 @@ export default function Login() {
         try {
             const success = await login(password);
             if (success) {
-                navigate('/');
+                // Force full reload to ensure session cookies are correctly recognized by the browser
+                // and to trigger a fresh checkAuth() call on mount
+                window.location.href = '/dashboard/';
             } else {
                 setError('Invalid password');
             }

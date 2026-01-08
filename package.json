@@ -11,6 +11,8 @@
         "build": "cd client && npm install && npm run build"
     },
     "dependencies": {
+        "@anthropic-ai/sdk": "^0.71.2",
+        "@qwen-code/qwen-code": "^0.6.1",
         "@whiskeysockets/baileys": "^7.0.0-rc.9",
         "axios": "^1.13.2",
         "axios-cookiejar-support": "^6.0.5",

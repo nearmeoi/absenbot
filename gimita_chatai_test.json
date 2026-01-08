@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-01-07T16:14:13.849Z",
+  "testDescription": "Gimita ChatAI API test with various models",
+  "testedModels": [
+    "deepseek-v3",
+    "deepseek-r1",
+    "llama-v3p1-8b-instruct",
+    "mistral-nemo-instruct-2407"
+  ],
+  "attendanceReportTest": "Completed",
+  "newFunction": "callGimitaChatAI(prompt, model = 'deepseek-v3')"
+}

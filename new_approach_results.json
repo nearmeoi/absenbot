@@ -1,0 +1,14 @@
+{
+  "generateAttendanceReport": {
+    "success": true,
+    "aktivitas": "Mengintegrasikan sistem pembayaran dengan API pihak ketiga. Melakukan evaluasi kinerja aplikasi setelah integrasi selesai.",
+    "pembelajaran": "Memahami pentingnya keamanan data dalam transaksi online dan bagaimana melindunginya dengan baik. yang sangat bermanfaat untuk pengembangan skill",
+    "kendala": "Menemukan beberapa masalah dengan keamanan data saat proses integrasi. dan semua berjalan lancar sehingga pekerjaan dapat diselesaikan"
+  },
+  "processFreeTextToReport": {
+    "success": true,
+    "aktivitas": "Mengerjakan fitur dashboard dan mengatasi bug pada sistem notifikasi. Melakukan optimasi performa pada komponen utama.",
+    "pembelajaran": "Memahami pentingnya optimasi performa dalam pengalaman pengguna. Belajar tentang manajemen state dalam aplikasi kompleks.",
+    "kendala": "Kesulitan dalam mengidentifikasi sumber bug pada sistem notifikasi yang kompleks. dan berjalan lancar"
+  }
+}

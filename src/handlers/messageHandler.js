@@ -6,7 +6,7 @@ const { generateAttendanceReport, processFreeTextToReport, transcribeAudio } = r
 const { setDraft, getDraft, deleteDraft } = require('../services/previewService');
 const { addHoliday, removeHoliday, isHoliday, getAllHolidays, addAllowedGroup, removeAllowedGroup, getAllowedGroups } = require('../config/holidays');
 const { loadGroupSettings } = require('../services/groupSettings');
-const { getBotStatus } = require('../routes/dashboardRoutes');
+const { getBotStatus, isAbsenMaintenance } = require('../services/botState');
 const { getMessage } = require('../services/messageService');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
@@ -622,6 +622,14 @@ const messageHandler = async (sock, msg) => {
 
         // --- CORE LOGIC: !ABSEN ---
         if (command === '!absen') {
+            // Check for specific ABSEN MAINTENANCE
+            if (isAbsenMaintenance()) {
+                await sock.sendMessage(sender, {
+                    text: getMessage('absen_maintenance_message')
+                }, { quoted: msgObj });
+                return;
+            }
+
             // Check if today is a global holiday
             if (isHoliday()) {
                 await sock.sendMessage(sender, {

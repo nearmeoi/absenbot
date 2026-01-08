@@ -41,9 +41,10 @@ function App() {
           <Toaster position="top-right" />
           <Routes>
             <Route path="/auth/:token" element={<PairingAuth />} />
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
 
-            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            {/* DIRECT ACCESS (Auth Disabled) */}
+            <Route path="/" element={<Layout />}>
               <Route index element={<Overview />} />
               <Route path="users" element={<Users />} />
               <Route path="groups" element={<Groups />} />
@@ -53,6 +54,7 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="test-system" element={<SystemTest />} />
             </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
