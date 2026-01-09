@@ -2,238 +2,175 @@ import { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
-import { Play, Square, Trash2, Terminal as TerminalIcon, AlertTriangle } from 'lucide-react';
 import api from '../utils/api';
-import toast from 'react-hot-toast';
-import {
-    Box, Card, Button, Chip, useMediaQuery, useTheme,
-    Dialog, DialogTitle, DialogContent, DialogActions, Typography
-} from '@mui/material';
 
 export default function TerminalPage() {
     const terminalRef = useRef(null);
     const xtermRef = useRef(null);
     const fitAddonRef = useRef(null);
-    const [status, setStatus] = useState('offline');
-    const [confirmDialog, setConfirmDialog] = useState(null);
-
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+    const wsRef = useRef(null);
+    const [inputValue, setInputValue] = useState('');
+    const [ctrlActive, setCtrlActive] = useState(false);
+    const [altActive, setAltActive] = useState(false);
+    const [status, setStatus] = useState('CONNECTING...');
 
     useEffect(() => {
         const term = new XTerm({
             theme: {
-                background: '#0a0f1a',
-                foreground: '#f8fafc',
-                cursor: '#3b82f6',
-                selectionBackground: '#3b82f640'
+                background: '#000000',
+                foreground: '#ffffff',
+                cursor: '#ffffff',
+                selectionBackground: '#ffffff40',
+                black: '#000000',
+                white: '#ffffff',
+                brightBlack: '#666666',
+                brightWhite: '#ffffff',
             },
-            fontFamily: 'monospace',
-            fontSize: isMobile ? 12 : 14,
+            fontFamily: "'Roboto', sans-serif",
+            fontSize: 11,
+            letterSpacing: -8,
+            lineHeight: 1,
             cursorBlink: true,
+            cursorStyle: 'block',
+            disableStdin: false, 
+            allowTransparency: false,
             convertEol: true,
         });
+
         const fitAddon = new FitAddon();
         term.loadAddon(fitAddon);
 
-        term.open(terminalRef.current);
-        fitAddon.fit();
+        if (terminalRef.current) {
+            term.open(terminalRef.current);
+            setTimeout(() => fitAddon.fit(), 100);
+        }
 
         xtermRef.current = term;
         fitAddonRef.current = fitAddon;
 
-        // Load log history
-        api.get('/logs?limit=100').then(res => {
-            if (res.data.logs) {
-                res.data.logs.forEach(log => {
-                    term.writeln(formatLog(log));
-                });
-            }
-            term.writeln('\x1b[36m--- Connected to AbsenBot Terminal --- \x1b[0m');
-        });
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/term-socket`;
+        
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
-        // Load bot status
-        api.get('/bot/status').then(res => {
-            setStatus(res.data.status || 'offline');
-        });
-
-        const eventSource = new EventSource('/dashboard/api/logs/stream');
-
-        eventSource.onmessage = (event) => {
-            try {
-                const log = JSON.parse(event.data);
-                if (xtermRef.current) {
-                    xtermRef.current.writeln(formatLog(log));
-                }
-            } catch (e) { }
+        ws.onopen = () => {
+            setStatus('CONNECTED');
+            term.write('\r\n\x1b[1;32m✓ SSH Connection Established\x1b[0m\r\n');
+            ws.send(JSON.stringify({ cols: term.cols, rows: term.rows }));
         };
 
+        ws.onmessage = (event) => {
+            if (event.data instanceof Blob) {
+                const reader = new FileReader();
+                reader.onload = () => term.write(reader.result);
+                reader.readAsText(event.data);
+            } else {
+                term.write(event.data);
+            }
+        };
+
+        ws.onclose = () => {
+            setStatus('DISCONNECTED');
+            term.write('\r\n\x1b[1;31m✗ Connection Closed\x1b[0m\r\n');
+        };
+
+        term.onData(data => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(data);
+            }
+        });
+
         const handleResize = () => {
-            if (fitAddonRef.current) {
-                fitAddonRef.current.fit();
+            fitAddon.fit();
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ cols: term.cols, rows: term.rows }));
             }
         };
         window.addEventListener('resize', handleResize);
 
         return () => {
-            eventSource.close();
+            ws.close();
             term.dispose();
             window.removeEventListener('resize', handleResize);
         };
-    }, [isMobile]);
+    }, []);
 
-    const formatLog = (log) => {
-        const time = new Date(log.timestamp).toLocaleTimeString();
-        let color = '\x1b[37m'; // White
-        if (log.type === 'ERROR') color = '\x1b[31m'; // Red
-        if (log.type === 'WARNING') color = '\x1b[33m'; // Yellow
-        if (log.type === 'SUCCESS') color = '\x1b[32m'; // Green
-        if (log.type === 'INFO') color = '\x1b[34m'; // Blue
-
-        return `\x1b[90m[${time}]\x1b[0m ${color}[${log.type}]\x1b[0m ${log.message}`;
-    };
-
-    const toggleStatus = async (newStatus) => {
-        try {
-            await api.post('/bot/status', { status: newStatus });
-            setStatus(newStatus);
-            toast.success(`Bot status set to ${newStatus}`);
-            setConfirmDialog(null);
-        } catch (e) {
-            toast.error('Failed to change status');
+    const sendRaw = (data) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(data);
+            xtermRef.current?.focus();
         }
     };
 
-    const handleStopBot = () => {
-        setConfirmDialog('stop');
+    const handleInputSubmit = (e) => {
+        if (e.key === 'Enter') {
+            sendRaw(inputValue + '\r');
+            setInputValue('');
+        }
     };
 
-    const getStatusColor = () => {
-        if (status === 'online') return 'success';
-        if (status === 'maintenance') return 'warning';
-        return 'error';
-    };
+    const handleVirtualKey = (key) => {
+        if (key === 'CTRL') { setCtrlActive(!ctrlActive); return; }
+        if (key === 'ALT') { setAltActive(!altActive); return; }
 
+        let payload = '';
+        switch (key) {
+            case 'ESC': payload = '\x1b'; break;
+            case 'TAB': payload = '\t'; break;
+            case '↑': payload = '\x1b[A'; break;
+            case '↓': payload = '\x1b[B'; break;
+            case '←': payload = '\x1b[D'; break;
+            case '→': payload = '\x1b[C'; break;
+            default: return;
+        }
+        sendRaw(payload);
+    };
+    
     return (
-        <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: { xs: 'calc(100vh - 140px)', sm: 'calc(100vh - 100px)' },
-            gap: { xs: 1.5, sm: 2 }
-        }}>
-            {/* Status Bar */}
-            <Card sx={{ flexShrink: 0 }}>
-                <Box sx={{
-                    p: { xs: 1.5, sm: 2 },
-                    display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    justifyContent: 'space-between',
-                    alignItems: { xs: 'stretch', sm: 'center' },
-                    gap: { xs: 1.5, sm: 2 }
-                }}>
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                        <TerminalIcon size={isMobile ? 18 : 20} />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-                                Status:
-                            </Typography>
-                            <Chip
-                                label={status.toUpperCase()}
-                                color={getStatusColor()}
-                                size="small"
-                                sx={{ fontWeight: 600 }}
-                            />
-                        </Box>
-                    </Box>
-                    <Box sx={{
-                        display: 'grid',
-                        gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'auto auto auto' },
-                        gap: 1
-                    }}>
-                        {status !== 'online' && (
-                            <Button
-                                variant="contained"
-                                size="small"
-                                onClick={() => toggleStatus('online')}
-                                startIcon={<Play size={14} />}
-                                sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, py: { xs: 0.75, sm: 0.5 } }}
-                            >
-                                {isMobile ? 'Start' : 'Start Bot'}
-                            </Button>
-                        )}
-                        {status !== 'maintenance' && (
-                            <Button
-                                variant="outlined"
-                                color="warning"
-                                size="small"
-                                onClick={() => toggleStatus('maintenance')}
-                                startIcon={<Square size={14} />}
-                                sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, py: { xs: 0.75, sm: 0.5 } }}
-                            >
-                                {isMobile ? 'Maint.' : 'Maintenance'}
-                            </Button>
-                        )}
-                        {status !== 'offline' && (
-                            <Button
-                                variant="outlined"
-                                color="error"
-                                size="small"
-                                onClick={handleStopBot}
-                                startIcon={<Trash2 size={14} />}
-                                sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, py: { xs: 0.75, sm: 0.5 } }}
-                            >
-                                {isMobile ? 'Stop' : 'Stop Bot'}
-                            </Button>
-                        )}
-                    </Box>
-                </Box>
-            </Card>
+        <div className="fixed inset-0 h-screen w-screen bg-black overflow-hidden flex flex-col font-['Roboto',sans-serif] text-white z-[9999]">
+            <header className="h-[36px] flex-none flex items-center justify-between px-4 border-b border-[#1a1a1a]">
+                <span className="text-[11px] text-[#666] font-medium">gemini-vps</span>
+                <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${status === 'CONNECTED' ? 'bg-[#0df259] animate-pulse' : 'bg-red-500'}`}></div>
+                    <span className={`text-[10px] font-bold tracking-widest ${status === 'CONNECTED' ? 'text-[#0df259]' : 'text-red-500'}`}>
+                        {status}
+                    </span>
+                </div>
+            </header>
 
-            {/* Terminal */}
-            <Card sx={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-                bgcolor: '#0a0f1a',
-                minHeight: { xs: 300, sm: 400 }
-            }}>
-                <Box
-                    ref={terminalRef}
-                    sx={{
-                        flex: 1,
-                        p: { xs: 1, sm: 2 },
-                        overflow: 'hidden',
-                        '& .xterm-viewport': { overflowY: 'auto !important' }
-                    }}
+            <main className="flex-1 overflow-hidden relative bg-black pt-2 px-2">
+                <div ref={terminalRef} className="h-full w-full" />
+            </main>
+
+            <div className="flex-none bg-black border-t border-[#1a1a1a] px-4 py-3 flex items-center gap-3">
+                <span className="text-[#0df259] font-mono text-lg select-none">❯</span>
+                <input 
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleInputSubmit}
+                    placeholder="Type command..."
+                    className="bg-transparent border-none text-white font-['Roboto',sans-serif] text-[11px] w-full focus:outline-none placeholder-[#333]"
+                    autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck="false"
                 />
-            </Card>
+            </div>
 
-            {/* Confirmation Dialog */}
-            <Dialog open={confirmDialog === 'stop'} onClose={() => setConfirmDialog(null)}>
-                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <AlertTriangle size={20} color={theme.palette.error.main} />
-                    Stop Bot?
-                </DialogTitle>
-                <DialogContent>
-                    <Typography variant="body2">
-                        This will stop the bot and disconnect it from WhatsApp.
-                        Users won't be able to use any bot commands until you start it again.
-                    </Typography>
-                </DialogContent>
-                <DialogActions sx={{ p: 2, gap: 1 }}>
-                    <Button onClick={() => setConfirmDialog(null)} color="inherit">
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={() => toggleStatus('offline')}
-                        variant="contained"
-                        color="error"
+            <nav className="flex-none h-[48px] bg-[#000] grid grid-cols-8 gap-[1px] border-t border-[#1a1a1a]">
+                {['ESC', 'TAB', 'CTRL', 'ALT', '←', '↓', '↑', '→'].map((key) => (
+                    <button
+                        key={key}
+                        onClick={() => handleVirtualKey(key)}
+                        className={`flex items-center justify-center text-[10px] font-bold transition-colors ${ 
+                            ((key === 'CTRL' && ctrlActive) || (key === 'ALT' && altActive)) 
+                                ? 'bg-[#eee] text-black' 
+                                : 'bg-black text-[#888] active:bg-[#222]'
+                        }`}
                     >
-                        Stop Bot
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
+                        {key}
+                    </button>
+                ))}
+            </nav>
+        </div>
     );
 }

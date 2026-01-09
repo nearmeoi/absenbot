@@ -80,7 +80,7 @@ const messageHandler = async (sock, msg) => {
         // Early exit for irrelevant messages
         if (!isCommand && !isDraftContent && !isConfirmation && !hasPendingDraft) return;
 
-        // Maintenance mode
+        // Maintenance mode (Global Status)
         if (botStatus === 'maintenance') {
             await sock.sendMessage(sender, { text: getMessage('maintenance_message') }, { quoted: msgObj });
             return;
@@ -110,6 +110,27 @@ const messageHandler = async (sock, msg) => {
             const cmdModule = getCommand(cmdName);
 
             if (cmdModule) {
+                // Check granular maintenance for this command
+                const botState = require('../services/botState');
+                if (botState.isCommandUnderMaintenance(cmdName)) {
+                    await sock.sendMessage(sender, { 
+                        text: `⚠️ Perintah *!${cmdName}* sedang dalam pemeliharaan (maintenance). Mohon coba lagi nanti.` 
+                    }, { quoted: msgObj });
+                    return;
+                }
+
+                // Global loading reaction for all commands (NON-BLOCKING)
+                try {
+                    sock.sendMessage(sender, { 
+                        react: { 
+                            text: getMessage('reaction_wait') || '⏳', 
+                            key: msgObj.key 
+                        } 
+                    }).catch(e => console.error('[HANDLER] Async reaction error:', e.message));
+                } catch (e) {
+                    console.error('[HANDLER] Failed to trigger loading reaction:', e.message);
+                }
+
                 await cmdModule.execute(sock, msgObj, context);
                 return;
             }

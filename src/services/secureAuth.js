@@ -235,6 +235,8 @@ function initAuthServer() {
             if (process.env.FORCE_LOCALHOST === 'true') {
                 console.log(chalk.yellow(`👉 Debug Preview: http://localhost:${serverPort}/auth/preview`));
             }
+            // Attach WebSocket for Terminal
+            attachWebSocketServer(authServer);
         });
 
         authServer.on('error', (err) => {
@@ -248,6 +250,67 @@ function initAuthServer() {
     }
 
     startServer();
+}
+
+// ==========================================
+// WEBSOCKET TERMINAL SERVER (Polyfill without node-pty)
+// ==========================================
+function attachWebSocketServer(server) {
+    try {
+        const WebSocket = require('ws');
+        const { spawn } = require('child_process');
+        const wss = new WebSocket.Server({ server, path: '/term-socket' });
+
+        wss.on('connection', (ws) => {
+            console.log(chalk.green('[TERM] Client connected to terminal (Mock PTY)'));
+
+            // Use standard spawn instead of node-pty
+            // We force a simple prompt interaction
+            const shell = spawn('bash', ['-i'], {
+                env: process.env,
+                cwd: process.env.HOME || process.cwd()
+            });
+
+            // Send output to client
+            shell.stdout.on('data', (data) => {
+                if (ws.readyState === WebSocket.OPEN) ws.send(data.toString());
+            });
+
+            shell.stderr.on('data', (data) => {
+                if (ws.readyState === WebSocket.OPEN) ws.send(data.toString());
+            });
+
+            // Handle client input
+            ws.on('message', (message) => {
+                try {
+                    const msgStr = message.toString();
+                    // Ignore resize commands (not supported in raw spawn)
+                    if (msgStr.startsWith('{"cols":')) return;
+                    
+                    // Write to stdin
+                    shell.stdin.write(msgStr);
+                } catch (e) {
+                    console.error('Shell input error:', e);
+                }
+            });
+
+            shell.on('close', () => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send('\r\n[Process exited]\r\n');
+                    ws.close();
+                }
+            });
+
+            ws.on('close', () => {
+                shell.kill();
+            });
+        });
+        
+        console.log(chalk.green('✅ WebSocket Terminal Server attached (Standard Spawn)'));
+
+    } catch (e) {
+        console.error(chalk.red('❌ Failed to start WebSocket Terminal:'), e.message);
+    }
 }
 
 // Generate a secure authentication URL for a user

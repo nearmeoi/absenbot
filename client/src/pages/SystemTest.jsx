@@ -1,99 +1,49 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    Box,
-    Typography,
-    Paper,
-    Grid,
-    TextField,
-    Button,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Alert,
-    CircularProgress,
-    Tabs,
-    Tab,
-    Stack,
-    IconButton,
-    Avatar,
-    Divider,
-    Chip
-} from '@mui/material';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import SendIcon from '@mui/icons-material/Send';
-import LinkIcon from '@mui/icons-material/Link';
-import HistoryIcon from '@mui/icons-material/History';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import BiotechIcon from '@mui/icons-material/Biotech';
-import CheckCheck from '@mui/icons-material/DoneAll';
+import { useState, useEffect, useRef } from 'react';
+import api from '../utils/api';
+import { 
+    Send, Play, History, Trash2, Bot, 
+    CheckCheck, ChevronDown, Link as LinkIcon, 
+    FlaskConical, Search, FileText, Brain, Terminal
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 
-// WA DARK THEME (Matching Development.jsx / index.css)
-const WA_BG = '#0b141a';
-const WA_USER_BUBBLE = '#005c4b'; // Green
-const WA_BOT_BUBBLE = '#202c33';  // Dark Gray
-const WA_TEXT_MAIN = '#e9edef';
-const WA_TEXT_SEC = '#8696a0';
-
-// Helper to format text (Simple Markdown)
-const formatMessage = (text) => {
-    if (!text) return '';
-    let html = text
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        .replace(/\*([^*]+)\*/g, '<span class="wa-bold">$1</span>')
-        .replace(/_([^_]+)_/g, '<span class="wa-italic">$1</span>')
-        .replace(/~([^~]+)~/g, '<span class="wa-strike">$1</span>')
-        .replace(/```([^`]+)```/g, '<span class="wa-code">$1</span>')
-        .replace(/\n/g, '<br/>');
-    return html;
-};
-
-const SystemTest = () => {
+export default function SystemTest() {
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState('');
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTab] = useState('commands');
 
-    // Chat State
     const [chatHistory, setChatHistory] = useState([{
         id: 1, sender: 'bot',
-        text: 'Halo! Saya AbsenBot (Test Mode). Silakan jalankan perintah dari panel kiri.',
+        text: 'Halo! Saya AbsenBot (Test Mode). Silakan jalankan perintah dari panel kontrol di atas.',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }]);
     const bottomRef = useRef(null);
 
-    // Manual Input State
     const [manualData, setManualData] = useState({
         aktivitas: 'Melakukan testing fitur dashboard',
         pembelajaran: 'Memahami flow sistem',
         kendala: 'Tidak ada kendala'
     });
-
-    // AI Story Input State
     const [aiStory, setAiStory] = useState('Hari ini saya belajar React dan membuat komponen dashboard. Saya berhasil memahami konsep state dan props. Tidak ada kendala berarti.');
 
     useEffect(() => {
-        const fetchUsers = async () => {
-            try {
-                const response = await fetch('/dashboard/api/users');
-                if (response.ok) {
-                    const data = await response.json();
-                    setUsers(data);
-                }
-            } catch (error) {
-                console.error('Failed to fetch users:', error);
-            }
-        };
-        fetchUsers();
+        loadUsers();
     }, []);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [chatHistory]);
+
+    const loadUsers = async () => {
+        try {
+            const res = await api.get('/users');
+            setUsers(res.data);
+            if (res.data.length > 0) setSelectedUser(res.data[0].email);
+        } catch (e) {
+            toast.error('Gagal memuat users');
+        }
+    };
 
     const addToChat = (sender, text, isError = false) => {
         setChatHistory(prev => [...prev, {
@@ -105,347 +55,248 @@ const SystemTest = () => {
         }]);
     };
 
-    const handleClearChat = () => setChatHistory([]);
-
     const executeTest = async (actionName, endpoint, payload = {}, displayText = null) => {
         if (!selectedUser) {
-            alert("Pilih user target terlebih dahulu!");
+            toast.error("Pilih user target terlebih dahulu!");
             return;
         }
 
-        // 1. Show User Message
         const userMsg = displayText || `/${actionName.toLowerCase()}`;
         addToChat('user', userMsg);
         setLoading(true);
 
         try {
             const targetUser = users.find(u => u.email === selectedUser);
+            if (!targetUser) throw new Error("User data not found");
+
             const fullPayload = {
                 email: targetUser.email,
                 password: targetUser.password,
                 ...payload
             };
 
-            const response = await fetch(`/dashboard${endpoint}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(fullPayload)
-            });
+            const res = await api.post(endpoint, fullPayload);
+            const result = res.data;
 
-            const result = await response.json();
-
-            // 2. Show Bot Response
             if (result.success) {
                 let replyText = result.preview || result.message;
-
+                
                 if (!result.preview) {
                     if (endpoint.includes('riwayat')) {
-                        replyText = `📂 *Riwayat Ditemukan*\n\nTotal Log: ${result.logs?.length || 0}\nLikely sent as JSON object.`;
+                         replyText = `📂 *Riwayat Ditemukan*\n\nTotal Log: ${result.logs?.length || 0}\n(Check console for details)`;
                     } else if (endpoint.includes('check')) {
                         replyText = `🔍 *Status Harian*\n\nSudah Absen: ${result.sudahAbsen ? '✅ YA' : '❌ BELUM'}\nMsg: ${result.message}`;
                     } else if (endpoint.includes('simulation')) {
-                        replyText = result.pesan_tambahan ?
-                            `✅ *[SIMULASI SUKSES]*\n\n${result.pesan_tambahan}\n\nUser: ${result.nama}` :
-                            JSON.stringify(result, null, 2);
+                        replyText = result.message;
                     }
                 }
                 addToChat('bot', replyText);
             } else {
                 addToChat('bot', `❌ Error: ${result.message}`, true);
             }
-
         } catch (error) {
-            addToChat('system', `Network Error: ${error.message}`, true);
+            addToChat('system', `Network Error: ${error.response?.data?.message || error.message}`, true);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleSimulate = () => {
-        const text = `!absen manual\n\n- ${manualData.aktivitas}\n- ${manualData.pembelajaran}\n- ${manualData.kendala}`;
-        executeTest('Simulasi Absen', '/api/test/simulation', {
-            aktivitas: manualData.aktivitas,
-            pembelajaran: manualData.pembelajaran,
-            kendala: manualData.kendala,
-            simulation: true
-        }, text);
+    const formatMessage = (text) => {
+        if (!text) return '';
+        let html = text
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/\*([^*]+)\*/g, '<span class="font-bold text-gray-900">$1</span>')
+            .replace(/_([^_]+)_/g, '<span class="italic">$1</span>')
+            .replace(/~([^~]+)~/g, '<span class="line-through">$1</span>')
+            .replace(/```([^`]+)```/g, '<span class="font-mono bg-gray-100 px-1 rounded text-sm">$1</span>')
+            .replace(/\n/g, '<br/>');
+        return html;
     };
 
     return (
-        <Grid container spacing={0} sx={{ height: 'calc(100vh - 100px)', mt: -3, ml: -3, width: 'calc(100% + 48px)' }}>
+        <div className="flex flex-col gap-8 font-sans pb-10 max-w-2xl mx-auto">
+            
+            {/* 1. CONTROL PANEL */}
+            <div className="flex flex-col border-[3px] border-black bg-white shadow-[4px_4px_0_#000] rounded-2xl overflow-hidden">
+                <div className="bg-white border-b-[3px] border-black p-4 flex items-center gap-3">
+                    <div className="bg-black text-white p-2 rounded-lg border-2 border-black">
+                        <FlaskConical size={20} strokeWidth={2.5} />
+                    </div>
+                    <h2 className="text-xl font-bold tracking-tight">System Test</h2>
+                </div>
 
-            {/* LEFT PANEL */}
-            <Grid item xs={12} md={5} sx={{ borderRight: '1px solid #334155', bgcolor: '#1e293b', display: 'flex', flexDirection: 'column' }}>
-                <Box sx={{ p: 2, bgcolor: '#0f172a', borderBottom: '1px solid #334155', color: 'white' }}>
-                    <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <BiotechIcon color="primary" /> System Test
-                    </Typography>
-                </Box>
-
-                <Box sx={{ p: 2, overflow: 'auto', flex: 1, color: 'white' }}>
-                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                        <InputLabel sx={{ color: '#94a3b8' }}>Target User</InputLabel>
-                        <Select
-                            value={selectedUser}
-                            label="Target User"
-                            onChange={(e) => setSelectedUser(e.target.value)}
-                            sx={{ color: 'white', '& .MuiOutlinedInput-notchedOutline': { borderColor: '#334155' } }}
-                        >
-                            {users.map((u) => (
-                                <MenuItem key={u.email} value={u.email}>
-                                    {u.email} ({u.phone})
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-
-                    <Paper variant="outlined" sx={{ mb: 2, bgcolor: 'transparent', borderColor: '#334155' }}>
-                        <Tabs
-                            value={activeTab}
-                            onChange={(e, v) => setActiveTab(v)}
-                            variant="fullWidth"
-                            textColor="primary"
-                            indicatorColor="primary"
-                        >
-                            <Tab label="Commands" sx={{ color: '#94a3b8' }} />
-                            <Tab label="Form Absen" sx={{ color: '#94a3b8' }} />
-                            <Tab label="AI Test" sx={{ color: '#94a3b8' }} />
-                        </Tabs>
-                    </Paper>
-
-                    {activeTab === 0 && (
-                        <Stack spacing={2}>
-                            <Button
-                                variant="contained"
-                                color="success"
-                                fullWidth
-                                startIcon={<SendIcon />}
-                                onClick={() => executeTest('!menu', '/api/test/send-menu', { simulation: true }, '!menu')}
-                                disabled={loading}
+                <div className="p-5 flex flex-col gap-5">
+                    {/* User Select */}
+                    <div>
+                        <label className="font-bold text-xs uppercase text-gray-500 mb-1 block">Target User</label>
+                        <div className="relative">
+                            <select 
+                                value={selectedUser}
+                                onChange={(e) => setSelectedUser(e.target.value)}
+                                className="w-full appearance-none border-[3px] border-black p-3 pr-10 font-bold bg-white focus:outline-none focus:shadow-[4px_4px_0_#000] transition-all cursor-pointer rounded-xl text-black"
                             >
-                                Kirim "!menu" (Simulasi)
-                            </Button>
-                            <Button
-                                variant="outlined"
-                                fullWidth
-                                startIcon={<LinkIcon />}
-                                onClick={() => executeTest('!daftar', '/api/test/gen-link', { simulation: true }, '!daftar')}
-                                disabled={loading}
-                                sx={{ borderColor: '#334155', color: '#94a3b8' }}
-                            >
-                                Generate Link (!daftar)
-                            </Button>
-                            <Divider sx={{ borderColor: '#334155' }} />
-                            <Button
-                                variant="outlined"
-                                color="info"
-                                fullWidth
-                                startIcon={<FactCheckIcon />}
-                                onClick={() => executeTest('!cek', '/api/test/check', {}, '!cek')}
-                                disabled={loading}
-                            >
-                                Cek Status (!cek)
-                            </Button>
-                            <Button
-                                variant="outlined"
-                                color="secondary"
-                                fullWidth
-                                startIcon={<HistoryIcon />}
-                                onClick={() => executeTest('!riwayat', '/api/test/riwayat', {}, '!riwayat')}
-                                disabled={loading}
-                            >
-                                Cek Riwayat (!riwayat)
-                            </Button>
-                        </Stack>
-                    )}
+                                <option value="" disabled>Select User</option>
+                                {users.map(u => (
+                                    <option key={u.email} value={u.email}>{u.email} ({u.phone})</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-black" size={20} strokeWidth={3} />
+                        </div>
+                    </div>
 
-                    {activeTab === 1 && (
-                        <Stack spacing={2}>
-                            <Alert severity="info" sx={{ bgcolor: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' }}>Mock Mode: No data sent to server.</Alert>
-                            <TextField
-                                label="Aktivitas" multiline rows={3} size="small"
-                                value={manualData.aktivitas}
-                                onChange={(e) => setManualData({ ...manualData, aktivitas: e.target.value })}
-                                InputLabelProps={{ style: { color: '#94a3b8' } }}
-                                InputProps={{ style: { color: 'white' } }}
-                                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: '#334155' } }}
-                            />
-                            <TextField
-                                label="Pembelajaran" multiline rows={2} size="small"
-                                value={manualData.pembelajaran}
-                                onChange={(e) => setManualData({ ...manualData, pembelajaran: e.target.value })}
-                                InputLabelProps={{ style: { color: '#94a3b8' } }}
-                                InputProps={{ style: { color: 'white' } }}
-                                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: '#334155' } }}
-                            />
-                            <TextField
-                                label="Kendala" size="small"
-                                value={manualData.kendala}
-                                onChange={(e) => setManualData({ ...manualData, kendala: e.target.value })}
-                                InputLabelProps={{ style: { color: '#94a3b8' } }}
-                                InputProps={{ style: { color: 'white' } }}
-                                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: '#334155' } }}
-                            />
-                            <Button
-                                variant="contained" color="warning"
-                                startIcon={<PlayArrowIcon />}
-                                onClick={handleSimulate}
-                                disabled={loading}
+                    {/* Tabs */}
+                    <div className="flex border-[3px] border-black rounded-xl overflow-hidden shadow-[2px_2px_0_#000]">
+                        {[ 
+                            { id: 'commands', icon: Terminal, label: 'CMD' },
+                            { id: 'form', icon: FileText, label: 'Form' },
+                            { id: 'ai', icon: Brain, label: 'AI' }
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex-1 py-3 flex items-center justify-center gap-2 font-bold transition-all
+                                    ${activeTab === tab.id 
+                                        ? 'bg-black text-white' 
+                                        : 'bg-white text-black hover:bg-gray-100'
+                                    }
+                                    ${tab.id !== 'ai' ? 'border-r-[3px] border-black' : ''}
+                                `}
                             >
-                                Kirim Laporan
-                            </Button>
-                        </Stack>
-                    )}
+                                <tab.icon size={18} strokeWidth={2.5} />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
 
-                    {activeTab === 2 && (
-                        <Stack spacing={2}>
-                            <Alert severity="warning" sx={{ bgcolor: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24' }}>🤖 This calls real Groq API!</Alert>
-                            <TextField
-                                label="Cerita Bebas (seperti !absen [cerita])"
-                                multiline
-                                rows={5}
-                                size="small"
-                                value={aiStory}
-                                onChange={(e) => setAiStory(e.target.value)}
-                                placeholder="Contoh: Hari ini saya belajar React dan membuat komponen..."
-                                InputLabelProps={{ style: { color: '#94a3b8' } }}
-                                InputProps={{ style: { color: 'white' } }}
-                                sx={{ '& .MuiOutlinedInput-notchedOutline': { borderColor: '#334155' } }}
-                            />
-                            <Button
-                                variant="contained"
-                                color="secondary"
-                                startIcon={<SmartToyIcon />}
-                                onClick={() => {
-                                    addToChat('user', `!absen ${aiStory}`);
-                                    setLoading(true);
-                                    fetch('/dashboard/api/test/ai-parse', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ story: aiStory })
-                                    })
-                                        .then(res => res.json())
-                                        .then(result => {
-                                            addToChat('bot', result.preview || result.message);
-                                        })
-                                        .catch(err => addToChat('system', `Error: ${err.message}`, true))
-                                        .finally(() => setLoading(false));
-                                }}
-                                disabled={loading || aiStory.length < 10}
-                            >
-                                Test AI Parser (Groq)
-                            </Button>
-                            <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                AI akan mengubah cerita bebas menjadi format laporan (Aktivitas, Pembelajaran, Kendala).
-                            </Typography>
-                        </Stack>
-                    )}
-                </Box>
-            </Grid>
+                    {/* Tab Content */}
+                    <div className="min-h-[200px]">
+                        {activeTab === 'commands' && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <button onClick={() => executeTest('!menu', '/test/send-menu', { simulation: true }, '!menu')} disabled={loading} className="p-3 border-[3px] border-black rounded-xl font-bold flex flex-col items-center gap-2 hover:bg-[#d9fdd3] active:translate-y-1 transition-all shadow-[3px_3px_0_#000] active:shadow-none">
+                                    <Send size={24} /> !menu
+                                </button>
+                                <button onClick={() => executeTest('!cek', '/test/check', {}, '!cek')} disabled={loading} className="p-3 border-[3px] border-black rounded-xl font-bold flex flex-col items-center gap-2 hover:bg-[#ccebfd] active:translate-y-1 transition-all shadow-[3px_3px_0_#000] active:shadow-none">
+                                    <Search size={24} /> !cek status
+                                </button>
+                                <button onClick={() => executeTest('!riwayat', '/test/riwayat', {}, '!riwayat')} disabled={loading} className="p-3 border-[3px] border-black rounded-xl font-bold flex flex-col items-center gap-2 hover:bg-[#fff5c4] active:translate-y-1 transition-all shadow-[3px_3px_0_#000] active:shadow-none">
+                                    <History size={24} /> !riwayat
+                                </button>
+                                <button onClick={() => executeTest('!daftar', '/test/gen-link', { simulation: true }, '!daftar')} disabled={loading} className="p-3 border-[3px] border-black rounded-xl font-bold flex flex-col items-center gap-2 hover:bg-[#f0f0f0] active:translate-y-1 transition-all shadow-[3px_3px_0_#000] active:shadow-none">
+                                    <LinkIcon size={24} /> !daftar
+                                </button>
+                            </div>
+                        )}
 
-            {/* RIGHT PANEL: DARK WA UI */}
-            <Grid item xs={12} md={7} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        {activeTab === 'form' && (
+                            <div className="flex flex-col gap-3">
+                                <div className="space-y-1">
+                                    <label className="font-bold text-xs uppercase text-gray-500">Aktivitas</label>
+                                    <input value={manualData.aktivitas} onChange={e => setManualData({...manualData, aktivitas: e.target.value})} className="w-full border-[3px] border-black p-2 rounded-lg font-mono text-sm focus:outline-none focus:shadow-[3px_3px_0_#000] transition-all" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="font-bold text-xs uppercase text-gray-500">Pembelajaran</label>
+                                    <input value={manualData.pembelajaran} onChange={e => setManualData({...manualData, pembelajaran: e.target.value})} className="w-full border-[3px] border-black p-2 rounded-lg font-mono text-sm focus:outline-none focus:shadow-[3px_3px_0_#000] transition-all" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="font-bold text-xs uppercase text-gray-500">Kendala</label>
+                                    <input value={manualData.kendala} onChange={e => setManualData({...manualData, kendala: e.target.value})} className="w-full border-[3px] border-black p-2 rounded-lg font-mono text-sm focus:outline-none focus:shadow-[3px_3px_0_#000] transition-all" />
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        const text = `!absen manual\n\n- ${manualData.aktivitas}\n- ${manualData.pembelajaran}\n- ${manualData.kendala}`;
+                                        executeTest('Simulasi Absen', '/test/simulation', { ...manualData, simulation: true }, text);
+                                    }}
+                                    disabled={loading}
+                                    className="mt-2 bg-[#00a884] text-white p-3 border-[3px] border-black rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#008f6f] active:translate-y-1 transition-all shadow-[4px_4px_0_#000] active:shadow-none"
+                                >
+                                    <Play size={20} /> KIRIM LAPORAN
+                                </button>
+                            </div>
+                        )}
 
-                {/* Header */}
-                <Box sx={{
-                    p: 1.5, bgcolor: '#202c33', color: '#e9edef',
-                    display: 'flex', alignItems: 'center', gap: 2,
-                    boxShadow: 1
-                }}>
-                    <IconButton sx={{ color: '#aebac1' }} size="small"><ArrowBackIcon /></IconButton>
-                    <Avatar sx={{ bgcolor: '#00a884' }}><SmartToyIcon /></Avatar>
-                    <Box sx={{ flex: 1 }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
-                            AbsenBot (MagangHub)
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#8696a0' }}>
-                            {loading ? 'typing...' : 'business account'}
-                        </Typography>
-                    </Box>
-                    <IconButton sx={{ color: '#aebac1' }}><MoreVertIcon /></IconButton>
-                </Box>
+                        {activeTab === 'ai' && (
+                            <div className="flex flex-col gap-3">
+                                <div className="bg-yellow-100 border-2 border-yellow-500 p-3 rounded-lg text-xs font-bold text-yellow-800">
+                                    ⚠️ Menggunakan API Groq Asli
+                                </div>
+                                <textarea 
+                                    value={aiStory}
+                                    onChange={e => setAiStory(e.target.value)}
+                                    className="w-full h-32 border-[3px] border-black p-3 rounded-lg font-mono text-sm focus:outline-none focus:shadow-[3px_3px_0_#000] transition-all resize-none"
+                                    placeholder="Ceritakan kegiatan hari ini..."
+                                />
+                                <button 
+                                    onClick={() => {
+                                        addToChat('user', `!absen ${aiStory}`);
+                                        setLoading(true);
+                                        api.post('/test/ai-parse', { story: aiStory })
+                                            .then(res => {
+                                                const result = res.data;
+                                                addToChat('bot', result.preview || result.message);
+                                            })
+                                            .catch(err => addToChat('system', `Error: ${err.message}`, true))
+                                            .finally(() => setLoading(false));
+                                    }}
+                                    disabled={loading || aiStory.length < 10}
+                                    className="bg-[#8b5cf6] text-white p-3 border-[3px] border-black rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#7c3aed] active:translate-y-1 transition-all shadow-[4px_4px_0_#000] active:shadow-none"
+                                >
+                                    <Brain size={20} /> TEST AI PARSER
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* 2. LIVE PREVIEW */}
+            <div className="flex flex-col border-[3px] border-black bg-[#efeae2] shadow-[4px_4px_0_#000] rounded-2xl overflow-hidden relative h-[600px]">
+                 {/* Pattern */}
+                <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+
+                {/* WA Header */}
+                <div className="bg-[#00a884] border-b-[3px] border-black p-3 flex items-center gap-3 z-10 text-white">
+                    <div className="w-10 h-10 bg-white rounded-full border-2 border-black flex items-center justify-center">
+                        <Bot className="text-[#00a884]" size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold leading-tight">AbsenBot (Test)</h3>
+                        <p className="text-xs opacity-90">{loading ? 'typing...' : 'online'}</p>
+                    </div>
+                    <div className="ml-auto">
+                        <button onClick={() => setChatHistory([])} className="p-2 hover:bg-white/20 rounded-full transition-colors" title="Clear Chat">
+                            <Trash2 size={20} />
+                        </button>
+                    </div>
+                </div>
 
                 {/* Chat Area */}
-                <Box sx={{
-                    flex: 1,
-                    bgcolor: WA_BG,
-                    backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")',
-                    backgroundBlendMode: 'soft-light',
-                    p: 2,
-                    overflowY: 'auto',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 0.5
-                }}>
+                <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 z-10 relative">
                     {chatHistory.map((msg, idx) => (
-                        <Box
-                            key={idx}
-                            sx={{
-                                alignSelf: msg.sender === 'user' ? 'flex-end' : (msg.sender === 'system' ? 'center' : 'flex-start'),
-                                maxWidth: '75%',
-                                display: 'flex',
-                                flexDirection: 'column'
-                            }}
-                        >
+                        <div key={idx} className={`flex flex-col max-w-[85%] ${msg.sender === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'} ${msg.sender === 'system' ? 'mx-auto items-center !max-w-full' : ''}`}>
                             {msg.sender === 'system' ? (
-                                <Chip label={msg.text} size="small" sx={{ color: '#ffd', bgcolor: 'rgba(0,0,0,0.3)', my: 1 }} />
+                                <span className="bg-black/20 text-black text-xs px-2 py-1 rounded-full font-bold">{msg.text}</span>
                             ) : (
-                                <Paper sx={{
-                                    p: 1, px: 1.5,
-                                    bgcolor: msg.sender === 'user' ? WA_USER_BUBBLE : WA_BOT_BUBBLE,
-                                    borderRadius: 2,
-                                    color: WA_TEXT_MAIN,
-                                    position: 'relative',
-                                    boxShadow: '0 1px 0.5px rgba(0,0,0,0.13)',
-                                    ...(msg.sender === 'user' ? { borderTopRightRadius: 0 } : { borderTopLeftRadius: 0 })
-                                }}>
-                                    <Typography
-                                        variant="body1"
-                                        sx={{ fontSize: '0.9rem', lineHeight: 1.4 }}
+                                <div className={`relative p-3 rounded-xl border-2 border-black/10 shadow-sm text-sm
+                                    ${msg.sender === 'user' 
+                                        ? 'bg-[#d9fdd3] text-gray-900 rounded-tr-none' 
+                                        : (msg.isError ? 'bg-red-100 text-red-800' : 'bg-white text-gray-900 rounded-tl-none')
+                                    }
+                                `}>
+                                    <div 
+                                        className="leading-relaxed whitespace-pre-wrap"
                                         dangerouslySetInnerHTML={{ __html: formatMessage(msg.text) }}
                                     />
-                                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                        <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)' }}>
-                                            {msg.time}
-                                        </Typography>
-                                        {msg.sender === 'user' && <CheckCheck sx={{ fontSize: 14, color: '#53bdeb' }} />}
-                                    </Box>
-
-                                    {/* Bubble Tail Overlay (CSS Trick) */}
-                                    <Box sx={{
-                                        position: 'absolute', top: 0,
-                                        [msg.sender === 'user' ? 'right' : 'left']: -8,
-                                        width: 0, height: 0,
-                                        borderStyle: 'solid',
-                                        borderWidth: '8px 8px 8px 8px',
-                                        borderColor: 'transparent',
-                                        [msg.sender === 'user' ? 'borderTopColor' : 'borderTopColor']: msg.sender === 'user' ? WA_USER_BUBBLE : WA_BOT_BUBBLE,
-                                        [msg.sender === 'user' ? 'borderLeftColor' : 'borderRightColor']: msg.sender === 'user' ? WA_USER_BUBBLE : WA_BOT_BUBBLE,
-                                        transform: msg.sender === 'user' ? 'none' : 'scaleX(-1)', // Flip for left
-                                        zIndex: 0
-                                    }} />
-                                </Paper>
+                                    <div className="flex items-center justify-end gap-1 mt-1 opacity-50">
+                                        <span className="text-[10px] font-bold">{msg.time}</span>
+                                        {msg.sender === 'user' && <CheckCheck size={14} className="text-blue-500" />}
+                                    </div>
+                                </div>
                             )}
-                        </Box>
+                        </div>
                     ))}
                     <div ref={bottomRef} />
-                </Box>
-
-                {/* Footer */}
-                <Box sx={{ p: 1.5, bgcolor: '#202c33', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <IconButton onClick={handleClearChat} sx={{ color: '#8696a0' }}>
-                        <DeleteIcon />
-                    </IconButton>
-                    <Paper sx={{ flex: 1, p: 1, px: 2, borderRadius: 2, bgcolor: '#2a3942', color: '#d1d7db' }}>
-                        <Typography sx={{ color: '#8696a0', fontSize: '0.9rem' }}>Type a message</Typography>
-                    </Paper>
-                    <IconButton sx={{ color: '#8696a0' }}>
-                        <SendIcon />
-                    </IconButton>
-                </Box>
-            </Grid>
-        </Grid>
+                </div>
+            </div>
+        </div>
     );
-};
-
-export default SystemTest;
+}

@@ -49,8 +49,17 @@ function getAllCommands() {
     return commands;
 }
 
+/**
+ * Get all command names/aliases
+ * @returns {Array} List of all command strings
+ */
+function getCommandKeys() {
+    return Array.from(commands.keys()).sort();
+}
+
 module.exports = {
     commands,
     getCommand,
-    getAllCommands
+    getAllCommands,
+    getCommandKeys
 };

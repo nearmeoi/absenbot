@@ -1,39 +1,30 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
-import { Plus, Trash2, Calendar, Info, MessageSquare, Save, Settings as SettingsIcon } from 'lucide-react';
+import { Plus, Trash2, Calendar, Info, Settings as SettingsIcon, ChevronDown, ChevronUp, ShieldAlert, Terminal } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-    Box, Card, CardHeader, CardContent, Typography, TextField, Button,
-    List, ListItem, ListItemText, IconButton, Alert, Paper, MenuItem,
-    FormControlLabel, Switch, useMediaQuery, useTheme, Skeleton, Collapse,
-    Accordion, AccordionSummary, AccordionDetails
-} from '@mui/material';
-import { ChevronDown } from 'lucide-react';
+import { Switch } from '@mui/material';
 
 export default function Settings() {
-    const [absenMaintenance, setAbsenMaintenance] = useState(false);
+    const [status, setStatus] = useState('online');
+    const [maintenanceCommands, setMaintenanceCommands] = useState([]);
+    const [availableCommands, setAvailableCommands] = useState([]);
     const [loadingStatus, setLoadingStatus] = useState(true);
+    
     const [holidays, setHolidays] = useState([]);
     const [loadingHolidays, setLoadingHolidays] = useState(true);
     const [newDate, setNewDate] = useState('');
-    const [messages, setMessages] = useState({});
-    const [selectedKey, setSelectedKey] = useState('evening_reminder');
-    const [editContent, setEditContent] = useState('');
-    const [loadingMessages, setLoadingMessages] = useState(true);
-
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     useEffect(() => {
         loadStatus();
         loadHolidays();
-        loadMessages();
     }, []);
 
     const loadStatus = async () => {
         try {
             const res = await api.get('/bot/status');
-            setAbsenMaintenance(res.data.absenMaintenance || false);
+            setStatus(res.data.status || 'online');
+            setMaintenanceCommands(res.data.maintenanceCommands || []);
+            setAvailableCommands(res.data.availableCommands || []);
             setLoadingStatus(false);
         } catch (e) {
             toast.error('Failed to load bot status');
@@ -41,15 +32,13 @@ export default function Settings() {
         }
     };
 
-    const toggleAbsenMaintenance = async (e) => {
-        const newValue = e.target.checked;
+    const toggleCommandMaintenance = async (cmd) => {
         try {
-            await api.post('/bot/absen-maintenance', { enabled: newValue });
-            setAbsenMaintenance(newValue);
-            toast.success(`Maintenance Mode ${newValue ? 'ENABLED' : 'DISABLED'}`);
+            const res = await api.post('/bot/command-maintenance', { command: cmd });
+            setMaintenanceCommands(res.data.maintenanceCommands);
+            toast.success(`!${cmd} is now ${res.data.isMaintenance ? 'under maintenance' : 'active'}`);
         } catch (e) {
-            toast.error('Failed to update maintenance mode');
-            setAbsenMaintenance(!newValue);
+            toast.error('Failed to update command maintenance');
         }
     };
 
@@ -86,271 +75,116 @@ export default function Settings() {
         }
     };
 
-    const loadMessages = async () => {
-        try {
-            const res = await api.get('/messages');
-            setMessages(res.data || {});
-            if (res.data && res.data['evening_reminder']) {
-                setEditContent(res.data['evening_reminder']);
-            }
-            setLoadingMessages(false);
-        } catch (e) {
-            toast.error('Failed to load messages');
-            setLoadingMessages(false);
-        }
+    // Brutalist Section Component
+    const SettingsSection = ({ title, subtitle, icon: Icon, children, defaultOpen = true }) => {
+        const [isOpen, setIsOpen] = useState(defaultOpen);
+        return (
+            <div className="border-4 border-black bg-white shadow-[8px_8px_0_#000] rounded-2xl overflow-hidden mb-8">
+                <button 
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="w-full flex items-center justify-between p-6 bg-white border-b-4 border-black hover:bg-gray-50 transition-colors text-left"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-black text-white rounded-lg">
+                            <Icon size={24} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-black uppercase tracking-tight">{title}</h2>
+                            {subtitle && <p className="font-bold text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+                        </div>
+                    </div>
+                    {isOpen ? <ChevronUp size={24} strokeWidth={3} /> : <ChevronDown size={24} strokeWidth={3} />}
+                </button>
+                {isOpen && <div className="p-6">{children}</div>}
+            </div>
+        );
     };
 
-    const handleKeyChange = (e) => {
-        const key = e.target.value;
-        setSelectedKey(key);
-        setEditContent(messages[key] || '');
-    };
-
-    const saveMessage = async () => {
-        try {
-            await api.post('/messages', {
-                key: selectedKey,
-                content: editContent
-            });
-            setMessages(prev => ({ ...prev, [selectedKey]: editContent }));
-            toast.success('Message template updated');
-        } catch (e) {
-            toast.error('Failed to update message');
-        }
-    };
-
-    const messageKeys = [
-        { key: 'evening_reminder', label: 'Evening Reminder (23:00)' },
-        { key: 'morning_reminder', label: 'Morning Reminder (08:00)' },
-        { key: 'afternoon_reminder', label: 'Afternoon Reminder (16:00)' },
-        { key: 'menu', label: 'Main Menu (!menu)' },
-        { key: 'help', label: 'Help Message (!help)' },
-        { key: 'absen_maintenance_message', label: 'Absen Maintenance Message' },
-        { key: 'maintenance_message', label: 'Global Maintenance Message' },
-        { key: 'registration_link_private', label: 'Registration Link' },
-        { key: 'submit_success', label: 'Submit Success' },
-        { key: 'submit_failed', label: 'Submit Failed' },
-        { key: 'holiday_message', label: 'Holiday Message' }
-    ];
-
-    // Loading skeleton
-    const LoadingSkeleton = () => (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Card><CardContent><Skeleton height={60} /></CardContent></Card>
-            <Card><CardContent><Skeleton height={120} /></CardContent></Card>
-            <Card><CardContent><Skeleton height={200} /></CardContent></Card>
-        </Box>
-    );
-
-    const isLoading = loadingStatus && loadingHolidays && loadingMessages;
-    if (isLoading) return <LoadingSkeleton />;
-
-    // Common section wrapper
-    const SettingsSection = ({ title, subtitle, icon: Icon, children, defaultExpanded = true }) => (
-        <Accordion
-            defaultExpanded={defaultExpanded}
-            sx={{
-                bgcolor: 'background.paper',
-                '&:before': { display: 'none' },
-                borderRadius: '12px !important',
-                border: 1,
-                borderColor: 'divider',
-                mb: { xs: 1.5, sm: 2 },
-                overflow: 'hidden'
-            }}
-        >
-            <AccordionSummary
-                expandIcon={<ChevronDown size={20} />}
-                sx={{
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    minHeight: { xs: 56, sm: 64 },
-                    '& .MuiAccordionSummary-content': { my: 1.5 }
-                }}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Icon size={isMobile ? 18 : 20} />
-                    <Box>
-                        <Typography variant="h6" sx={{ fontSize: { xs: '0.9375rem', sm: '1rem' } }}>
-                            {title}
-                        </Typography>
-                        {subtitle && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-                                {subtitle}
-                            </Typography>
-                        )}
-                    </Box>
-                </Box>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: { xs: 2, sm: 3 } }}>
-                {children}
-            </AccordionDetails>
-        </Accordion>
-    );
+    if (loadingStatus && loadingHolidays) {
+        return (
+            <div className="space-y-6">
+                {[1, 2].map(i => (
+                    <div key={i} className="border-4 border-black p-6 bg-white animate-pulse shadow-[8px_8px_0_#000] rounded-2xl h-48" />
+                ))}
+            </div>
+        );
+    }
 
     return (
-        <Box>
-            {/* BOT CONTROLS SECTION */}
-            <SettingsSection title="Bot Controls" subtitle="Manage system availability" icon={SettingsIcon}>
-                <Box sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    alignItems: { xs: 'flex-start', sm: 'center' },
-                    justifyContent: 'space-between',
-                    gap: 2
-                }}>
-                    <Box>
-                        <Typography variant="subtitle2" fontWeight={600}>
-                            Maintenance Mode (!absen only)
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                            Users will receive a maintenance message when using <code>!absen</code>.
-                        </Typography>
-                    </Box>
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                checked={absenMaintenance}
-                                onChange={toggleAbsenMaintenance}
-                                color="error"
-                                disabled={loadingStatus}
-                            />
-                        }
-                        label={absenMaintenance ? "Active" : "Inactive"}
-                        sx={{ m: 0 }}
-                    />
-                </Box>
+        <div className="max-w-4xl mx-auto pb-12">
+            <h1 className="text-4xl font-black uppercase mb-8 border-b-4 border-black pb-4 inline-block">System Settings</h1>
+
+            {/* COMMAND MAINTENANCE */}
+            <SettingsSection title="Command Controls" subtitle="Enable/Disable specific bot commands" icon={ShieldAlert}>
+                <div className="flex items-start gap-3 mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 font-bold text-sm text-yellow-800">
+                    <Info size={20} className="shrink-0" />
+                    <p>Commands toggled ON will respond with a maintenance message to users.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {availableCommands.map(cmd => {
+                        const isMaint = maintenanceCommands.includes(cmd);
+                        return (
+                            <div key={cmd} className={`flex items-center justify-between p-4 border-4 border-black rounded-xl shadow-[4px_4px_0_#000] transition-colors ${isMaint ? 'bg-red-50' : 'bg-white'}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`p-1.5 rounded-md border-2 border-black ${isMaint ? 'bg-red-500 text-white' : 'bg-gray-100 text-black'}`}>
+                                        <Terminal size={16} />
+                                    </div>
+                                    <span className="font-black uppercase text-sm">!{cmd}</span>
+                                </div>
+                                <Switch
+                                    checked={isMaint}
+                                    onChange={() => toggleCommandMaintenance(cmd)}
+                                    color="error"
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
             </SettingsSection>
 
-            {/* HOLIDAYS SECTION */}
+            {/* HOLIDAYS */}
             <SettingsSection title="Custom Holidays" subtitle="Pause scheduler on specific dates" icon={Calendar}>
-                <Alert severity="info" sx={{ mb: 2, py: 1 }} icon={<Info size={18} />}>
-                    <Typography variant="caption">
-                        Add dates when the scheduler should NOT send reminders.
-                    </Typography>
-                </Alert>
+                <div className="flex items-start gap-3 mb-6 bg-blue-100 border-l-4 border-blue-500 p-4 font-bold text-sm">
+                    <Info size={20} className="text-blue-500 shrink-0" />
+                    <p>Add dates when the scheduler should NOT send reminders.</p>
+                </div>
 
-                <Box sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    gap: { xs: 1, sm: 2 },
-                    mb: 3
-                }}>
-                    <TextField
-                        fullWidth
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                    <input
                         type="date"
-                        label="Select Date"
-                        InputLabelProps={{ shrink: true }}
+                        className="flex-1 border-4 border-black p-3 font-bold rounded-xl focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow uppercase"
                         value={newDate}
                         onChange={(e) => setNewDate(e.target.value)}
-                        size={isMobile ? 'small' : 'medium'}
                     />
-                    <Button
-                        variant="contained"
+                    <button
                         onClick={addHoliday}
-                        startIcon={<Plus size={16} />}
-                        sx={{ minWidth: { xs: '100%', sm: 100 } }}
+                        className="bg-black text-white border-4 border-black px-6 py-3 font-black uppercase rounded-xl hover:bg-gray-800 hover:shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-2"
                     >
-                        Add
-                    </Button>
-                </Box>
+                        <Plus size={20} strokeWidth={3} /> Add
+                    </button>
+                </div>
 
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>Registered Holidays</Typography>
-                <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
-                    <List disablePadding dense>
-                        {loadingHolidays ? (
-                            <ListItem><ListItemText primary="Loading..." /></ListItem>
-                        ) : holidays.length === 0 ? (
-                            <ListItem>
-                                <ListItemText
-                                    primary={
-                                        <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                            No custom holidays set.
-                                        </Typography>
-                                    }
-                                />
-                            </ListItem>
-                        ) : holidays.map((date, i) => (
-                            <ListItem
-                                key={i}
-                                divider={i !== holidays.length - 1}
-                                secondaryAction={
-                                    <IconButton edge="end" color="error" onClick={() => deleteHoliday(date)} size="small">
-                                        <Trash2 size={16} />
-                                    </IconButton>
-                                }
-                            >
-                                <ListItemText
-                                    primary={new Date(date).toLocaleDateString('id-ID', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                                    secondary={date}
-                                    primaryTypographyProps={{ fontSize: { xs: '0.8125rem', sm: '0.875rem' } }}
-                                />
-                            </ListItem>
-                        ))}
-                    </List>
-                </Paper>
-            </SettingsSection>
-
-            {/* MESSAGES SECTION */}
-            <SettingsSection title="Message Templates" subtitle="Customize bot responses" icon={MessageSquare}>
-                <Box sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' },
-                    gap: { xs: 2, sm: 3 }
-                }}>
-                    <Box>
-                        <TextField
-                            select
-                            fullWidth
-                            label="Select Template"
-                            value={selectedKey}
-                            onChange={handleKeyChange}
-                            disabled={loadingMessages}
-                            size={isMobile ? 'small' : 'medium'}
-                        >
-                            {messageKeys.map((option) => (
-                                <MenuItem key={option.key} value={option.key}>
-                                    {option.label}
-                                </MenuItem>
+                <div className="bg-gray-50 border-4 border-black rounded-xl max-h-64 overflow-y-auto p-2">
+                    {holidays.length === 0 ? (
+                        <div className="p-8 font-bold text-center text-gray-400 italic">No custom holidays set.</div>
+                    ) : (
+                        <div className="space-y-2">
+                            {holidays.map((date, i) => (
+                                <div key={i} className="flex justify-between items-center bg-white border-2 border-black p-3 rounded-lg shadow-[2px_2px_0_#000]">
+                                    <div>
+                                        <div className="font-black uppercase">{new Date(date).toLocaleDateString('id-ID', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                                        <div className="text-xs font-bold text-gray-500">{date}</div>
+                                    </div>
+                                    <button onClick={() => deleteHoliday(date)} className="p-2 hover:bg-red-100 rounded-md transition-colors text-red-600">
+                                        <Trash2 size={20} strokeWidth={2.5} />
+                                    </button>
+                                </div>
                             ))}
-                        </TextField>
-
-                        <Alert severity="info" sx={{ mt: 2, py: 1 }}>
-                            <Typography variant="caption">
-                                <b>Tip:</b> Use *bold*, _italic_, and emojis.
-                            </Typography>
-                        </Alert>
-                    </Box>
-
-                    <Box>
-                        <TextField
-                            fullWidth
-                            multiline
-                            minRows={isMobile ? 4 : 6}
-                            maxRows={12}
-                            label="Message Content"
-                            value={editContent}
-                            onChange={(e) => setEditContent(e.target.value)}
-                            disabled={loadingMessages}
-                            InputProps={{
-                                sx: { fontFamily: 'monospace', fontSize: { xs: '0.8125rem', sm: '0.875rem' } }
-                            }}
-                        />
-
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                            <Button
-                                variant="contained"
-                                startIcon={<Save size={16} />}
-                                onClick={saveMessage}
-                                disabled={loadingMessages || !editContent}
-                                fullWidth={isMobile}
-                            >
-                                Save Changes
-                            </Button>
-                        </Box>
-                    </Box>
-                </Box>
+                        </div>
+                    )}
+                </div>
             </SettingsSection>
-        </Box>
+        </div>
     );
 }

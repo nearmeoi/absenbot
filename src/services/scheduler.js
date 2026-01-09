@@ -1,5 +1,6 @@
 const chalk = require("chalk");
 const fs = require('fs');
+const path = require('path');
 const cron = require('node-cron');
 const { GROUP_ID_FILE } = require('../config/constants');
 const { getAllUsers } = require('./database');
@@ -10,92 +11,112 @@ const { getAllowedGroups, isHoliday } = require('../config/holidays');
 
 const { loadGroupSettings } = require('./groupSettings');
 const { getMessage } = require('./messageService');
-const { isSchedulerEnabled } = require('./botState'); // Use centralized state to avoid circular dependency
+const { isSchedulerEnabled } = require('./botState');
 
+// Config path
+const SCHEDULE_CONFIG_FILE = path.join(__dirname, '../../data/scheduler_config.json');
+
+// Global state
 let botSocket = null;
+const activeCrons = new Map(); // Store running cron tasks: 'id_timezone' -> task
 
 function setBotSocket(sock) {
     botSocket = sock;
     console.log(chalk.cyan('[SCHEDULER] Socket updated'));
 }
 
-// Check if today is weekend or holiday for a specific timezone
-function isWeekendOrHoliday(timezone = 'Asia/Makassar') {
+// --- CONFIG MANAGEMENT ---
+
+function loadSchedules() {
+    if (!fs.existsSync(SCHEDULE_CONFIG_FILE)) return [];
+    try {
+        return JSON.parse(fs.readFileSync(SCHEDULE_CONFIG_FILE, 'utf8'));
+    } catch (e) {
+        console.error(chalk.red('[SCHEDULER] Error loading config:'), e.message);
+        return [];
+    }
+}
+
+function saveSchedules(schedules) {
+    fs.writeFileSync(SCHEDULE_CONFIG_FILE, JSON.stringify(schedules, null, 2));
+}
+
+function addSchedule(schedule) {
+    const schedules = loadSchedules();
+    schedules.push(schedule);
+    saveSchedules(schedules);
+    reloadScheduler(); // Restart crons
+    return schedule;
+}
+
+function updateSchedule(id, updates) {
+    const schedules = loadSchedules();
+    const index = schedules.findIndex(s => s.id === id);
+    if (index !== -1) {
+        schedules[index] = { ...schedules[index], ...updates };
+        saveSchedules(schedules);
+        reloadScheduler();
+        return schedules[index];
+    }
+    return null;
+}
+
+function deleteSchedule(id) {
+    const schedules = loadSchedules();
+    const newSchedules = schedules.filter(s => s.id !== id);
+    if (newSchedules.length !== schedules.length) {
+        saveSchedules(newSchedules);
+        reloadScheduler();
+        return true;
+    }
+    return false;
+}
+
+// --- HELPER LOGIC ---
+
+function isWeekendOrHoliday(timezone) {
     const now = new Date();
-    // Get date parts in specific timezone
     const tzString = now.toLocaleString("en-US", { timeZone: timezone });
     const tzDate = new Date(tzString);
-
     const day = tzDate.getDay();
     if (day === 0 || day === 6) return true;
-
-    // Check holiday based on YYYY-MM-DD in that timezone
     const dateStr = tzDate.toISOString().split('T')[0];
     return isHoliday(dateStr);
 }
 
-// Helper to send message to user and their group (if allowed)
-async function sendReminder(sock, user, text) {
-    // 1. Send personal DM (Always)
-    try {
-        await sock.sendMessage(user.phone, { text });
-    } catch (e) { console.error(chalk.red(`[SCHEDULER] Failed DM to ${user.phone}:`), e.message); }
-}
-
-// Check if today is a holiday for a specific group
-function isGroupHoliday(config, timezone = 'Asia/Makassar') {
-    if (!config.holidays || config.holidays.length === 0) return false;
-
-    const now = new Date();
-    const tzString = now.toLocaleString("en-US", { timeZone: timezone });
-    const tzDate = new Date(tzString);
-    const dateStr = tzDate.toISOString().split('T')[0];
-
-    return config.holidays.includes(dateStr);
-}
-
-// Check if today is weekend AND group has skipWeekends enabled (default: true)
-function isGroupWeekend(config, timezone = 'Asia/Makassar') {
+function shouldSkipGroup(config, timezone) {
+    // Check holiday
+    if (config.holidays && config.holidays.length > 0) {
+        const now = new Date();
+        const tzString = now.toLocaleString("en-US", { timeZone: timezone });
+        const tzDate = new Date(tzString);
+        const dateStr = tzDate.toISOString().split('T')[0];
+        if (config.holidays.includes(dateStr)) return true;
+    }
+    // Check weekend
     const now = new Date();
     const tzString = now.toLocaleString("en-US", { timeZone: timezone });
     const tzDate = new Date(tzString);
     const day = tzDate.getDay();
-
     const isWeekend = (day === 0 || day === 6);
-    // skipWeekends defaults to true if not set
-    const shouldSkip = config.skipWeekends !== false;
-    return isWeekend && shouldSkip;
+    return isWeekend && (config.skipWeekends !== false);
 }
 
-// Combined check: should this group be skipped today?
-function shouldSkipGroup(config, timezone = 'Asia/Makassar') {
-    return isGroupHoliday(config, timezone) || isGroupWeekend(config, timezone);
-}
-
-// Helper: Broadcast Simple Message with Hidetag (Tag All) - User Request
 async function broadcastSimpleWithHidetag(sock, groupId, msgKey) {
     try {
         const groupMetadata = await sock.groupMetadata(groupId);
         const allParticipants = groupMetadata.participants.map(p => p.id);
         const msgText = getMessage(msgKey);
-
-        await sock.sendMessage(groupId, {
-            text: msgText,
-            mentions: allParticipants
-        });
+        await sock.sendMessage(groupId, { text: msgText, mentions: allParticipants });
     } catch (e) {
         console.error(chalk.red(`[SCHEDULER] Failed simple hidetag to ${groupId}:`), e.message);
     }
 }
 
-// Morning reminder (08:00)
-async function runMorningReminder(providedSock, timezone = 'Asia/Makassar') {
-    const sock = providedSock || botSocket;
-    if (!sock) {
-        console.error(chalk.red('[SCHEDULER] Cannot run morning reminder: Bot socket not connected'));
-        return;
-    }
-    console.log(chalk.magenta(`[SCHEDULER] Running morning reminder (08:00 ${timezone})...`));
+// --- TASK EXECUTORS ---
+
+async function runGroupHidetag(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Group Hidetag: ${task.id} (${timezone})`));
     if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday(timezone)) return;
 
@@ -106,70 +127,23 @@ async function runMorningReminder(providedSock, timezone = 'Asia/Makassar') {
     });
 
     for (const [groupId, _] of enabledGroups) {
-        await broadcastSimpleWithHidetag(sock, groupId, 'morning_reminder');
+        await broadcastSimpleWithHidetag(sock, groupId, task.messageKey);
         await new Promise(r => setTimeout(r, 2000));
     }
 }
 
-// Afternoon reminder (16:00)
-async function runAfternoonReminder(providedSock, timezone = 'Asia/Makassar') {
-    const sock = providedSock || botSocket;
-    if (!sock) {
-        console.error(chalk.red('[SCHEDULER] Cannot run afternoon reminder: Bot socket not connected'));
-        return;
-    }
-    console.log(chalk.magenta(`[SCHEDULER] Running afternoon reminder (16:00 ${timezone})...`));
-    if (!isSchedulerEnabled()) return;
-    if (isWeekendOrHoliday(timezone)) return;
+async function runGroupHidetagJapri(sock, task, timezone) {
+    await runGroupHidetag(sock, task, timezone);
 
-    const settings = loadGroupSettings();
-    const enabledGroups = Object.entries(settings).filter(([_, c]) => {
-        const groupTz = c.timezone || 'Asia/Makassar';
-        return c.schedulerEnabled && groupTz === timezone && !shouldSkipGroup(c, timezone);
-    });
-
-    for (const [groupId, _] of enabledGroups) {
-        await broadcastSimpleWithHidetag(sock, groupId, 'afternoon_reminder');
-        await new Promise(r => setTimeout(r, 2000));
-    }
-}
-
-// Evening reminder (21:00, 23:00)
-async function runAutoReminder(providedSock, enablePrivateChat = false, timezone = 'Asia/Makassar') {
-    const sock = providedSock || botSocket;
-    if (!sock) {
-        console.error(chalk.red('[SCHEDULER] Cannot run evening reminder: Bot socket not connected'));
-        return;
-    }
-    console.log(chalk.magenta(`[SCHEDULER] Running evening reminder (PrivateChat: ${enablePrivateChat}, TZ: ${timezone})...`));
-    if (!isSchedulerEnabled()) return;
-    if (isWeekendOrHoliday(timezone)) return;
-
-    // 1. Group Broadcasts (Simple Hidetag)
-    const settings = loadGroupSettings();
-    const enabledGroups = Object.entries(settings).filter(([_, c]) => {
-        const groupTz = c.timezone || 'Asia/Makassar';
-        return c.schedulerEnabled && groupTz === timezone && !shouldSkipGroup(c, timezone);
-    });
-
-    for (const [groupId, _] of enabledGroups) {
-        await broadcastSimpleWithHidetag(sock, groupId, 'evening_reminder');
-        await new Promise(r => setTimeout(r, 2000));
-    }
-
-    // 2. Private Chat (Japri) - Only if enabled (e.g. at 23:00)
-    // For Japri, we use the default timezone unless we implement per-user timezone later.
-    // For now, Japri remains on WITA (main bot timezone)
-    if (enablePrivateChat && timezone === 'Asia/Makassar') {
+    // Japri logic (Only for default timezone 'Asia/Makassar' to avoid spamming user multiple times if they are in multiple timezone groups - simplified for now)
+    if (timezone === 'Asia/Makassar') {
         console.log(chalk.cyan('[SCHEDULER] Sending Private Reminders (Japri)...'));
         const allUsers = getAllUsers();
         for (const user of allUsers) {
             try {
                 const status = await cekStatusHarian(user.email, user.password);
                 if (!status.success || !status.sudahAbsen) {
-                    await sock.sendMessage(user.phone, {
-                        text: getMessage('evening_reminder')
-                    });
+                    await sock.sendMessage(user.phone, { text: getMessage(task.messageKey) });
                     await new Promise(r => setTimeout(r, 1000));
                 }
             } catch (e) {
@@ -179,30 +153,16 @@ async function runAutoReminder(providedSock, enablePrivateChat = false, timezone
     }
 }
 
-// PROXY: Generate Draft and Push to User at 23:50
-async function runDraftPush(providedSock, timezone = 'Asia/Makassar') {
-    const sock = providedSock || botSocket;
-    if (!sock) {
-        console.error(chalk.red('[SCHEDULER] Cannot run draft push: Bot socket not connected'));
-        return;
-    }
-    console.log(chalk.magenta(`[SCHEDULER] Running draft push (23:50 ${timezone})...`));
-    // Draft push and Emergency are global/system-wide for now (WITA)
-    // To avoid redundant AI calls, we only run it for the main timezone
-    if (timezone !== 'Asia/Makassar') return;
-
-    if (isWeekendOrHoliday(timezone)) {
-        console.log(chalk.yellow('[SCHEDULER] Skipping draft push - weekend or holiday.'));
-        return;
-    }
+async function runDraftPush(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Draft Push (${timezone})`));
+    if (timezone !== 'Asia/Makassar') return; // Global logic, run only once
+    if (isWeekendOrHoliday(timezone)) return;
 
     const allUsers = getAllUsers();
     for (const user of allUsers) {
         try {
             const status = await cekStatusHarian(user.email, user.password);
             if (status.success && status.sudahAbsen) continue;
-
-            console.log(chalk.yellow(`[DRAFT-PUSH] Preparing for ${user.email}`));
 
             const riwayatResult = await getRiwayat(user.email, user.password, 3);
             const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
@@ -214,14 +174,12 @@ async function runDraftPush(providedSock, timezone = 'Asia/Makassar') {
                     kendala: aiResult.kendala,
                     type: 'ai'
                 };
-
                 setDraft(user.phone, reportData);
-
-                const msg = `*DARURAT: DRAF ABSENSI OTOMATIS* ⚠️\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan AI untukmu:\n\n` +
-                    `🏢 *Aktivitas:* ${aiResult.aktivitas}\n\n` +
-                    `Ketik *ya* sekarang untuk mengirim laporan ini!\n` +
+                const msg = `*DARURAT: DRAF ABSENSI OTOMATIS* ⚠️\n\n` + 
+                    `Hampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan AI untukmu:\n\n` + 
+                    `🏢 *Aktivitas:* ${aiResult.aktivitas}\n\n` + 
+                    `Ketik *ya* sekarang untuk mengirim laporan ini!\n` + 
                     `_Jika tidak dibalas, sistem akan otomatis mengirim draf ini pada jam 23:59._`;
-
                 await sock.sendMessage(user.phone, { text: msg });
             }
         } catch (e) {
@@ -230,28 +188,16 @@ async function runDraftPush(providedSock, timezone = 'Asia/Makassar') {
     }
 }
 
-// EMERGENCY: Auto-submit at 23:59 for users who haven't submitted
-async function runEmergencyAutoSubmit(providedSock, timezone = 'Asia/Makassar') {
-    const sock = providedSock || botSocket;
-    if (!sock) {
-        console.error(chalk.red('[SCHEDULER] Cannot run emergency submit: Bot socket not connected'));
-        return;
-    }
-    console.log(chalk.magenta(`[SCHEDULER] Running emergency auto-submit (23:59 ${timezone})...`));
-    if (timezone !== 'Asia/Makassar') return;
-
-    if (isWeekendOrHoliday(timezone)) {
-        console.log(chalk.yellow('[SCHEDULER] Skipping auto-submit - weekend or holiday.'));
-        return;
-    }
+async function runEmergencySubmit(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Emergency Submit (${timezone})`));
+    if (timezone !== 'Asia/Makassar') return; // Global logic
+    if (isWeekendOrHoliday(timezone)) return;
 
     const allUsers = getAllUsers();
     for (const user of allUsers) {
         try {
             const status = await cekStatusHarian(user.email, user.password);
             if (status.success && status.sudahAbsen) continue;
-
-            console.log(chalk.red(`[AUTO-SUBMIT] Emergency action for ${user.email}`));
 
             const riwayatResult = await getRiwayat(user.email, user.password, 3);
             const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
@@ -264,7 +210,6 @@ async function runEmergencyAutoSubmit(providedSock, timezone = 'Asia/Makassar') 
                     pembelajaran: aiResult.pembelajaran,
                     kendala: aiResult.kendala
                 });
-
                 if (submitResult.success) {
                     await sock.sendMessage(user.phone, {
                         text: `*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh sistem agar absensi Anda aman.`
@@ -277,72 +222,92 @@ async function runEmergencyAutoSubmit(providedSock, timezone = 'Asia/Makassar') 
     }
 }
 
-// TEST RUNNER for Development
-async function runTestScheduler(sock, type) {
-    const settings = loadGroupSettings();
-    // Filter groups strictly for testing
-    const testGroups = Object.entries(settings).filter(([_, c]) => c.isTesting);
+// --- CORE SCHEDULER LOGIC ---
 
-    if (testGroups.length === 0) {
-        return { success: false, message: 'No groups marked for testing' };
-    }
+function scheduleTask(task, timezone) {
+    const [hour, minute] = task.time.split(':');
+    const cronExp = `${minute} ${hour} * * ${task.days || '1-5'}`;
 
-    // For test runner, we just use the first test group's timezone or WITA
-    const firstTz = testGroups[0][1].timezone || 'Asia/Makassar';
+    const job = cron.schedule(cronExp, () => {
+        const sock = botSocket;
+        if (!sock) {
+            console.error(chalk.red('[SCHEDULER] Bot socket not connected, skipping task'));
+            return;
+        }
 
-    // Map test types to function calls
-    if (type === 'morning') await runMorningReminder(sock, firstTz);
-    else if (type === 'afternoon') await runAfternoonReminder(sock, firstTz);
-    else if (type === 'evening') await runAutoReminder(sock, false, firstTz); // No Japri for simple test
-    else if (type === 'evening_full') await runAutoReminder(sock, true, firstTz); // With Japri
+        if (task.type === 'group_hidetag') runGroupHidetag(sock, task, timezone);
+        else if (task.type === 'group_hidetag_japri') runGroupHidetagJapri(sock, task, timezone);
+        else if (task.type === 'draft_push') runDraftPush(sock, task, timezone);
+        else if (task.type === 'emergency_submit') runEmergencySubmit(sock, task, timezone);
+        else console.warn(chalk.yellow(`[SCHEDULER] Unknown task type: ${task.type}`));
 
-    return { success: true, count: testGroups.length };
+    }, { timezone: timezone });
+
+    const key = `${task.id}_${timezone}`;
+    activeCrons.set(key, job);
+    console.log(chalk.gray(`[SCHEDULER] Scheduled: ${task.id} at ${task.time} (${timezone})`));
 }
 
-function initScheduler(sock) {
-    setBotSocket(sock);
+function reloadScheduler() {
+    console.log(chalk.yellow('[SCHEDULER] Reloading schedules...'));
+    // Stop all existing crons
+    for (const [key, job] of activeCrons.entries()) {
+        job.stop();
+        activeCrons.delete(key);
+    }
 
-    // Collect all required timezones (WIB, WITA, WIT)
-    // Even if no groups use them yet, we register standard ones for convenience
     const standardTimezones = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'];
     const settings = loadGroupSettings();
     const customTimezones = Object.values(settings)
         .map(s => s.timezone)
         .filter(tz => tz && !standardTimezones.includes(tz));
-
     const timezones = [...new Set([...standardTimezones, ...customTimezones])];
 
-    console.log(chalk.cyan(`[SCHEDULER] Initializing crons for timezones: ${timezones.join(', ')}`));
+    const schedules = loadSchedules();
 
     timezones.forEach(tz => {
-        // Morning reminder (08:00)
-        cron.schedule('0 8 * * 1-5', () => runMorningReminder(null, tz), { timezone: tz });
-
-        // Afternoon reminder (16:00 - Markipul)
-        cron.schedule('0 16 * * 1-5', () => runAfternoonReminder(null, tz), { timezone: tz });
-
-        // Evening reminders
-        // 21:00 -> NO Private Chat
-        cron.schedule('0 21 * * 1-5', () => runAutoReminder(null, false, tz), { timezone: tz });
-
-        // 23:00 -> WITH Private Chat (Only for Makassar/system default to avoid redundancy)
-        cron.schedule('0 23 * * 1-5', () => runAutoReminder(null, true, tz), { timezone: tz });
-
-        // DRAFT PUSH (23:50) - Only for Makassar/system default
-        cron.schedule('50 23 * * 1-5', () => runDraftPush(null, tz), { timezone: tz });
-
-        // EMERGENCY (23:59) - Only for Makassar/system default
-        cron.schedule('59 23 * * 1-5', () => runEmergencyAutoSubmit(null, tz), { timezone: tz });
+        schedules.forEach(task => {
+            if (task.enabled) {
+                scheduleTask(task, tz);
+            }
+        });
     });
-
-    console.log(chalk.blue('[SCHEDULER] Per-group timezones enabled. System defaults to WITA for Private Chat & Emergency.'));
+    console.log(chalk.green(`[SCHEDULER] Reload complete. ${activeCrons.size} jobs active.`));
 }
 
-exports.initScheduler = initScheduler;
-exports.setBotSocket = setBotSocket;
-exports.runAutoReminder = runAutoReminder;
-exports.runEmergencyAutoSubmit = runEmergencyAutoSubmit;
-exports.runMorningReminder = runMorningReminder;
-exports.runAfternoonReminder = runAfternoonReminder;
-exports.runTestScheduler = runTestScheduler;
+function initScheduler(sock) {
+    setBotSocket(sock);
+    reloadScheduler();
+}
 
+// Test runner for Dashboard
+async function runTestScheduler(sock, taskId) {
+    const schedules = loadSchedules();
+    const task = schedules.find(s => s.id === taskId);
+    if (!task) return { success: false, message: 'Task not found' };
+
+    // For test, force run on 'Asia/Makassar'
+    const tz = 'Asia/Makassar';
+    
+    if (task.type === 'group_hidetag') await runGroupHidetag(sock, task, tz);
+    else if (task.type === 'group_hidetag_japri') await runGroupHidetagJapri(sock, task, tz);
+    else if (task.type === 'draft_push') await runDraftPush(sock, task, tz);
+    else if (task.type === 'emergency_submit') await runEmergencySubmit(sock, task, tz);
+    
+    return { success: true };
+}
+
+module.exports = {
+    initScheduler,
+    setBotSocket,
+    loadSchedules,
+    addSchedule,
+    updateSchedule,
+    deleteSchedule,
+    runTestScheduler,
+    // Exports for compatibility if needed elsewhere
+    runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'), 
+    runAfternoonReminder: async (sock) => runTestScheduler(sock, 'afternoon_reminder'),
+    runAutoReminder: async (sock, japri) => runTestScheduler(sock, japri ? 'evening_reminder_2' : 'evening_reminder_1'),
+    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit')
+};

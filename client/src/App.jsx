@@ -70,10 +70,10 @@ function App() {
             <Route path="groups" element={<Groups />} />
             <Route path="scheduler" element={<Scheduler />} />
             <Route path="development" element={<Development />} />
-            <Route path="terminal" element={<Terminal />} />
             <Route path="settings" element={<Settings />} />
             <Route path="test-system" element={<SystemTest />} />
           </Route>
+          <Route path="/terminal" element={<ProtectedRoute><Terminal /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

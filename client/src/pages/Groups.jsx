@@ -1,13 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import api from '../utils/api';
-import { Edit2, Trash2, Save, X, Search, Layers } from 'lucide-react';
+import { Edit2, Trash2, Save, X, Search, Layers, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-    Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Button, IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, FormControlLabel, Switch, Typography, CircularProgress, InputAdornment,
-    MenuItem, Card, CardContent, useMediaQuery, useTheme, Skeleton, Alert
-} from '@mui/material';
+import { Dialog, DialogContent, Switch } from '@mui/material'; // Keeping Dialog for simplicity, but styling it
 
 export default function Groups() {
     const [groups, setGroups] = useState([]);
@@ -16,9 +11,6 @@ export default function Groups() {
     const [formData, setFormData] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
     const [isOffline, setIsOffline] = useState(false);
-
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     useEffect(() => {
         loadGroups();
@@ -121,338 +113,216 @@ export default function Groups() {
         return 'WITA';
     };
 
-    // Loading skeleton for mobile
-    const MobileSkeleton = () => (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {[1, 2, 3].map(i => (
-                <Card key={i}>
-                    <CardContent sx={{ p: 2 }}>
-                        <Skeleton width="60%" height={20} />
-                        <Skeleton width="100%" height={16} sx={{ mt: 1 }} />
-                        <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
-                            <Skeleton width={80} height={24} />
-                            <Skeleton width={60} height={24} />
-                        </Box>
-                    </CardContent>
-                </Card>
-            ))}
-        </Box>
-    );
-
-    // Mobile card view
-    const MobileGroupCard = ({ group }) => (
-        <Card sx={{ mb: 1.5 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                            <Typography variant="subtitle2" fontWeight={600} noWrap sx={{ maxWidth: '70%' }}>
-                                {group.name || 'Unknown Group'}
-                            </Typography>
-                            {!group.isRegistered && (
-                                <Chip label="New" color="info" size="small" sx={{ height: 18, fontSize: '0.6rem' }} />
-                            )}
-                            {group.isMissing && (
-                                <Chip label="Bot Left" color="error" size="small" sx={{ height: 18, fontSize: '0.6rem' }} />
-                            )}
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', mt: 0.5 }}>
-                            {group.id}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton
-                            size="small"
-                            onClick={() => setEditGroup(group)}
-                            color={group.isRegistered ? "primary" : "default"}
-                        >
-                            {group.isRegistered ? <Edit2 size={16} /> : <Save size={16} />}
-                        </IconButton>
-                        {group.isRegistered && (
-                            <IconButton size="small" color="error" onClick={() => handleDelete(group.id)}>
-                                <Trash2 size={16} />
-                            </IconButton>
-                        )}
-                    </Box>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
-                    {group.isRegistered ? (
-                        <>
-                            <Chip
-                                label={group.schedulerEnabled ? "Scheduler ON" : "Scheduler OFF"}
-                                color={group.schedulerEnabled ? "success" : "default"}
-                                size="small"
-                                sx={{ height: 22 }}
-                            />
-                            {group.isTesting && <Chip label="TESTING" color="warning" size="small" sx={{ height: 22 }} />}
-                        </>
-                    ) : (
-                        <Chip label="Not Configured" size="small" variant="outlined" sx={{ height: 22 }} />
-                    )}
-                    <Chip
-                        label={`${getTimezoneLabel(group.timezone)} • ${group.skipWeekends ? 'Skip Sat/Sun' : 'Every Day'}`}
-                        size="small"
-                        variant="outlined"
-                        sx={{ height: 22, fontSize: '0.6875rem' }}
-                    />
-                </Box>
-            </CardContent>
-        </Card>
-    );
-
-    // Empty state component
-    const EmptyState = () => (
-        <Box sx={{ textAlign: 'center', py: { xs: 4, sm: 6 }, color: 'text.secondary' }}>
-            <Layers size={48} strokeWidth={1.5} />
-            <Typography variant="h6" sx={{ mt: 2 }}>
-                {searchQuery ? 'No Groups Found' : 'No Groups Registered'}
-            </Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>
-                {searchQuery ? 'Try a different search term.' : 'Groups will appear here once the bot joins a WhatsApp group.'}
-            </Typography>
-        </Box>
-    );
-
     if (loading) {
-        return isMobile ? <MobileSkeleton /> : (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>
+        return (
+            <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="border-4 border-black p-6 bg-white animate-pulse shadow-[8px_8px_0_#000] rounded-2xl h-40" />
+                ))}
+            </div>
         );
     }
 
     return (
-        <Box>
-            {/* Header with Search */}
-            <Paper sx={{ mb: { xs: 1.5, sm: 2 }, overflow: 'hidden' }}>
-                <Box sx={{
-                    p: { xs: 1.5, sm: 2 },
-                    borderBottom: 1,
-                    borderColor: 'divider',
-                    display: 'flex',
-                    flexDirection: { xs: 'column', sm: 'row' },
-                    justifyContent: 'space-between',
-                    alignItems: { xs: 'stretch', sm: 'center' },
-                    gap: { xs: 1.5, sm: 2 }
-                }}>
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.9375rem', sm: '1rem' } }}>
-                        Group Assignments ({filteredGroups.length})
-                    </Typography>
-                    <TextField
-                        size="small"
-                        placeholder="Search groups..."
+        <div className="space-y-8">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-4 border-black bg-white p-6 shadow-[8px_8px_0_#000] rounded-2xl">
+                <div>
+                    <h1 className="text-3xl font-black uppercase tracking-tighter">
+                        Groups ({filteredGroups.length})
+                    </h1>
+                    <p className="font-bold text-gray-500 mt-1">Manage bot assignments and automation.</p>
+                </div>
+                
+                <div className="relative w-full md:w-auto">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-black" size={20} strokeWidth={3} />
+                    <input 
+                        type="text" 
+                        placeholder="SEARCH GROUPS..." 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        slotProps={{
-                            input: {
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Search size={16} />
-                                    </InputAdornment>
-                                ),
-                            }
-                        }}
-                        sx={{
-                            minWidth: { sm: 220 },
-                            '& .MuiInputBase-root': { fontSize: '0.875rem' }
-                        }}
+                        className="w-full md:w-64 border-4 border-black p-3 pl-12 font-bold uppercase rounded-xl focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow placeholder:text-gray-400"
                     />
-                </Box>
+                </div>
+            </div>
 
-                {isOffline && (
-                    <Alert severity="warning" sx={{ borderRadius: 0 }}>
-                        <Typography variant="body2" fontWeight={600}>Bot Offline / Disconnected</Typography>
-                        <Typography variant="caption">Only saved groups are shown.</Typography>
-                    </Alert>
-                )}
-
-                {/* Desktop Table View */}
-                {!isMobile && (
-                    <TableContainer>
-                        <Table size="medium">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Group Name</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell>Zone</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredGroups.map((g) => (
-                                    <TableRow key={g.id} hover>
-                                        <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography variant="subtitle2" fontWeight={600}>
-                                                    {g.name || 'Unknown Group'}
-                                                </Typography>
-                                                {!g.isRegistered && (
-                                                    <Chip label="New" color="info" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                                                )}
-                                                {g.isMissing && (
-                                                    <Chip label="Bot Left" color="error" size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
-                                                )}
-                                            </Box>
-                                            <Typography variant="caption" color="text.secondary">{g.id}</Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            {g.isRegistered ? (
-                                                <Box sx={{ display: 'flex', gap: 1 }}>
-                                                    <Chip
-                                                        label={g.schedulerEnabled ? "Scheduler ON" : "Scheduler OFF"}
-                                                        color={g.schedulerEnabled ? "success" : "default"}
-                                                        size="small"
-                                                    />
-                                                    {g.isTesting && <Chip label="TESTING" color="warning" size="small" />}
-                                                </Box>
-                                            ) : (
-                                                <Chip label="Not Configured" size="small" variant="outlined" />
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2">{getTimezoneLabel(g.timezone)}</Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {g.skipWeekends ? 'Skip Sat/Sun' : 'Every Day'}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <IconButton size="small" onClick={() => setEditGroup(g)} sx={{ mr: 1 }} color={g.isRegistered ? "primary" : "default"}>
-                                                {g.isRegistered ? <Edit2 size={16} /> : <Save size={16} />}
-                                            </IconButton>
-                                            {g.isRegistered && (
-                                                <IconButton size="small" color="error" onClick={() => handleDelete(g.id)}>
-                                                    <Trash2 size={16} />
-                                                </IconButton>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                )}
-            </Paper>
-
-            {/* Mobile Card View */}
-            {isMobile && (
-                <Box>
-                    {filteredGroups.length === 0 ? (
-                        <EmptyState />
-                    ) : (
-                        filteredGroups.map((g) => <MobileGroupCard key={g.id} group={g} />)
-                    )}
-                </Box>
+            {isOffline && (
+                <div className="bg-[#facc15] border-4 border-black p-4 shadow-[8px_8px_0_#000] rounded-2xl flex items-center gap-3">
+                    <div className="bg-black text-white p-2 rounded-full">
+                        <Layers size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-black text-lg uppercase">Bot Offline / Disconnected</h3>
+                        <p className="font-bold text-sm">Only saved groups are shown. Connect the bot to see all WhatsApp groups.</p>
+                    </div>
+                </div>
             )}
 
-            {/* Desktop Empty State */}
-            {!isMobile && filteredGroups.length === 0 && <EmptyState />}
+            {/* Groups Grid */}
+            <div className="grid grid-cols-1 gap-6">
+                {filteredGroups.length === 0 ? (
+                    <div className="text-center py-12 border-4 border-black bg-white shadow-[8px_8px_0_#000] rounded-2xl">
+                        <Layers size={48} className="mx-auto mb-4" strokeWidth={1.5} />
+                        <h3 className="text-2xl font-black uppercase">No Groups Found</h3>
+                    </div>
+                ) : (
+                    filteredGroups.map(group => (
+                        <div key={group.id} className={`border-4 border-black p-5 rounded-2xl shadow-[8px_8px_0_#000] transition-transform hover:-translate-y-1 relative overflow-hidden ${group.isRegistered ? 'bg-white' : 'bg-gray-100'}`}>
+                            {/* Status Stripe */}
+                            <div className={`absolute top-0 left-0 w-4 h-full border-r-4 border-black ${group.isRegistered ? 'bg-[#0df259]' : 'bg-gray-400'}`}></div>
+                            
+                            <div className="pl-8 flex flex-col md:flex-row justify-between gap-4">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3 flex-wrap mb-2">
+                                        <h3 className="text-xl font-black uppercase leading-tight">
+                                            {group.name || 'Unknown Group'}
+                                        </h3>
+                                        {!group.isRegistered && (
+                                            <span className="bg-[#3b82f6] text-white border-2 border-black px-2 py-0.5 text-xs font-black uppercase -rotate-2">NEW</span>
+                                        )}
+                                        {group.isMissing && (
+                                            <span className="bg-[#ff6b6b] text-white border-2 border-black px-2 py-0.5 text-xs font-black uppercase rotate-2">BOT LEFT</span>
+                                        )}
+                                    </div>
+                                    <div className="font-mono font-bold text-xs text-gray-500 bg-gray-200 inline-block px-2 py-1 border-2 border-black rounded mb-3">
+                                        {group.id}
+                                    </div>
+                                    
+                                    <div className="flex gap-2 flex-wrap">
+                                        <span className="border-2 border-black px-3 py-1 font-bold text-xs uppercase rounded-full bg-white">
+                                            {getTimezoneLabel(group.timezone)}
+                                        </span>
+                                        <span className="border-2 border-black px-3 py-1 font-bold text-xs uppercase rounded-full bg-white">
+                                            {group.skipWeekends ? 'NO WEEKEND' : 'EVERYDAY'}
+                                        </span>
+                                        {group.schedulerEnabled && (
+                                            <span className="border-2 border-black px-3 py-1 font-bold text-xs uppercase rounded-full bg-[#0df259]">
+                                                AUTO ON
+                                            </span>
+                                        )}
+                                        {group.isTesting && (
+                                            <span className="border-2 border-black px-3 py-1 font-bold text-xs uppercase rounded-full bg-[#facc15]">
+                                                TEST MODE
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
 
-            {/* Edit Dialog - Full screen on mobile */}
-            <Dialog
-                open={!!editGroup}
+                                <div className="flex items-start gap-3 self-start md:self-center">
+                                    <button
+                                        onClick={() => setEditGroup(group)}
+                                        className={`p-3 border-2 border-black rounded-xl shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all ${group.isRegistered ? 'bg-[#facc15]' : 'bg-white'}`}
+                                        title="Edit Settings"
+                                    >
+                                        {group.isRegistered ? <Edit2 size={20} strokeWidth={2.5} /> : <Plus size={20} strokeWidth={2.5} />}
+                                    </button>
+                                    
+                                    {group.isRegistered && (
+                                        <button
+                                            onClick={() => handleDelete(group.id)}
+                                            className="p-3 border-2 border-black rounded-xl shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all bg-[#ff6b6b] text-black"
+                                            title="Unregister Group"
+                                        >
+                                            <Trash2 size={20} strokeWidth={2.5} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+
+            {/* Brutalist Edit Dialog (using MUI Dialog container but custom content) */}
+            <Dialog 
+                open={!!editGroup} 
                 onClose={() => setEditGroup(null)}
-                maxWidth="sm"
+                maxWidth="sm" 
                 fullWidth
-                fullScreen={isMobile}
+                PaperProps={{
+                    style: {
+                        borderRadius: 16,
+                        border: '4px solid black',
+                        boxShadow: '8px 8px 0 #000',
+                        overflow: 'visible'
+                    }
+                }}
             >
-                <DialogTitle sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    py: { xs: 1.5, sm: 2 }
-                }}>
-                    <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.125rem' } }}>
-                        Edit Group Settings
-                    </Typography>
-                    <IconButton onClick={() => setEditGroup(null)} size="small"><X size={20} /></IconButton>
-                </DialogTitle>
-                <DialogContent dividers sx={{ p: { xs: 2, sm: 3 } }}>
-                    <Box sx={{ mb: 3 }}>
-                        <Typography variant="caption" color="text.secondary">GROUP ID</Typography>
-                        <Paper variant="outlined" sx={{ p: 1, bgcolor: 'action.hover', fontFamily: 'monospace', fontSize: '0.75rem', wordBreak: 'break-all' }}>
-                            {editGroup?.id}
-                        </Paper>
-                    </Box>
+                {editGroup && (
+                    <div className="bg-white p-6 rounded-xl relative">
+                        <button 
+                            onClick={() => setEditGroup(null)}
+                            className="absolute -top-4 -right-4 bg-red-500 text-white border-4 border-black p-2 rounded-full hover:rotate-90 transition-transform shadow-[4px_4px_0_#000]"
+                        >
+                            <X size={24} strokeWidth={3} />
+                        </button>
 
-                    <TextField
-                        fullWidth
-                        label="Group Display Name"
-                        value={formData.name || ''}
-                        onChange={(e) => handleChange('name', e.target.value)}
-                        placeholder={editGroup?.originalName}
-                        sx={{ mb: 3 }}
-                    />
+                        <h2 className="text-2xl font-black uppercase mb-6 border-b-4 border-black pb-2">
+                            Edit Group Settings
+                        </h2>
 
-                    <TextField
-                        fullWidth
-                        select
-                        label="Timezone (Zona Waktu)"
-                        value={formData.timezone || 'Asia/Makassar'}
-                        onChange={(e) => handleChange('timezone', e.target.value)}
-                        sx={{ mb: 3 }}
-                    >
-                        <MenuItem value="Asia/Jakarta">WIB (Asia/Jakarta)</MenuItem>
-                        <MenuItem value="Asia/Makassar">WITA (Asia/Makassar)</MenuItem>
-                        <MenuItem value="Asia/Jayapura">WIT (Asia/Jayapura)</MenuItem>
-                    </TextField>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block font-bold text-sm uppercase mb-1">Group ID</label>
+                                <div className="bg-gray-100 border-2 border-black p-3 font-mono text-xs break-all">
+                                    {editGroup.id}
+                                </div>
+                            </div>
 
-                    <Typography variant="subtitle2" gutterBottom>Automations</Typography>
-                    <Paper variant="outlined" sx={{ p: 2 }}>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={formData.schedulerEnabled}
-                                    onChange={(e) => handleChange('schedulerEnabled', e.target.checked)}
+                            <div>
+                                <label className="block font-bold text-sm uppercase mb-1">Display Name</label>
+                                <input
+                                    type="text"
+                                    className="w-full border-4 border-black p-3 font-bold focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow"
+                                    value={formData.name || ''}
+                                    onChange={(e) => handleChange('name', e.target.value)}
+                                    placeholder={editGroup.originalName}
                                 />
-                            }
-                            label={
-                                <Box>
-                                    <Typography variant="body2" fontWeight={600}>Enable Scheduler</Typography>
-                                    <Typography variant="caption" color="text.secondary">Send automated reminders</Typography>
-                                </Box>
-                            }
-                            sx={{ width: '100%', mb: 1.5, ml: 0, alignItems: 'flex-start' }}
-                        />
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={formData.skipWeekends}
-                                    onChange={(e) => handleChange('skipWeekends', e.target.checked)}
-                                />
-                            }
-                            label={
-                                <Box>
-                                    <Typography variant="body2" fontWeight={600}>Skip Weekends</Typography>
-                                    <Typography variant="caption" color="text.secondary">Don't send on Sat/Sun</Typography>
-                                </Box>
-                            }
-                            sx={{ width: '100%', mb: 1.5, ml: 0, alignItems: 'flex-start' }}
-                        />
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={formData.isTesting}
-                                    onChange={(e) => handleChange('isTesting', e.target.checked)}
-                                    color="warning"
-                                />
-                            }
-                            label={
-                                <Box>
-                                    <Typography variant="body2" fontWeight={600} color="warning.main">Testing Mode</Typography>
-                                    <Typography variant="caption" color="text.secondary">Receive test messages from dashboard</Typography>
-                                </Box>
-                            }
-                            sx={{ width: '100%', ml: 0, alignItems: 'flex-start' }}
-                        />
-                    </Paper>
-                </DialogContent>
-                <DialogActions sx={{ p: { xs: 2, sm: 2.5 }, gap: 1 }}>
-                    <Button onClick={() => setEditGroup(null)} color="inherit" fullWidth={isMobile}>
-                        Cancel
-                    </Button>
-                    <Button variant="contained" onClick={handleSave} startIcon={<Save size={18} />} fullWidth={isMobile}>
-                        Save
-                    </Button>
-                </DialogActions>
+                            </div>
+
+                            <div>
+                                <label className="block font-bold text-sm uppercase mb-1">Timezone</label>
+                                <select
+                                    className="w-full border-4 border-black p-3 font-bold bg-white focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow appearance-none"
+                                    value={formData.timezone || 'Asia/Makassar'}
+                                    onChange={(e) => handleChange('timezone', e.target.value)}
+                                >
+                                    <option value="Asia/Jakarta">WIB (Jakarta)</option>
+                                    <option value="Asia/Makassar">WITA (Makassar)</option>
+                                    <option value="Asia/Jayapura">WIT (Jayapura)</option>
+                                </select>
+                            </div>
+
+                            <div className="border-4 border-black p-4 bg-gray-50 space-y-3">
+                                <h3 className="font-black uppercase text-sm border-b-2 border-black pb-1 mb-2">Automation Rules</h3>
+                                
+                                <label className="flex items-center justify-between cursor-pointer">
+                                    <span className="font-bold">Enable Scheduler</span>
+                                    <Switch checked={formData.schedulerEnabled} onChange={(e) => handleChange('schedulerEnabled', e.target.checked)} color="success" />
+                                </label>
+                                
+                                <label className="flex items-center justify-between cursor-pointer">
+                                    <span className="font-bold">Skip Weekends</span>
+                                    <Switch checked={formData.skipWeekends} onChange={(e) => handleChange('skipWeekends', e.target.checked)} color="default" />
+                                </label>
+
+                                <label className="flex items-center justify-between cursor-pointer">
+                                    <span className="font-bold text-orange-600">Test Mode</span>
+                                    <Switch checked={formData.isTesting} onChange={(e) => handleChange('isTesting', e.target.checked)} color="warning" />
+                                </label>
+                            </div>
+
+                            <button
+                                onClick={handleSave}
+                                className="w-full bg-[#0df259] border-4 border-black py-4 font-black uppercase text-xl shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all mt-4 hover:bg-[#00d648]"
+                            >
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                )}
             </Dialog>
-        </Box>
+        </div>
     );
 }
+

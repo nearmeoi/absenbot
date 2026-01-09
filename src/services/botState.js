@@ -7,13 +7,14 @@
 let schedulerEnabled = true;
 let botStatus = 'online'; // 'online' | 'offline' | 'maintenance'
 let botConnected = false;
-let absenMaintenance = false; // New: Specific maintenance for !absen
+let maintenanceCommands = []; // List of commands under maintenance, e.g., ['absen', 'daftar']
 
 // Getters
 const isSchedulerEnabled = () => schedulerEnabled;
 const getBotStatus = () => botStatus;
 const isBotConnected = () => botConnected;
-const isAbsenMaintenance = () => absenMaintenance;
+const getMaintenanceCommands = () => maintenanceCommands;
+const isCommandUnderMaintenance = (cmd) => maintenanceCommands.includes(cmd.toLowerCase());
 
 // Setters
 const setSchedulerEnabled = (enabled) => {
@@ -30,17 +31,30 @@ const setBotConnected = (connected) => {
     botConnected = connected;
 };
 
-const setAbsenMaintenance = (enabled) => {
-    absenMaintenance = enabled;
+const setMaintenanceCommands = (cmds) => {
+    if (Array.isArray(cmds)) {
+        maintenanceCommands = cmds.map(c => c.toLowerCase());
+    }
+};
+
+const toggleCommandMaintenance = (cmd) => {
+    const c = cmd.toLowerCase();
+    if (maintenanceCommands.includes(c)) {
+        maintenanceCommands = maintenanceCommands.filter(item => item !== c);
+    } else {
+        maintenanceCommands.push(c);
+    }
 };
 
 module.exports = {
     isSchedulerEnabled,
     getBotStatus,
     isBotConnected,
-    isAbsenMaintenance,
+    getMaintenanceCommands,
+    isCommandUnderMaintenance,
     setSchedulerEnabled,
     setBotStatus,
     setBotConnected,
-    setAbsenMaintenance
+    setMaintenanceCommands,
+    toggleCommandMaintenance
 };

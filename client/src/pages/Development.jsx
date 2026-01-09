@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
-import { Save, Sun, Moon, RefreshCw, CheckCheck, MessageSquare } from 'lucide-react';
+import { Save, Sun, Moon, RefreshCw, CheckCheck, MessageSquare, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-    Box, Card, CardHeader, CardContent, TextField, Select, MenuItem,
-    InputLabel, FormControl, Button, Typography, Chip, ListSubheader,
-    useMediaQuery, useTheme, Skeleton
-} from '@mui/material';
+import { useTheme, useMediaQuery } from '@mui/material';
 
 export default function Development() {
     const [messages, setMessages] = useState({});
@@ -60,17 +56,16 @@ export default function Development() {
         }
     };
 
-    // Helper to format WA markdown to HTML
     const formatPreview = (text) => {
         if (!text) return '';
         let html = text
             .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-            .replace(/\*([^*]+)\*/g, '<span class="wa-bold">$1</span>')
-            .replace(/_([^_]+)_/g, '<span class="wa-italic">$1</span>')
-            .replace(/~([^~]+)~/g, '<span class="wa-strike">$1</span>')
-            .replace(/```([^`]+)```/g, '<span class="wa-code">$1</span>')
+            .replace(/\*([^*]+)\*/g, '<span class="font-bold text-gray-900">$1</span>') // Bold
+            .replace(/_([^_]+)_/g, '<span class="italic">$1</span>') // Italic
+            .replace(/~([^~]+)~/g, '<span class="line-through">$1</span>') // Strike
+            .replace(/```([^`]+)```/g, '<span class="font-mono bg-gray-100 text-gray-800 px-1 rounded text-sm">$1</span>') // Code
             .replace(/\n/g, '<br/>');
-        html = html.replace(/\{([^}]+)\}/g, '<span style="color: #60a5fa; background: rgba(59, 130, 246, 0.1); border-radius: 4px; padding: 0 2px;">{$1}</span>');
+        html = html.replace(/\{([^}]+)\}/g, '<span class="bg-gray-200 text-gray-700 px-1 rounded text-xs font-bold uppercase">{$1}</span>');
         return html;
     };
 
@@ -108,143 +103,138 @@ export default function Development() {
 
     const variables = getVariables(content);
 
-    // Loading skeleton
     if (loading) {
         return (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Card>
-                    <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                        <Skeleton width="40%" height={32} sx={{ mb: 2 }} />
-                        <Skeleton height={44} sx={{ mb: 2 }} />
-                        <Skeleton height={200} sx={{ mb: 2 }} />
-                        <Skeleton height={44} />
-                    </CardContent>
-                </Card>
-            </Box>
+            <div className="border-[3px] border-black p-8 bg-white shadow-[4px_4px_0_#000] rounded-2xl animate-pulse h-96">
+                <div className="h-8 bg-gray-300 w-1/3 mb-4 rounded-lg"></div>
+                <div className="h-64 bg-gray-200 w-full rounded-xl"></div>
+            </div>
         );
     }
 
     return (
-        <Box sx={{
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-            gap: { xs: 2, sm: 3 }
-        }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 font-sans pb-10">
             {/* Editor Section */}
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <CardHeader
-                    title="Message Editor"
-                    avatar={<MessageSquare size={20} />}
-                    sx={{
-                        borderBottom: 1,
-                        borderColor: 'divider',
-                        py: { xs: 1.5, sm: 2 }
-                    }}
-                    titleTypographyProps={{ variant: 'h6', fontSize: { xs: '0.9375rem', sm: '1rem' } }}
-                />
-                <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, p: { xs: 2, sm: 3 } }}>
-                    <FormControl fullWidth size={isMobile ? 'small' : 'medium'}>
-                        <InputLabel>Select Template</InputLabel>
-                        <Select
-                            value={selectedKey}
-                            label="Select Template"
-                            onChange={handleSelectChange}
-                        >
-                            {Object.entries(groups).map(([group, groupKeys]) => (
-                                groupKeys.length > 0 && [
-                                    <ListSubheader key={group} sx={{ bgcolor: 'background.paper', fontWeight: 'bold', fontSize: '0.75rem' }}>{group}</ListSubheader>,
-                                    ...groupKeys.map(key => (
-                                        <MenuItem key={key} value={key} sx={{ pl: 4, fontSize: '0.875rem' }}>
-                                            {key.replace(/_/g, ' ')}
-                                        </MenuItem>
-                                    ))
-                                ]
-                            ))}
-                        </Select>
-                    </FormControl>
+            <div className="flex flex-col border-[3px] border-black bg-white shadow-[4px_4px_0_#000] rounded-2xl overflow-hidden h-fit">
+                <div className="bg-white border-b-[3px] border-black p-4 flex items-center gap-3">
+                    <div className="bg-black text-white p-2 rounded-lg border-2 border-black">
+                        <MessageSquare size={20} strokeWidth={2.5} />
+                    </div>
+                    <h2 className="text-xl font-bold tracking-tight">Message Editor</h2>
+                </div>
+                
+                <div className="p-6 flex flex-col gap-6">
+                    <div className="space-y-2">
+                        <label className="font-bold text-sm text-gray-900 block">Select Template</label>
+                        <div className="relative">
+                            <select
+                                value={selectedKey}
+                                onChange={handleSelectChange}
+                                className="w-full appearance-none border-[3px] border-black p-4 pr-10 font-medium bg-white focus:outline-none focus:shadow-[4px_4px_0_#000] transition-all cursor-pointer rounded-xl text-black"
+                            >
+                                {Object.entries(groups).map(([group, groupKeys]) => (
+                                    groupKeys.length > 0 && (
+                                        <optgroup key={group} label={group} className="font-bold">
+                                            {groupKeys.map(key => (
+                                                <option key={key} value={key} className="font-normal">
+                                                    {key.replace(/_/g, ' ')}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-black" size={20} strokeWidth={3} />
+                        </div>
+                    </div>
 
-                    <TextField
-                        label="Message Content"
-                        multiline
-                        minRows={isMobile ? 6 : 10}
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        placeholder="Type your message here..."
-                        helperText="Markdown Supported (*bold*, _italic_, ~strike~)"
-                        InputProps={{
-                            sx: { fontFamily: 'monospace', fontSize: { xs: '0.8125rem', sm: '0.9rem' } }
-                        }}
-                        sx={{ flex: 1 }}
-                    />
+                    <div className="space-y-2 flex flex-col">
+                        <label className="font-bold text-sm text-gray-900 block">Content</label>
+                        <textarea
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            className="w-full min-h-[400px] border-[3px] border-black p-4 font-mono text-sm focus:outline-none focus:shadow-[4px_4px_0_#000] transition-all resize-none rounded-xl placeholder-gray-400 text-black"
+                            placeholder="Type your message here..."
+                        ></textarea>
+                    </div>
 
                     {variables.length > 0 && (
-                        <Box>
-                            <Typography variant="caption" display="block" sx={{ mb: 0.5 }}>Variables Detected:</Typography>
-                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                {variables.map(v => (
-                                    <Chip key={v} label={v} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontSize: '0.6875rem' }} />
-                                ))}
-                            </Box>
-                        </Box>
+                        <div className="flex flex-wrap gap-2">
+                            {variables.map(v => (
+                                <span key={v} className="bg-black text-white px-2 py-1 text-xs font-bold border-2 border-black rounded-lg">
+                                    {v}
+                                </span>
+                            ))}
+                        </div>
                     )}
 
-                    <Button
-                        variant="contained"
-                        fullWidth
-                        size="large"
+                    <button
                         onClick={handleSave}
-                        startIcon={<Save size={18} />}
+                        className="bg-[#00a884] border-[3px] border-black py-4 font-bold uppercase text-lg shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all flex items-center justify-center gap-3 hover:bg-[#008f6f] text-white rounded-xl w-full"
                     >
-                        Save Template
-                    </Button>
-                </CardContent>
-            </Card>
+                        <Save size={24} strokeWidth={2.5} /> SAVE TEMPLATE
+                    </button>
+                </div>
+            </div>
 
             {/* Preview Section */}
-            <Card sx={{ height: '100%' }}>
-                <CardHeader
-                    title="Live Preview"
-                    action={<Chip label="WHATSAPP STYLE" color="success" size="small" sx={{ fontSize: '0.625rem' }} />}
-                    sx={{ borderBottom: 1, borderColor: 'divider', py: { xs: 1.5, sm: 2 } }}
-                    titleTypographyProps={{ variant: 'h6', fontSize: { xs: '0.9375rem', sm: '1rem' } }}
-                />
-                <Box sx={{ p: 0 }}>
-                    <div className="whatsapp-preview">
-                        {/* Bot Bubble */}
-                        <div className="wa-bubble">
-                            <span dangerouslySetInnerHTML={{ __html: formatPreview(content) || '<span style="color:rgba(255,255,255,0.5)">(Empty message)</span>' }}></span>
-                            <div className="wa-time">
-                                {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                <CheckCheck size={14} color="#53bdeb" style={{ marginLeft: 3 }} />
-                            </div>
-                        </div>
+            <div className="flex flex-col border-[3px] border-black bg-[#efeae2] shadow-[4px_4px_0_#000] rounded-2xl overflow-hidden relative h-fit">
+                {/* Custom pattern overlay for WA feel */}
+                <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
-                        {/* Fake Keyboard Area for realism */}
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0.75rem', background: '#1f2c34', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                            <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid #8696a0' }}></div>
-                            <div style={{ flex: 1, height: 36, background: '#2a3942', borderRadius: 18, padding: '0 1rem', display: 'flex', alignItems: 'center', color: '#8696a0', fontSize: '0.8rem' }}>Type a message</div>
-                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#00a884', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <RefreshCw size={18} color="white" />
+                <div className="bg-[#00a884] border-b-[3px] border-black p-4 flex justify-between items-center z-10 text-white">
+                    <h2 className="text-xl font-bold tracking-tight">Live Preview</h2>
+                    <span className="bg-white text-[#00a884] border-2 border-black px-3 py-1 text-xs font-bold rounded-full shadow-[2px_2px_0_rgba(0,0,0,0.5)]">
+                        WHATSAPP MODE
+                    </span>
+                </div>
+
+                <div className="p-6 flex flex-col relative z-10">
+                    {/* WhatsApp Chat UI */}
+                    <div className="h-[500px] overflow-y-auto space-y-4 pr-2">
+                        <div className="flex flex-col gap-1 items-end ml-auto max-w-[85%]">
+                            <div className="bg-[#d9fdd3] text-gray-900 p-3 rounded-lg rounded-tr-none shadow-sm text-sm relative">
+                                <div 
+                                    className="leading-relaxed whitespace-pre-wrap"
+                                    dangerouslySetInnerHTML={{ __html: formatPreview(content) || '<span class="opacity-50 italic text-gray-500">Empty message</span>' }}
+                                />
+                                <div className="flex items-center justify-end gap-1 mt-1">
+                                    <span className="text-[10px] text-gray-500">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    <CheckCheck size={14} className="text-[#53bdeb]" />
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <CardContent sx={{ p: { xs: 2, sm: 2 } }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: { xs: '0.75rem', sm: '0.8125rem' } }}>
-                            <strong>Tip:</strong> Use variables like <code style={{ color: '#60a5fa' }}>{`{name}`}</code> dynamically.
-                        </Typography>
-                        <Typography variant="subtitle2" sx={{ mb: 1, fontSize: { xs: '0.8125rem', sm: '0.875rem' } }}>Test Actions</Typography>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-                            <Button variant="outlined" fullWidth onClick={() => triggerTest('morning')} startIcon={<Sun size={16} />} size={isMobile ? 'small' : 'medium'}>
-                                Test Morning
-                            </Button>
-                            <Button variant="outlined" fullWidth onClick={() => triggerTest('evening')} startIcon={<Moon size={16} />} size={isMobile ? 'small' : 'medium'}>
-                                Test Evening
-                            </Button>
-                        </Box>
-                    </CardContent>
-                </Box>
-            </Card>
-        </Box>
+                    {/* Fake Input */}
+                    <div className="mt-4 pt-4 border-t-2 border-gray-300/50 flex gap-2">
+                         <div className="flex-1 bg-white h-10 rounded-full flex items-center px-4 text-gray-400 text-sm shadow-sm border border-gray-200">
+                            Type a message...
+                        </div>
+                        <div className="w-10 h-10 bg-[#00a884] rounded-full flex items-center justify-center text-white shadow-sm hover:bg-[#008f6f] cursor-pointer transition-colors">
+                            <RefreshCw size={20} strokeWidth={2.5} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-4 border-t-[3px] border-black bg-white z-10">
+                    <h3 className="font-bold text-xs uppercase text-gray-500 mb-2">Test Triggers</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
+                            onClick={() => triggerTest('morning')}
+                            className="border-[3px] border-black py-3 font-bold text-sm uppercase hover:bg-[#fff5c4] shadow-[3px_3px_0_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 rounded-lg bg-white"
+                        >
+                            <Sun size={18} strokeWidth={2.5} /> Morning
+                        </button>
+                        <button 
+                            onClick={() => triggerTest('evening')}
+                            className="border-[3px] border-black py-3 font-bold text-sm uppercase hover:bg-[#f3e8ff] shadow-[3px_3px_0_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all flex items-center justify-center gap-2 rounded-lg bg-white"
+                        >
+                            <Moon size={18} strokeWidth={2.5} /> Evening
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }

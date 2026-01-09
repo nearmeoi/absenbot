@@ -1,0 +1,2091 @@
+[1m[90m[TAILING] Tailing last 2000 lines for [absenbot] process (change the value with --lines option)[39m[22m
+[90m/home/ubuntu/.pm2/logs/absenbot-error.log last 2000 lines:[39m
+[31m0|absenbot | [39mFailed to decrypt message with any known session...
+[31m0|absenbot | [39mSession error:MessageCounterError: Key used already or never filled MessageCounterError: Key used already or never filled
+[31m0|absenbot | [39m    at SessionCipher.doDecryptWhisperMessage (/home/ubuntu/absenbot/node_modules/libsignal/src/session_cipher.js:236:19)
+[31m0|absenbot | [39m    at SessionCipher.decryptWithSessions (/home/ubuntu/absenbot/node_modules/libsignal/src/session_cipher.js:147:40)
+[31m0|absenbot | [39m    at 117948895244409_1.71 [as awaitable] (/home/ubuntu/absenbot/node_modules/libsignal/src/session_cipher.js:171:39)
+[31m0|absenbot | [39m    at async _asyncQueueExecutor (/home/ubuntu/absenbot/node_modules/libsignal/src/queue_job.js:20:29)
+[31m0|absenbot | [39mFailed to decrypt message with any known session...
+[31m0|absenbot | [39mSession error:MessageCounterError: Key used already or never filled MessageCounterError: Key used already or never filled
+[31m0|absenbot | [39m    at SessionCipher.doDecryptWhisperMessage (/home/ubuntu/absenbot/node_modules/libsignal/src/session_cipher.js:236:19)
+[31m0|absenbot | [39m    at SessionCipher.decryptWithSessions (/home/ubuntu/absenbot/node_modules/libsignal/src/session_cipher.js:147:40)
+[31m0|absenbot | [39m    at 117948895244409_1.71 [as awaitable] (/home/ubuntu/absenbot/node_modules/libsignal/src/session_cipher.js:171:39)
+[31m0|absenbot | [39m    at async _asyncQueueExecutor (/home/ubuntu/absenbot/node_modules/libsignal/src/queue_job.js:20:29)
+[31m0|absenbot | [39mClosing open session in favor of incoming prekey bundle
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405760828990@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405673867279@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405314436242@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405760828990@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405673867279@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405314436242@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405760828990@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405673867279@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405314436242@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405760828990@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405673867279@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405314436242@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed japri to ardiansyahrifki60@gmail.com: Connection Closed
+[31m0|absenbot | [39m[DRAFT-PUSH] Error for ardiansyahrifki60@gmail.com: Connection Closed
+[31m0|absenbot | [39m[API] Submit Error: Request failed with status code 400
+[31m0|absenbot | [39m[API] Error (ECONNABORTED): timeout of 30000ms exceeded
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405760828990@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405673867279@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405314436242@g.us: Connection Closed
+[31m0|absenbot | [39mClosing open session in favor of incoming prekey bundle
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405760828990@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405673867279@g.us: Connection Closed
+[31m0|absenbot | [39m[SCHEDULER] Failed simple hidetag to 120363405314436242@g.us: Connection Closed
+[31m0|absenbot | [39mTypeError: setBotSocket is not a function
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (/home/ubuntu/absenbot/src/app.js:98:13)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:536:35)
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:37:16)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:524:28)
+[31m0|absenbot | [39m    at Object.emit (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:110:23)
+[31m0|absenbot | [39m    at WebSocketClient.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:751:12)
+[31m0|absenbot | [39m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[31m0|absenbot | [39m[FATAL] Unhandled Rejection at: Promise {
+[31m0|absenbot | [39m  <rejected> TypeError: setBotSocket is not a function
+[31m0|absenbot | [39m      at EventEmitter.<anonymous> (/home/ubuntu/absenbot/src/app.js:98:13)
+[31m0|absenbot | [39m      at EventEmitter.emit (node:events:536:35)
+[31m0|absenbot | [39m      at EventEmitter.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:37:16)
+[31m0|absenbot | [39m      at EventEmitter.emit (node:events:524:28)
+[31m0|absenbot | [39m      at Object.emit (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:110:23)
+[31m0|absenbot | [39m      at WebSocketClient.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:751:12)
+[31m0|absenbot | [39m      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[31m0|absenbot | [39m} reason: TypeError: setBotSocket is not a function
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (/home/ubuntu/absenbot/src/app.js:98:13)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:536:35)
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:37:16)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:524:28)
+[31m0|absenbot | [39m    at Object.emit (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:110:23)
+[31m0|absenbot | [39m    at WebSocketClient.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:751:12)
+[31m0|absenbot | [39m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[31m0|absenbot | [39mTypeError: setBotSocket is not a function
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (/home/ubuntu/absenbot/src/app.js:98:13)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:536:35)
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:37:16)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:524:28)
+[31m0|absenbot | [39m    at Object.emit (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:110:23)
+[31m0|absenbot | [39m    at WebSocketClient.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:751:12)
+[31m0|absenbot | [39m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[31m0|absenbot | [39m[FATAL] Unhandled Rejection at: Promise {
+[31m0|absenbot | [39m  <rejected> TypeError: setBotSocket is not a function
+[31m0|absenbot | [39m      at EventEmitter.<anonymous> (/home/ubuntu/absenbot/src/app.js:98:13)
+[31m0|absenbot | [39m      at EventEmitter.emit (node:events:536:35)
+[31m0|absenbot | [39m      at EventEmitter.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:37:16)
+[31m0|absenbot | [39m      at EventEmitter.emit (node:events:524:28)
+[31m0|absenbot | [39m      at Object.emit (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:110:23)
+[31m0|absenbot | [39m      at WebSocketClient.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:751:12)
+[31m0|absenbot | [39m      at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+[31m0|absenbot | [39m} reason: TypeError: setBotSocket is not a function
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (/home/ubuntu/absenbot/src/app.js:98:13)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:536:35)
+[31m0|absenbot | [39m    at EventEmitter.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:37:16)
+[31m0|absenbot | [39m    at EventEmitter.emit (node:events:524:28)
+[31m0|absenbot | [39m    at Object.emit (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Utils/event-buffer.js:110:23)
+[31m0|absenbot | [39m    at WebSocketClient.<anonymous> (file:///home/ubuntu/absenbot/node_modules/@whiskeysockets/baileys/lib/Socket/socket.js:751:12)
+[31m0|absenbot | [39m    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+[90m/home/ubuntu/.pm2/logs/absenbot-out.log last 2000 lines:[39m
+[32m0|absenbot | [39m    'BYjuyYaUAd+1jPuqEUuUjt/f48nxn8GhOsqaM4piU51e': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 684022930,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 88 ee c9 86 94 01 df b5 8c fb aa 11 4b 94 8e df df e3 c9 f1 9f c1 a1 3a ca 9a 33 8a 62 53 9d 5e>,
+[32m0|absenbot | [39m      privKey: <Buffer 50 0e 3d ec bd ad 61 17 03 fb f3 13 8d d4 e5 bc cd e4 f1 74 72 0e 7f 61 a2 bd 4f e8 1e fc 38 5b>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 c8 3a 3a 6e e1 72 51 8e ea 78 91 78 7f 1c bc 13 15 33 f3 ae bc 0d 84 84 b8 bf 8a 3f f1 ed c6 75>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer ee 9f 4b f3 cb f9 6a a8 34 4a 84 57 11 b4 70 d7 ee 1c 20 33 f9 c9 ae 92 49 1d 41 01 92 68 20 20>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 45 20 99 b3 f0 5c 25 92 df 92 21 a4 1e 25 b4 bd 66 b6 f3 15 44 0e 9c 42 7a 91 15 45 90 f3 fe 6d>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767879873382,
+[32m0|absenbot | [39m    created: 1767879873382,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 6e 46 ac 94 6b 63 ca 21 79 f9 9e 63 d1 67 92 36 27 db 81 7b 93 fc 03 70 67 a3 fc 24 1e 93 0c 26>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 10576226,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 45 20 99 b3 f0 5c 25 92 df 92 21 a4 1e 25 b4 bd 66 b6 f3 15 44 0e 9c 42 7a 91 15 45 90 f3 fe 6d>,
+[32m0|absenbot | [39m    preKeyId: 5607653
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[SCHEDULER] Running evening reminder (PrivateChat: true, TZ: Asia/Jayapura)...
+[32m0|absenbot | [39m[SCHEDULER] Running evening reminder (PrivateChat: false, TZ: Asia/Jakarta)...
+[32m0|absenbot | [39m[14.10.05] [siapa suruh ke sini?] Ria Anugrah: nda buka jastip ko kahh buah potong?
+[32m0|absenbot | [39m[14.30.41] [WIBUBERS UNDIPA] ~: @196610835394812 sdh mi?
+[32m0|absenbot | [39m[SCHEDULER] Running draft push (23:50 Asia/Jayapura)...
+[32m0|absenbot | [39m[SCHEDULER] Running emergency auto-submit (23:59 Asia/Jayapura)...
+[32m0|absenbot | [39m[SCHEDULER] Running evening reminder (PrivateChat: true, TZ: Asia/Makassar)...
+[32m0|absenbot | [39m[SCHEDULER] Sending Private Reminders (Japri)...
+[32m0|absenbot | [39m[API] Checking attendance status for amrinarosyadah2704@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: amrinarosyadah2704@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for darmadikusuma3004@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: darmadikusuma3004@gmail.com
+[32m0|absenbot | [39m[QUEUE] Added task: Login-darmadikusuma3004@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-darmadikusuma3004@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for darmadikusuma3004@gmail.com (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-darmadikusuma3004@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for darmadikusuma3004@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: darmadikusuma3004@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for 0895800781959...
+[32m0|absenbot | [39m[API] Session loaded: 0895800781959
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for ardiansyahrifki60@gmail.com...
+[32m0|absenbot | [39m[API] Session stale for ardiansyahrifki60@gmail.com (1522 min), but attempting reuse...
+[32m0|absenbot | [39m[QUEUE] Added task: Login-ardiansyahrifki60@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for ardiansyahrifki60@gmail.com (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-ardiansyahrifki60@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for ardiansyahrifki60@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[API] ❌ No attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for aica2669@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: aica2669@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[QUEUE] Added task: Login-akmaljie12355@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-akmaljie12355@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for akmaljie12355@gmail.com (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-akmaljie12355@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BSwhri28b6phZ+4iqOCqkWXmnB5HoXR260O35i1MCj8Q': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 1037643351,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 2c 21 ae 2d bc 6f aa 61 67 ee 22 a8 e0 aa 91 65 e6 9c 1e 47 a1 74 76 eb 43 b7 e6 2d 4c 0a 3f 10>,
+[32m0|absenbot | [39m      privKey: <Buffer 70 aa 53 4a b8 61 39 a5 d3 3b 25 b3 46 4a 8d 45 c3 9f 1b ca 9f f8 3f 47 1f 09 75 28 21 51 f9 70>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 b9 7d 47 5d 4c ba 52 5e 8a 76 63 2f 70 5e 76 3b 09 8e 14 d8 32 53 8f 5b e1 14 a9 60 7f 15 bc 44>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 93 2c 1f c0 b7 01 c5 70 2d b2 c9 47 06 83 3e e6 29 42 a9 8c 4e b6 6c 91 35 fd 36 88 85 3e c4 07>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 49 84 20 4d 59 59 8e af d2 ba 6a cc 77 ae dc 50 78 56 e7 5c 40 9d 21 56 df f7 bb 14 8f 34 69 41>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767836293467,
+[32m0|absenbot | [39m    created: 1767836293467,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 f5 fd 52 a1 26 46 0d 4d 7b 9a 16 75 8a 4d 67 d2 36 65 73 8d 97 33 22 3c ff f2 f0 87 d6 6e 70 12>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 15703638,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 49 84 20 4d 59 59 8e af d2 ba 6a cc 77 ae dc 50 78 56 e7 5c 40 9d 21 56 df f7 bb 14 8f 34 69 41>,
+[32m0|absenbot | [39m    preKeyId: 13890265
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[15.23.43] [Para Pencari Kerja (PPK)] Satria: .
+[32m0|absenbot | [39m[15.24.00] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Kenapa
+[32m0|absenbot | [39m[15.24.03] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Marah marah bnget
+[32m0|absenbot | [39m[15.24.43] [Para Pencari Kerja (PPK)] Satria: ngeleg ini ngeleg
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BSXCngybsOGuyss7bSQPptSBPNAhD934gf/tpPX+RVsp': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 1968274998,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 25 c2 9e 0c 9b b0 e1 ae ca cb 3b 6d 24 0f a6 d4 81 3c d0 21 0f dd f8 81 ff ed a4 f5 fe 45 5b 29>,
+[32m0|absenbot | [39m      privKey: <Buffer 38 0a a0 67 20 4c a4 32 f3 66 bb 45 d4 42 4f 77 be 2d 8b 86 56 68 0d a0 5b b4 d8 fb 5b 62 8a 4d>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9e 8b 1f ef 14 e1 91 c3 18 41 64 b7 0b 89 65 99 98 4a 3a 44 c6 98 68 57 87 c4 f6 f3 b4 77 53 6e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 03 9a f7 af c1 88 9c 8a 31 f4 29 3d a7 e7 8a ec 8a e7 1a 7b 24 c3 4b 3a 13 e9 75 4e 95 aa f1 f4>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 b8 4e 91 f1 3a d2 6c db 6c 89 1a 63 09 6f 0f 18 e1 77 be 43 92 dd 31 81 cc 77 19 11 df 4e a1 16>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767852777548,
+[32m0|absenbot | [39m    created: 1767852777548,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 fa 2b 00 b8 48 9c bc 5f d6 86 ad 4b dd dc ea 0c 91 a6 4b 2b 7d 59 56 c0 69 83 58 1b 4b a7 74 78>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 7246911,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 b8 4e 91 f1 3a d2 6c db 6c 89 1a 63 09 6f 0f 18 e1 77 be 43 92 dd 31 81 cc 77 19 11 df 4e a1 16>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BWVSDnul9a+Qm4Qp3ChMujQgRCElD0Pg2oNYXbN/UIkZ': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 690463618,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 65 52 0e 7b a5 f5 af 90 9b 84 29 dc 28 4c ba 34 20 44 21 25 0f 43 e0 da 83 58 5d b3 7f 50 89 19>,
+[32m0|absenbot | [39m      privKey: <Buffer 20 1c ff ab 08 ad 0b 56 d8 a5 a0 b9 a6 d9 0c 93 e0 a1 fd ed a9 fc 8e 31 7c 3f 1c bd 21 f3 c2 53>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 17 ab f9 39 df 26 5a d4 59 82 1c ac c4 1a 65 57 7d 29 11 62 35 63 5d 7b 0c 6c 48 90 a7 18 83 40>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer c1 a5 d7 61 ab 8a f7 57 6f cf 08 57 88 10 75 07 7b 3d f5 e9 93 8f 9c cb aa f7 48 c3 ad fe 90 07>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 9e 64 05 48 a2 3c e8 f3 ef d7 51 09 da 3c 63 21 83 c3 59 c5 e2 35 cc 59 ee 69 ba da 9f ba 23 67>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767885232527,
+[32m0|absenbot | [39m    created: 1767885232527,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 ea 54 78 41 49 86 35 b2 aa b3 68 e4 b3 51 8f cb 1d ec c3 96 45 f8 1c f1 b7 e8 1b f9 7e 40 d3 60>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 270734,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 9e 64 05 48 a2 3c e8 f3 ef d7 51 09 da 3c 63 21 83 c3 59 c5 e2 35 cc 59 ee 69 ba da 9f ba 23 67>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[15.42.45] [WIBUBERS UNDIPA] Leaf.: 3 jam lebih bjir
+[32m0|absenbot | [39m[SCHEDULER] Running draft push (23:50 Asia/Makassar)...
+[32m0|absenbot | [39m[API] Checking attendance status for amrinarosyadah2704@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: amrinarosyadah2704@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for darmadikusuma3004@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: darmadikusuma3004@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for 0895800781959...
+[32m0|absenbot | [39m[API] Session loaded: 0895800781959
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for ardiansyahrifki60@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[API] ❌ No attendance for 2026-01-08
+[32m0|absenbot | [39m[DRAFT-PUSH] Preparing for ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[API] Getting 3 day(s) attendance history for ardiansyahrifki60@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[API] Found 3/3 days of history
+[32m0|absenbot | [39m[GROQ] Generating attendance report...
+[32m0|absenbot | [39m[GROQ] Raw Lengths: A=53, P=43, K=41
+[32m0|absenbot | [39m[GROQ] Final Lengths: A=132, P=135, K=105
+[32m0|absenbot | [39m[PREVIEW] Saving draft for 72348858372139@lid (Type: ai)
+[32m0|absenbot | [39m[API] Checking attendance status for aica2669@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: aica2669@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[15.55.29] [WIBUBERS UNDIPA] ~: Ya memang
+[32m0|absenbot | [39m[15.55.41] [WIBUBERS UNDIPA] ~: Kdng juga FPS nya berubah” setiap scene
+[32m0|absenbot | [39m[SCHEDULER] Running emergency auto-submit (23:59 Asia/Makassar)...
+[32m0|absenbot | [39m[API] Checking attendance status for amrinarosyadah2704@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: amrinarosyadah2704@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for darmadikusuma3004@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: darmadikusuma3004@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for 0895800781959...
+[32m0|absenbot | [39m[API] Session loaded: 0895800781959
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for ardiansyahrifki60@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[API] ❌ No attendance for 2026-01-08
+[32m0|absenbot | [39m[AUTO-SUBMIT] Emergency action for ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[API] Getting 3 day(s) attendance history for ardiansyahrifki60@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[API] Found 3/3 days of history
+[32m0|absenbot | [39m[GROQ] Generating attendance report...
+[32m0|absenbot | [39m[GROQ] Raw Lengths: A=32, P=29, K=27
+[32m0|absenbot | [39m[GROQ] Final Lengths: A=111, P=121, K=121
+[32m0|absenbot | [39m[API] Submitting attendance for ardiansyahrifki60@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[QUEUE] Added task: Submit-ardiansyahrifki60@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Submit-ardiansyahrifki60@gmail.com
+[32m0|absenbot | [39m[SCHEDULER] Running evening reminder (PrivateChat: true, TZ: Asia/Jakarta)...
+[32m0|absenbot | [39m[QUEUE] Finished task: Submit-ardiansyahrifki60@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for aica2669@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: aica2669@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[QUEUE] Added task: Login-akmaljie12355@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-akmaljie12355@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for akmaljie12355@gmail.com (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-akmaljie12355@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-08
+[32m0|absenbot | [39m[16.01.10] [Para Pencari Kerja (PPK)] Satria: .
+[32m0|absenbot | [39m[16.02.32] [Para Pencari Kerja (PPK)] Satria: ngeleg baca komik nunggu perpanel lamanyooo
+[32m0|absenbot | [39m[PREVIEW] Cleaned up 1 stale drafts.
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BUGJ04uYGdeBfY5Lf5sLufe9TrHd5+Buyc7ZooEpLrx4': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 157111221,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 41 89 d3 8b 98 19 d7 81 7d 8e 4b 7f 9b 0b b9 f7 bd 4e b1 dd e7 e0 6e c9 ce d9 a2 81 29 2e bc 78>,
+[32m0|absenbot | [39m      privKey: <Buffer f8 04 73 52 ed 45 c9 26 c3 91 b9 c2 fd f1 b9 55 f8 a8 de 0e a4 77 20 7a e3 8a 6a 09 83 ec f6 70>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 6c 7e a5 a7 01 e1 96 cc af 96 ac 6d 8b 91 db 4f 2b d0 dc 6f 39 31 f6 38 d9 1b 0c 26 ab 26 76 7a>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 77 29 5c 35 f2 2b e5 f1 3e 4e 92 3f da 6e 21 fa 57 6c a0 ad 3c 81 3f 8a df 21 88 89 f1 f4 0e ec>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 bb ba 29 ed 48 58 db 19 9e 58 37 0b 54 10 cf 1d 5f 32 a9 72 f1 80 2d e3 e0 fb 1a bd 86 cb 60 27>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767888891851,
+[32m0|absenbot | [39m    created: 1767888891851,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 dc f6 b6 ed dd 5e 5c 86 10 54 12 2f 24 a9 f7 4a 52 e9 00 97 d5 e4 b6 9b dd 87 22 28 0d 77 2b 15>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 15105189,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 bb ba 29 ed 48 58 db 19 9e 58 37 0b 54 10 cf 1d 5f 32 a9 72 f1 80 2d e3 e0 fb 1a bd 86 cb 60 27>,
+[32m0|absenbot | [39m    preKeyId: 14433338
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[SCHEDULER] Running draft push (23:50 Asia/Jakarta)...
+[32m0|absenbot | [39m[SCHEDULER] Running emergency auto-submit (23:59 Asia/Jakarta)...
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    BWhoubGNhE4L1csfBujMBgzdr3ywjlhV4ab4HQXAWbBv: { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 858635346,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 68 68 b9 b1 8d 84 4e 0b d5 cb 1f 06 e8 cc 06 0c dd af 7c b0 8e 58 55 e1 a6 f8 1d 05 c0 59 b0 6f>,
+[32m0|absenbot | [39m      privKey: <Buffer d8 25 1b c3 de c6 ea 53 dd 44 64 80 3a e9 f2 f5 9f 2b 97 62 87 58 49 44 8e c3 d4 9a 36 02 65 58>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 90 18 a8 d5 1a 63 03 5c 18 59 66 28 a3 e6 cc b7 dd 20 45 48 b3 96 b6 3a 0e bb c9 5c 9d 88 4a 70>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer b2 8c 63 fb 8d c2 6f 52 56 a1 b9 4b a3 3a 92 84 f3 13 3d 38 e9 e1 ec 62 d4 f5 5b f7 4b 4f 5f 05>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 c6 d5 17 79 c1 88 ec 12 fe 4f b9 45 07 0b b8 25 69 5b 37 2f bd dd 42 45 bc 2a ce 3d 60 0b 5c 04>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767884727402,
+[32m0|absenbot | [39m    created: 1767884727402,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 bd 7a e5 e9 7e 75 6f 8d e7 8e 54 60 f0 31 2f 0d 02 a5 5c 42 33 c2 8b 74 dd 0a a7 25 b6 a8 ad 02>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 14579017,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 c6 d5 17 79 c1 88 ec 12 fe 4f b9 45 07 0b b8 25 69 5b 37 2f bd dd 42 45 bc 2a ce 3d 60 0b 5c 04>,
+[32m0|absenbot | [39m    preKeyId: 8513322
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BV6v/1qyuKtOIhwIuaOq+u+EkWwYadaAH9cmCCQwtP0u': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 1692855456,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 5e af ff 5a b2 b8 ab 4e 22 1c 08 b9 a3 aa fa ef 84 91 6c 18 69 d6 80 1f d7 26 08 24 30 b4 fd 2e>,
+[32m0|absenbot | [39m      privKey: <Buffer 38 c5 9b a5 e2 ba 6e e7 46 ce a2 16 ae 89 d9 7e 83 a3 8b 00 17 2d ff 28 0e a5 b6 85 eb 01 83 47>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 89 a3 1c 96 b0 be cb 63 1c c9 c8 92 2b cc 91 6a fc 6b 78 d5 0c 78 55 96 c0 c6 87 a8 67 9a 9c 4a>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer c8 ae 1c 9b 32 7d 07 8b 56 bf 66 4c 57 75 11 a6 bf 81 9d 20 12 70 84 6f 3a e2 d4 f0 63 21 f0 7e>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 7a 5c a2 c2 0f 3f 93 a8 d3 cb fb c5 0b 97 1d 7c 74 7c ea e9 3c 4e 0c 6c 0a b7 8b f4 8a d7 71 0f>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767896706355,
+[32m0|absenbot | [39m    created: 1767896706355,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 cc 04 87 72 24 07 0c 13 26 84 0e db dc e4 5e 9f 0b 38 c5 f2 54 de f6 19 93 1e 87 ae 07 92 64 1a>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 16456735,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 7a 5c a2 c2 0f 3f 93 a8 d3 cb fb c5 0b 97 1d 7c 74 7c ea e9 3c 4e 0c 6c 0a b7 8b f4 8a d7 71 0f>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BSOsVsAvv8met2TeMAsprJGUspYrWFdp2d2jPnqL/98f': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 1450521036,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 23 ac 56 c0 2f bf c9 9e b7 64 de 30 0b 29 ac 91 94 b2 96 2b 58 57 69 d9 dd a3 3e 7a 8b ff df 1f>,
+[32m0|absenbot | [39m      privKey: <Buffer d0 47 84 34 27 91 e4 0f 57 8b 06 ee 17 30 ca a7 f9 90 26 a7 fc e0 68 64 88 99 4c 51 56 22 50 6d>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 77 ef ba 7f 06 30 83 32 a1 3d 41 b5 7e 60 a0 df 52 8d a4 01 ab 41 ac 51 d9 a6 d7 ac 4b 5d 9c 41>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 99 b9 c8 a0 2a 1e 2d 1c bb 15 cd 74 7e 85 da 96 e8 14 78 fa e6 9f dc 15 5e c0 06 2d fb 60 75 29>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 e8 86 c0 0e 0e 1a 1c b4 ee dc d1 58 b2 93 95 e4 18 1d d7 e2 8b 1f e1 d3 44 4a 5d 9e a2 42 2c 07>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767875217517,
+[32m0|absenbot | [39m    created: 1767875217517,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 a2 ff 38 c7 76 d3 08 ef 47 8a 9c e6 0a 50 33 9b ea 52 a1 1d f0 a4 d8 ac e2 5c df 07 59 a1 7b 77>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 12868147,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 e8 86 c0 0e 0e 1a 1c b4 ee dc d1 58 b2 93 95 e4 18 1d d7 e2 8b 1f e1 d3 44 4a 5d 9e a2 42 2c 07>,
+[32m0|absenbot | [39m    preKeyId: 11028618
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[21.05.21] [Para Pencari Kerja (PPK)] Aldy: Cukkeiii
+[32m0|absenbot | [39m[21.09.19] [Para Pencari Kerja (PPK)] Satria: Nitip naskun cukkeii mweheh
+[32m0|absenbot | [39m[21.09.39] [Para Pencari Kerja (PPK)] Satria: 2 mweheh
+[32m0|absenbot | [39m[21.10.59] [Para Pencari Kerja (PPK)] Aldy: Tis banget, jirr
+[32m0|absenbot | [39m[21.31.05] [siapa suruh ke sini?] Pian: Info senam
+[32m0|absenbot | [39m[21.31.15] [siapa suruh ke sini?] Siti Nur Annisa Adany A: 2
+[32m0|absenbot | [39m[21.31.48] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Ndada di gb spm ku na kirim jg sensei atau pak hadi infonya senam
+[32m0|absenbot | [39m[21.32.14] [siapa suruh ke sini?] Pian: Ndaji kapang
+[32m0|absenbot | [39m[21.35.13] [siapa suruh ke sini?] Amrina Rosyadah: jd jgn mki ini pke baju olahraga di'?
+[32m0|absenbot | [39m❌ Connection Closed: Unknown Error
+[32m0|absenbot | [39m[WARNING] WhatsApp disconnected
+[32m0|absenbot | [39m🔄 Attempting to reconnect...
+[32m0|absenbot | [39m🤖 Memulai Bot (v2.3000.1027934701) + SCHEDULER
+[32m0|absenbot | [39m✅ KONEKSI STABIL. Scheduler Aktif.
+[32m0|absenbot | [39m[SUCCESS] WhatsApp connected
+[32m0|absenbot | [39m✅ Auth server running on port 3003
+[32m0|absenbot | [39m⚠️ Port 3003 in use, trying 3004
+[32m0|absenbot | [39m✅ Auth server running on port 3004
+[32m0|absenbot | [39m[22.08.55] [siapa suruh ke sini?] Wahyuningsih: Nda ji kpng karna to mau rapat semua orng
+[32m0|absenbot | [39m[22.24.46] [siapa suruh ke sini?] ⋆˚࿔ 𝐍𝔞𝔟𝔦𝔩𝔞 𝜗𝜚˚⋆: Derasnya hujan
+[32m0|absenbot | [39m[22.24.57] [siapa suruh ke sini?] ⋆˚࿔ 𝐍𝔞𝔟𝔦𝔩𝔞 𝜗𝜚˚⋆: Info cuaca area kampus pls
+[32m0|absenbot | [39m[22.26.21] [siapa suruh ke sini?] Pian: Iyakahweh
+[32m0|absenbot | [39m[22.29.27] [WIBUBERS UNDIPA] Leaf.: Oalah pantas
+[32m0|absenbot | [39m[22.32.52] [siapa suruh ke sini?] Wahyuningsih: Iyaaa na blng kemarin orng d ruanganku
+[32m0|absenbot | [39m[22.32.56] [siapa suruh ke sini?] Wahyuningsih: 2in
+[32m0|absenbot | [39m[22.33.39] [siapa suruh ke sini?] Amrina Rosyadah: ihh hujan dirmhmu?
+[32m0|absenbot | [39m[22.34.01] [siapa suruh ke sini?] Wahyuningsih: Iya hjnmi
+[32m0|absenbot | [39m[22.36.37] [siapa suruh ke sini?] ⋆˚࿔ 𝐍𝔞𝔟𝔦𝔩𝔞 𝜗𝜚˚⋆: Deras bgt
+[32m0|absenbot | [39m[22.36.47] [siapa suruh ke sini?] ⋆˚࿔ 𝐍𝔞𝔟𝔦𝔩𝔞 𝜗𝜚˚⋆: Badai sy lengkap dgn guntur”nya
+[32m0|absenbot | [39m[22.37.14] [siapa suruh ke sini?] ⋆˚࿔ 𝐍𝔞𝔟𝔦𝔩𝔞 𝜗𝜚˚⋆: Nd hujan di kampus kah?
+[32m0|absenbot | [39m[22.37.22] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Hujann
+[32m0|absenbot | [39m[22.37.26] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Ini deras jg sini
+[32m0|absenbot | [39m[22.43.27] [siapa suruh ke sini?] Wahyuningsih: Omg bemn caranya in
+[32m0|absenbot | [39m[22.44.25] [siapa suruh ke sini?] Wahyuningsih: Kah biarki in pake jas hjn basah jk jg
+[32m0|absenbot | [39m[22.44.53] [siapa suruh ke sini?] ⋆˚࿔ 𝐍𝔞𝔟𝔦𝔩𝔞 𝜗𝜚˚⋆: 2
+[32m0|absenbot | [39m[22.45.56] [siapa suruh ke sini?] Pian: Basah kuyut
+[32m0|absenbot | [39m[22.51.35] [siapa suruh ke sini?] Akmal: basah kyut
+[32m0|absenbot | [39m[22.55.58] [siapa suruh ke sini?] Pian: Imoeth donk
+[32m0|absenbot | [39m[SCHEDULER] Running morning reminder (08:00 Asia/Jayapura)...
+[32m0|absenbot | [39m[23.10.36] [siapa suruh ke sini?] nr: Adakah
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'Bf/9/IdqFlxC0N63KzWWlz/0XV+9cz19KHFm5qd/m8E9': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 1605078826,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 ff fd fc 87 6a 16 5c 42 d0 de b7 2b 35 96 97 3f f4 5d 5f bd 73 3d 7d 28 71 66 e6 a7 7f 9b c1 3d>,
+[32m0|absenbot | [39m      privKey: <Buffer e8 a4 73 a1 27 4a 57 95 cb f4 8e fd 99 3e 8a 58 14 42 87 43 bd e9 e0 44 f6 a4 b9 77 ba d0 fa 72>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 33 5d a0 1a df 3e 27 45 fc 9f 14 50 a1 af 13 d9 a0 79 8f a4 ec df 68 76 0c f2 04 92 e0 ed d1 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 9b bf a7 18 72 10 04 2b 1a e8 0d 07 14 17 af 53 79 ed 29 f0 b6 e3 c4 50 65 ff 18 e3 d5 2e 23 2b>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 fe 30 43 e7 ea ff 8a de a5 68 0e 53 9b ea 0b 8d e3 f1 de 68 39 ec 56 8d ed 80 d7 f5 d1 d1 cc 52>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767886047688,
+[32m0|absenbot | [39m    created: 1767886047688,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 67 7b b4 56 73 b3 a6 33 a1 27 65 48 30 e2 b8 19 56 eb 2f 01 88 d8 4c 07 ce 56 ef cd 3f ed f7 54>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 12571509,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 fe 30 43 e7 ea ff 8a de a5 68 0e 53 9b ea 0b 8d e3 f1 de 68 39 ec 56 8d ed 80 d7 f5 d1 d1 cc 52>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[23.36.55] [siapa suruh ke sini?] Pian: Adakan
+[32m0|absenbot | [39m[23.42.25] [siapa suruh ke sini?] Wahyuningsih: Ada d vene ku titip punyata
+[32m0|absenbot | [39m[23.45.38] [Para Pencari Kerja (PPK)] Satria: kebiasaan
+[32m0|absenbot | [39m[23.46.02] [Para Pencari Kerja (PPK)] Satria: btw cara ngembaliin runtutan 200an gmna
+[32m0|absenbot | [39m[23.49.16] [Para Pencari Kerja (PPK)] .dwitra ~: Haduh rek... Punya siapa tu
+[32m0|absenbot | [39m[23.49.58] [Para Pencari Kerja (PPK)] Satria: ngenyatir aldi dia pernah matiin kmarin
+[32m0|absenbot | [39m[23.50.49] [Para Pencari Kerja (PPK)] .dwitra ~: Nooo mallls
+[32m0|absenbot | [39m[23.51.30] [Para Pencari Kerja (PPK)] .dwitra ~: Aowkaowk parah jir
+[32m0|absenbot | [39m[SCHEDULER] Running morning reminder (08:00 Asia/Makassar)...
+[32m0|absenbot | [39m[00.07.29] [siapa suruh ke sini?] Wahyuningsih: siapa yg ikut rapat ?
+[32m0|absenbot | [39m[00.08.21] [siapa suruh ke sini?] nr: dosen pengampuh hahaha
+[32m0|absenbot | [39m[00.08.35] [siapa suruh ke sini?] Wahyuningsih: Yg d sni maksudku cinta
+[32m0|absenbot | [39m[00.08.49] [siapa suruh ke sini?] nr: kamuji hahah
+[32m0|absenbot | [39m[00.08.56] [siapa suruh ke sini?] Wahyuningsih: Hancurku
+[32m0|absenbot | [39m[00.09.12] [siapa suruh ke sini?] Wahyuningsih: Kt ambil to pesananta bu?
+[32m0|absenbot | [39m[00.09.18] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Beda mmng bu prof
+[32m0|absenbot | [39m[00.09.38] [siapa suruh ke sini?] nr: intina perbaiki greetingmu nah, soalnya ada dosen prodiku turun itu
+[32m0|absenbot | [39m[00.09.46] [siapa suruh ke sini?] Wahyuningsih: Husssttt sebenarnya saya prof yg menyamar jdi anak magang hahahah
+[32m0|absenbot | [39m[00.09.48] [siapa suruh ke sini?] nr: iyee, transaksi sbntrpi dii
+[32m0|absenbot | [39m[00.09.59] [siapa suruh ke sini?] Abeliani: knp nda prnh ka dpt😭
+[32m0|absenbot | [39m[00.09.59] [siapa suruh ke sini?] nr: dehh tkutku prof inci
+[32m0|absenbot | [39m[00.10.02] [siapa suruh ke sini?] Wahyuningsih: Dumbaku
+[32m0|absenbot | [39m[00.10.59] [siapa suruh ke sini?] nr: ndk ji, bahas soal mata kuliahji dan pengampuh
+[32m0|absenbot | [39m[00.11.02] [siapa suruh ke sini?] nr: aman sja
+[32m0|absenbot | [39m[00.11.59] [Para Pencari Kerja (PPK)] Akmal: untung udah lewat sebulan rek, pulih nya pulih
+[32m0|absenbot | [39m[00.12.28] [siapa suruh ke sini?] mazid.: jam brp rapat bu prof??
+[32m0|absenbot | [39m[00.14.47] [Para Pencari Kerja (PPK)] .dwitra ~: Aowkwowk ampir aja.. cobaa kalo reset nya setahun... Mampua
+[32m0|absenbot | [39m[00.15.03] [Para Pencari Kerja (PPK)] Akmal: mwheheheheheh
+[32m0|absenbot | [39m[00.15.11] [Para Pencari Kerja (PPK)] Akmal: sudah mati dri lama lama
+[32m0|absenbot | [39m[00.15.13] [Para Pencari Kerja (PPK)] Akmal: 🤣🤣
+[32m0|absenbot | [39m[00.21.58] [siapa suruh ke sini?] Wahyuningsih: jam 9 nak hahah
+[32m0|absenbot | [39m[00.23.04] [siapa suruh ke sini?] nr: adami itu dirut di bawah sayy, tiatiki
+[32m0|absenbot | [39m[00.23.36] [siapa suruh ke sini?] mazid.: bukan di cws??
+[32m0|absenbot | [39m[00.24.03] [siapa suruh ke sini?] Wahyuningsih: masalahnya d dpnnya ka in ddk
+[32m0|absenbot | [39m[00.24.12] [siapa suruh ke sini?] Wahyuningsih: d  gbr ki lantai 3
+[32m0|absenbot | [39m[00.24.42] [siapa suruh ke sini?] nr: 2 seng bukan 3 hahha
+[32m0|absenbot | [39m[00.24.57] [siapa suruh ke sini?] Wahyuningsih: yahh itu
+[32m0|absenbot | [39m[00.25.07] [siapa suruh ke sini?] nr: dehh ngeriww belau, infoki sarapan sehat dlu  eh
+[32m0|absenbot | [39m[00.26.20] [siapa suruh ke sini?] Wahyuningsih: ada rebus"san lgi
+[32m0|absenbot | [39m[00.27.07] [siapa suruh ke sini?] nr: dehh ku sukanya sya
+[32m0|absenbot | [39m[00.30.04] [Para Pencari Kerja (PPK)] Aldy: Halo, Tis 😋🙏
+[32m0|absenbot | [39m[00.35.18] [siapa suruh ke sini?] Wahyuningsih: Namamu ini @80681027776571 ?
+[32m0|absenbot | [39m[00.35.38] [siapa suruh ke sini?] Pian: Yash
+[32m0|absenbot | [39m[00.35.41] [siapa suruh ke sini?] Pian: Dan bapakku
+[32m0|absenbot | [39m[00.35.54] [siapa suruh ke sini?] Yoya: alfiani dia namana
+[32m0|absenbot | [39m[00.36.42] [siapa suruh ke sini?] Pian: Alfiani Anggi Saputri
+[32m0|absenbot | [39m[00.38.15] [siapa suruh ke sini?] Wahyuningsih: tawwaa
+[32m0|absenbot | [39m[00.41.39] [siapa suruh ke sini?] Akmal: pc kah itu?
+[32m0|absenbot | [39m[00.42.12] [siapa suruh ke sini?] Abeliani: siapa mau ke kantin
+[32m0|absenbot | [39m[00.42.15] [siapa suruh ke sini?] pajoo: last day ya?
+[32m0|absenbot | [39m[00.42.36] [siapa suruh ke sini?] Vene: Satu dle😭
+[32m0|absenbot | [39m[00.43.05] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Artis banget
+[32m0|absenbot | [39m[00.43.15] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Hidupin aj gamaw
+[32m0|absenbot | [39m[00.44.38] [siapa suruh ke sini?] Andi Naksya: @177137420128327 ada pak arfin d stu??
+[32m0|absenbot | [39m[00.44.45] [siapa suruh ke sini?] Ir'Fikri Anggara Hasbar: Acara pembubaran
+[32m0|absenbot | [39m[00.46.37] [siapa suruh ke sini?] nr: Lohh ku kira di p3m mki juga bapak prof
+[32m0|absenbot | [39m[00.47.06] [siapa suruh ke sini?] nr: Pagi"ta kamase
+[32m0|absenbot | [39m[00.51.55] [siapa suruh ke sini?] Wahyuningsih: D kasi tegang truska sama prof hahahah
+[32m0|absenbot | [39m[00.52.23] [siapa suruh ke sini?] Abeliani: masuk mi di circle para petinggi
+[32m0|absenbot | [39m[00.52.27] [Para Pencari Kerja (PPK)] Aldy: Takutnya
+[32m0|absenbot | [39m[00.52.37] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Iyya lagii
+[32m0|absenbot | [39m[00.52.47] [siapa suruh ke sini?] Wahyuningsih: Tanyaka klw mauk fotoka supaya bgus muka ku hahah
+[32m0|absenbot | [39m[00.53.04] [siapa suruh ke sini?] Andi Alvin: haha
+[32m0|absenbot | [39m[00.53.49] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Hal yg bikin kesel
+[32m0|absenbot | [39m[00.53.51] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Sdh berak
+[32m0|absenbot | [39m[00.54.03] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Selesai berak udh rapi siap kerja
+[32m0|absenbot | [39m[00.54.05] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Mau berak lagi
+[32m0|absenbot | [39m[00.56.22] [siapa suruh ke sini?] Pian: Ada miss iva situ?
+[32m0|absenbot | [39m[00.56.37] [siapa suruh ke sini?] Pian: Atau miss farah
+[32m0|absenbot | [39m[00.57.18] [siapa suruh ke sini?] Wahyuningsih: Back dlu aku
+[32m0|absenbot | [39m[00.59.24] [Para Pencari Kerja (PPK)] Satria: berak dikantor lah
+[32m0|absenbot | [39m[00.59.31] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ogah
+[32m0|absenbot | [39m[00.59.54] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Berak only di rumah
+[32m0|absenbot | [39m[00.59.59] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: No di luar luar
+[32m0|absenbot | [39m[SCHEDULER] Running morning reminder (08:00 Asia/Jakarta)...
+[32m0|absenbot | [39m[01.00.02] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ganyaman cik
+[32m0|absenbot | [39m[01.00.21] [Para Pencari Kerja (PPK)] Aldy: Lemah
+[32m0|absenbot | [39m[01.00.37] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Siap sepuh berak
+[32m0|absenbot | [39m[01.00.43] [Para Pencari Kerja (PPK)] Satria: pasti pernah berkasus akwkwk
+[32m0|absenbot | [39m[01.00.46] [Para Pencari Kerja (PPK)] Aldy: Berak harua bisa di mana saja
+[32m0|absenbot | [39m[01.00.50] [Para Pencari Kerja (PPK)] Aldy: Perna
+[32m0|absenbot | [39m[01.00.59] [Para Pencari Kerja (PPK)] Aldy: Nda bisa masuk taiknya pasti wkwk
+[32m0|absenbot | [39m[01.01.14] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ngga pernah sih di kantorku
+[32m0|absenbot | [39m[01.01.24] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Pernah di toko cabang
+[32m0|absenbot | [39m[01.01.42] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Cewe makai wc ngga dikunci ada orang buka dituduh cabul bjir
+[32m0|absenbot | [39m[01.01.45] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Dipecat
+[32m0|absenbot | [39m[01.02.03] [Para Pencari Kerja (PPK)] Aldy: AOWKAOWKAOWK, nda sesuai plot
+[32m0|absenbot | [39m[01.02.54] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Kasian coeg dipecat yg ngeliat
+[32m0|absenbot | [39m[01.03.00] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Padahal salah si cewe
+[32m0|absenbot | [39m[01.03.12] [Para Pencari Kerja (PPK)] Aldy: Mandi ka dia?
+[32m0|absenbot | [39m[01.03.17] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Berak
+[32m0|absenbot | [39m[01.03.22] [Para Pencari Kerja (PPK)] Aldy: Aowkakwkao
+[32m0|absenbot | [39m[01.03.29] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Kebelet kayaknya
+[32m0|absenbot | [39m[01.03.34] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Lupa kunci
+[32m0|absenbot | [39m[01.03.57] [Para Pencari Kerja (PPK)] Satria: belum berani berak di hutan lek
+[32m0|absenbot | [39m[01.04.20] [Para Pencari Kerja (PPK)] Aldy: Alumni berak di kebun, sawah, sungai
+[32m0|absenbot | [39m[01.04.30] [Para Pencari Kerja (PPK)] Satria: wanjirr spuh
+[32m0|absenbot | [39m[01.04.32] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ak berak di hutan pernah
+[32m0|absenbot | [39m[01.04.36] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Karna sdh kebelet
+[32m0|absenbot | [39m[01.04.44] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Hampir Keepcirit
+[32m0|absenbot | [39m[01.05.00] [Para Pencari Kerja (PPK)] Satria: Alamak sepuhhh
+[32m0|absenbot | [39m[01.05.16] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Keadaan memaksa
+[32m0|absenbot | [39m[01.05.16] [Para Pencari Kerja (PPK)] Aldy: Entah kenapa dulu kalau ke hutan rasanya pasti mau berak
+[32m0|absenbot | [39m[01.05.27] [Para Pencari Kerja (PPK)] Satria: Bagusnih kalau nanjak
+[32m0|absenbot | [39m[01.05.33] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Pulang ngaji dari pesantren ln jalan kaki nah lewat hutan hutan
+[32m0|absenbot | [39m[01.05.40] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Mau meledak coeg
+[32m0|absenbot | [39m[01.05.41] [Para Pencari Kerja (PPK)] Satria: Wanjirr 💀
+[32m0|absenbot | [39m[01.05.43] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Mau tidak mau
+[32m0|absenbot | [39m[01.05.48] [Para Pencari Kerja (PPK)] Aldy: Alasan nda mau nanjak
+[32m0|absenbot | [39m[01.06.06] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Baru jalan dikit berak
+[32m0|absenbot | [39m[01.06.15] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Cuaca jelek berak
+[32m0|absenbot | [39m[01.06.18] [Para Pencari Kerja (PPK)] Satria: Berak pas nanjak adrenalin ikut keuji kata tmnku
+[32m0|absenbot | [39m[01.06.20] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Masuk angin berak
+[32m0|absenbot | [39m[01.06.30] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Sampe post berak
+[32m0|absenbot | [39m[01.06.36] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Kira kira gitu aldy klo nanjak
+[32m0|absenbot | [39m[01.06.56] [Para Pencari Kerja (PPK)] Satria: Bernada jir dokter tirta kh? 🗿
+[32m0|absenbot | [39m[01.07.05] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Sama
+[32m0|absenbot | [39m[01.07.12] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Aku baca pakai nada dokter tirta
+[32m0|absenbot | [39m[01.08.10] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Dulu pas nanjak ak malah gabisa berak bjir
+[32m0|absenbot | [39m[01.08.14] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Gamau keluar dia
+[32m0|absenbot | [39m[01.08.25] [Para Pencari Kerja (PPK)] Aldy: Iya lagi, iya lagi iya lagi
+[32m0|absenbot | [39m[01.09.11] [Para Pencari Kerja (PPK)] Satria: Btw ak buka wa di wa web komputer kntor
+[32m0|absenbot | [39m[01.09.21] [Para Pencari Kerja (PPK)] Satria: Pembahasan berak ini tidak sengaja ke leak
+[32m0|absenbot | [39m[01.09.21] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Sombong gitu
+[32m0|absenbot | [39m[01.09.29] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Mentang mentang punya komputer y
+[32m0|absenbot | [39m[01.09.34] [Para Pencari Kerja (PPK)] Satria: Maafkan ak
+[32m0|absenbot | [39m[01.09.39] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Iya rau sat aku gapunya komputer
+[32m0|absenbot | [39m[01.09.44] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Jangan sombong gitu dong
+[32m0|absenbot | [39m[01.10.02] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ajak ikut sat
+[32m0|absenbot | [39m[01.10.07] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Bahas berak
+[32m0|absenbot | [39m[01.10.11] [Para Pencari Kerja (PPK)] Satria: Hmm 😎
+[32m0|absenbot | [39m[01.10.26] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Oh gitu nanti ak pamerin komputer gaming di kantorku juga
+[32m0|absenbot | [39m[01.10.32] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Punya atasanku tapi
+[32m0|absenbot | [39m[01.10.33] [Para Pencari Kerja (PPK)] Aldy: Tanyain dia beraknya nger-burst atau aspd
+[32m0|absenbot | [39m[01.10.39] [Para Pencari Kerja (PPK)] Aldy: Atau channeling
+[32m0|absenbot | [39m[01.10.47] [Para Pencari Kerja (PPK)] Satria: Apaan itu cok
+[32m0|absenbot | [39m[01.11.01] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ngebrust itu langsubh brotttt
+[32m0|absenbot | [39m[01.11.02] [Para Pencari Kerja (PPK)] Satria: Pamerin sambil fb an ngaff
+[32m0|absenbot | [39m[01.11.17] [Para Pencari Kerja (PPK)] Aldy: Channeling itu nunggu seminggu baru berak, tapi sekali berak kebelah dua langsung closet-nya
+[32m0|absenbot | [39m[01.11.41] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Kukira beraknya bertahap berulang ulang gitu
+[32m0|absenbot | [39m[01.11.47] [siapa suruh ke sini?] pajoo: pilih mki
+[32m0|absenbot | [39m[01.11.49] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Nah di kondisi berak terakhir
+[32m0|absenbot | [39m[01.11.54] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Langsung ngebrust brutal
+[32m0|absenbot | [39m[01.12.05] [Para Pencari Kerja (PPK)] Satria: Wanjirr kubayangkan ultinya weathermon 🗿
+[32m0|absenbot | [39m[01.12.17] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Malah clear sky
+[32m0|absenbot | [39m[01.12.17] [Para Pencari Kerja (PPK)] Aldy: Aspd itu yang brototototot
+[32m0|absenbot | [39m[01.12.30] [Para Pencari Kerja (PPK)] Satria: Kebelah tuh closet
+[32m0|absenbot | [39m[01.12.58] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Halah
+[32m0|absenbot | [39m[01.13.02] [Para Pencari Kerja (PPK)] Aldy: Boss keren
+[32m0|absenbot | [39m[01.13.03] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Mau berak udh buka baju
+[32m0|absenbot | [39m[01.13.05] [Para Pencari Kerja (PPK)] Satria: Kalau bgitu berak ku kuanggap armageddonnya pysyger zero
+[32m0|absenbot | [39m[01.13.08] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Malah ngga ngalir aid
+[32m0|absenbot | [39m[01.13.12] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ada ada saja
+[32m0|absenbot | [39m[01.13.13] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Malas
+[32m0|absenbot | [39m[01.13.17] [Para Pencari Kerja (PPK)] Aldy: Awkakwk channeling banget
+[32m0|absenbot | [39m[01.13.28] [Para Pencari Kerja (PPK)] Aldy: Berak kok buka baju?
+[32m0|absenbot | [39m[01.13.29] [Para Pencari Kerja (PPK)] Satria: Butuh kondisi makan 5x lombok
+[32m0|absenbot | [39m[01.13.31] [Para Pencari Kerja (PPK)] Aldy: Cabul amat
+[32m0|absenbot | [39m[01.13.33] [Para Pencari Kerja (PPK)] Satria: Lahh?
+[32m0|absenbot | [39m[01.13.44] [Para Pencari Kerja (PPK)] Aldy: Ngapain buka baju, kocak
+[32m0|absenbot | [39m[01.13.52] [Para Pencari Kerja (PPK)] Satria: Dingin kocak
+[32m0|absenbot | [39m[01.13.55] [Para Pencari Kerja (PPK)] Satria: Enak
+[32m0|absenbot | [39m[01.14.10] [Para Pencari Kerja (PPK)] Aldy: Halah, enak, disuruh mandi pagi di rumahku nda sanggup
+[32m0|absenbot | [39m[01.14.39] [Para Pencari Kerja (PPK)] Satria: mandi malam jir, mandi pagi masih digas
+[32m0|absenbot | [39m[01.14.51] [Para Pencari Kerja (PPK)] Aldy: Apaan itu hari nda mau
+[32m0|absenbot | [39m[01.14.53] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Yakali berak pake kemeja rapi
+[32m0|absenbot | [39m[01.14.55] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Buka lah
+[32m0|absenbot | [39m[01.15.10] [Para Pencari Kerja (PPK)] Aldy: Celananya aja yang diplirotin
+[32m0|absenbot | [39m[01.15.21] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Klo di rumah aku buka baju
+[32m0|absenbot | [39m[01.15.29] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Enak cuy
+[32m0|absenbot | [39m[01.15.34] [Para Pencari Kerja (PPK)] Aldy: Kau nah kalau di kost nda berpakaian
+[32m0|absenbot | [39m[01.15.44] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Woi pake ya
+[32m0|absenbot | [39m[01.15.45] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Celana
+[32m0|absenbot | [39m[01.15.56] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ngapain pake baju
+[32m0|absenbot | [39m[01.16.05] [Para Pencari Kerja (PPK)] Satria: 2
+[32m0|absenbot | [39m[01.16.14] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ngehabisin cucian cuy
+[32m0|absenbot | [39m[01.16.17] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Hemat
+[32m0|absenbot | [39m[01.16.34] [Para Pencari Kerja (PPK)] Satria: Iyaa cok akwkwk
+[32m0|absenbot | [39m[01.17.14] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Paling gasuka berak pagi begini
+[32m0|absenbot | [39m[01.17.14] [Para Pencari Kerja (PPK)] Aldy: Makanya mencuci tiap hari
+[32m0|absenbot | [39m[01.17.18] [Para Pencari Kerja (PPK)] Satria: Alamak ada adegan panasnya kyknya 💀
+[32m0|absenbot | [39m[01.17.18] [Para Pencari Kerja (PPK)] Aldy: Enak
+[32m0|absenbot | [39m[01.17.29] [Para Pencari Kerja (PPK)] Aldy: Tititnya diputar-putar
+[32m0|absenbot | [39m[01.17.39] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Engga, beraknya kepotong potong
+[32m0|absenbot | [39m[01.17.43] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ngga ngebrust
+[32m0|absenbot | [39m[01.17.48] [Para Pencari Kerja (PPK)] Aldy: Taimu aja yang nd asehat
+[32m0|absenbot | [39m[01.17.51] [Para Pencari Kerja (PPK)] Aldy: Makanya makan sayur
+[32m0|absenbot | [39m[01.17.52] [Para Pencari Kerja (PPK)] Aldy: Serat
+[32m0|absenbot | [39m[01.18.03] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ak yg rajin masak sayur
+[32m0|absenbot | [39m[01.18.16] [Para Pencari Kerja (PPK)] Aldy: Prrcaya, @SAT @81651707199492?
+[32m0|absenbot | [39m[01.18.31] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Mff bg
+[32m0|absenbot | [39m[01.18.35] [Para Pencari Kerja (PPK)] Aldy: Makan mie ayam aja nda pakai sawi
+[32m0|absenbot | [39m[01.18.40] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ada kulkas rajin memasak
+[32m0|absenbot | [39m[01.18.43] [Para Pencari Kerja (PPK)] Satria: yang dimasak kangkung tapi
+[32m0|absenbot | [39m[01.18.49] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Buncis y
+[32m0|absenbot | [39m[01.18.51] [Para Pencari Kerja (PPK)] Aldy: Nda sehat
+[32m0|absenbot | [39m[01.19.02] [Para Pencari Kerja (PPK)] Aldy: Salam ingfeksi, Bun
+[32m0|absenbot | [39m[01.19.08] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Salam
+[32m0|absenbot | [39m[01.19.11] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Buncis enak cuy
+[32m0|absenbot | [39m[01.19.13] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Aku suka
+[32m0|absenbot | [39m[01.19.13] [Para Pencari Kerja (PPK)] Satria: sayur sop lah
+[32m0|absenbot | [39m[01.19.18] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Males
+[32m0|absenbot | [39m[01.19.23] [Para Pencari Kerja (PPK)] Aldy: Ikut-ikutan
+[32m0|absenbot | [39m[01.19.28] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Lah
+[32m0|absenbot | [39m[01.19.34] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Dari dulu emang suka
+[32m0|absenbot | [39m[01.19.46] [Para Pencari Kerja (PPK)] Aldy: Fomo luwh 👎🏿
+[32m0|absenbot | [39m[01.19.50] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Km aja ngga pernah jamu aku pake tumis buncis
+[32m0|absenbot | [39m[01.20.32] [Para Pencari Kerja (PPK)] Aldy: Karena kau nda makan sayur
+[32m0|absenbot | [39m[01.20.45] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Di bilang aku makan coeg
+[32m0|absenbot | [39m[01.20.51] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Aku bisa makn sayur
+[32m0|absenbot | [39m[01.20.57] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Cuman milih milih
+[32m0|absenbot | [39m[01.21.00] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Buncis aku makan
+[32m0|absenbot | [39m[01.21.21] [Para Pencari Kerja (PPK)] Satria: Buncis doang yah ini
+[32m0|absenbot | [39m[01.21.27] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Aku ngga makan yg aneh aneh warnanya
+[32m0|absenbot | [39m[01.21.29] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Apa coba
+[32m0|absenbot | [39m[01.21.30] [Para Pencari Kerja (PPK)] Aldy: Fomo. Sebelumnya nda pernah
+[32m0|absenbot | [39m[01.21.47] [Para Pencari Kerja (PPK)] Satria: Kangkung makan ngga
+[32m0|absenbot | [39m[01.21.53] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ih km ajangapernah nawarin buncis
+[32m0|absenbot | [39m[01.22.01] [Para Pencari Kerja (PPK)] Aldy: Padahal buncis sama sawi sama-sama hijau
+[32m0|absenbot | [39m[01.22.05] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Km kenapa sih sama kankung sat
+[32m0|absenbot | [39m[01.22.12] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Bedabrasanya  bjir
+[32m0|absenbot | [39m[01.22.13] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ogah
+[32m0|absenbot | [39m[01.22.14] [Para Pencari Kerja (PPK)] Aldy: Gak sehat
+[32m0|absenbot | [39m[01.22.17] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Sawi sayur banget
+[32m0|absenbot | [39m[01.22.21] [Para Pencari Kerja (PPK)] Aldy: Fomo
+[32m0|absenbot | [39m[01.22.35] [Para Pencari Kerja (PPK)] Satria: Kangkung yah kangkung
+[32m0|absenbot | [39m[01.22.48] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Pas kkn kemarin makan kangkung
+[32m0|absenbot | [39m[01.22.50] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Terpaksa
+[32m0|absenbot | [39m[01.22.53] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ngisi piring
+[32m0|absenbot | [39m[01.22.57] [siapa suruh ke sini?] Muh Rezki: kok tau
+[32m0|absenbot | [39m[01.23.05] [Para Pencari Kerja (PPK)] Satria: Okehh terbukti bro makan sayur
+[32m0|absenbot | [39m[01.23.15] [Para Pencari Kerja (PPK)] Aldy: Kusep KKN malah request menu, jir
+[32m0|absenbot | [39m[01.23.26] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Engga
+[32m0|absenbot | [39m[01.23.28] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Aku keluar
+[32m0|absenbot | [39m[01.23.31] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Beli makan di luar
+[32m0|absenbot | [39m[01.23.37] [Para Pencari Kerja (PPK)] Aldy: Tidaj respek
+[32m0|absenbot | [39m[01.23.59] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ya daripada request?
+[32m0|absenbot | [39m[01.24.03] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Mending beli makan sendiri
+[32m0|absenbot | [39m[01.24.04] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ngga repot
+[32m0|absenbot | [39m[01.24.19] [Para Pencari Kerja (PPK)] Satria: kangkung contohnya'\
+[32m0|absenbot | [39m[01.24.32] [Para Pencari Kerja (PPK)] Aldy: Kangkung terus
+[32m0|absenbot | [39m[01.24.51] [siapa suruh ke sini?] pajoo: saya akan kembali ke p3m sebagai warga magang biasa
+[32m0|absenbot | [39m[01.25.23] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Hari hari org makan kangkung disna
+[32m0|absenbot | [39m[01.25.26] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Smaa ikan
+[32m0|absenbot | [39m[01.25.36] [Para Pencari Kerja (PPK)] Aldy: Makanan gak dimakan semua tuh ama Kusep
+[32m0|absenbot | [39m[01.25.41] [Para Pencari Kerja (PPK)] Aldy: Ikan + sayur
+[32m0|absenbot | [39m[01.25.52] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Fyi
+[32m0|absenbot | [39m[01.26.05] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ak masih makan ikan klo ngga ada menu lain
+[32m0|absenbot | [39m[01.27.23] [Para Pencari Kerja (PPK)] Aldy: Karbit
+[32m0|absenbot | [39m[01.27.42] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Aku suka ikan kecil yg pernah ibumu masak
+[32m0|absenbot | [39m[01.27.43] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Enak
+[32m0|absenbot | [39m[01.28.51] [Para Pencari Kerja (PPK)] Aldy: Ikan mairo?
+[32m0|absenbot | [39m[01.39.14] [siapa suruh ke sini?] Wahyuningsih: Siapa tau ma scan pake bgini ?
+[32m0|absenbot | [39m[01.39.31] [siapa suruh ke sini?] Amrina Rosyadah: fira
+[32m0|absenbot | [39m[01.40.05] [siapa suruh ke sini?] Wahyuningsih: Manak @194153996652745
+[32m0|absenbot | [39m[01.40.21] [siapa suruh ke sini?] Amrina Rosyadah: salah tagko iya bestie
+[32m0|absenbot | [39m[01.40.31] [siapa suruh ke sini?] Wahyuningsih: Omgaa
+[32m0|absenbot | [39m[01.40.34] [siapa suruh ke sini?] Wahyuningsih: @166975527465183
+[32m0|absenbot | [39m[01.40.39] [siapa suruh ke sini?] Wahyuningsih: Sinik dlu bantuka pusing
+[32m0|absenbot | [39m[01.40.45] [siapa suruh ke sini?] Amrina Rosyadah: waitt
+[32m0|absenbot | [39m[01.44.22] [siapa suruh ke sini?] Pian: Info sampe jamberapa
+[32m0|absenbot | [39m[01.44.26] [siapa suruh ke sini?] Pian: Mauka netflixan
+[32m0|absenbot | [39m[01.46.21] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Yg kecil
+[32m0|absenbot | [39m[01.46.29] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Pernah kumakan di rumah yu
+[32m0|absenbot | [39m[01.47.25] [siapa suruh ke sini?] pajoo: sebelum jumatan beng selesmi
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    BYxUWaTpzVWz2N965ZlntAZi6qJ5sYrGB6XHEFsOYPdI: { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 8c 54 59 a4 e9 cd 55 b3 d8 df 7a e5 99 67 b4 06 62 ea a2 79 b1 8a c6 07 a5 c7 10 5b 0e 60 f7 48>,
+[32m0|absenbot | [39m      privKey: <Buffer e0 8f 9c af 5d 03 48 9b 7f 6f 9e 77 d7 dd 50 b9 e2 7d b5 86 91 0c c1 5b 4f 63 70 2d 84 a0 72 44>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer a4 c8 91 6c 80 8d 98 50 92 e5 7f a0 fe c9 38 20 7b 6d 18 7d 2d 78 f1 a1 42 a3 23 45 39 15 b0 2a>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 7d 6f 67 80 7c 81 d2 0e e3 aa ff a3 94 73 30 d4 36 aa 58 1b 32 91 57 42 48 7d 8b 29 4c cd 7d 0a>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767775153377,
+[32m0|absenbot | [39m    created: 1767775153377,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 7d 6f 67 80 7c 81 d2 0e e3 aa ff a3 94 73 30 d4 36 aa 58 1b 32 91 57 42 48 7d 8b 29 4c cd 7d 0a>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BU5+7On7O2NizTjd+PrkfTIwDrlOqqA3hFU7Rj5cSRdc': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 4e 7e ec e9 fb 3b 63 62 cd 38 dd f8 fa e4 7d 32 30 0e b9 4e aa a0 37 84 55 3b 46 3e 5c 49 17 5c>,
+[32m0|absenbot | [39m      privKey: <Buffer 98 51 99 5f b6 63 80 e7 08 c7 ca 7f 2a 69 be 73 10 4e 98 07 ad 1e ca 22 d3 bb 37 7b d8 7e 1f 50>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer e7 56 1e ed 4b 67 2a a8 01 5b 5b e5 11 4d ba 77 5b c0 e0 e2 09 d1 88 47 6f 6c 4d 43 a7 36 e5 6b>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 8e e3 c0 b7 e5 d3 64 43 42 a7 0e 82 11 4e 60 53 36 34 29 aa 7a 6f 3e c3 6f f9 e4 d0 bc 07 63 7c>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923362324,
+[32m0|absenbot | [39m    created: 1767923362324,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 8e e3 c0 b7 e5 d3 64 43 42 a7 0e 82 11 4e 60 53 36 34 29 aa 7a 6f 3e c3 6f f9 e4 d0 bc 07 63 7c>,
+[32m0|absenbot | [39m    preKeyId: 1723
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BXREh9x9+OqOQXzExPahLdnEITKuNj3OQs433AvB4FN3': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 74 44 87 dc 7d f8 ea 8e 41 7c c4 c4 f6 a1 2d d9 c4 21 32 ae 36 3d ce 42 ce 37 dc 0b c1 e0 53 77>,
+[32m0|absenbot | [39m      privKey: <Buffer 88 22 6e 16 ad 54 3a d4 44 f5 2c e5 82 42 22 ec 8c a8 4b 09 3e f1 59 0e 58 a5 67 1d e9 1f 74 6c>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer c3 82 ad d5 f1 4f a5 78 05 ff 92 f4 1a bc 19 2d c2 50 72 d9 8a 43 36 78 ac c8 2c ab 92 cc 25 f3>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 08 8e ed e5 bb f3 cf 36 0a 8c 28 1c b0 3f 17 ca da 91 c3 6c 7c ac 48 e1 e9 e4 75 7a 98 81 e6 1e>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923362586,
+[32m0|absenbot | [39m    created: 1767923362586,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 08 8e ed e5 bb f3 cf 36 0a 8c 28 1c b0 3f 17 ca da 91 c3 6c 7c ac 48 e1 e9 e4 75 7a 98 81 e6 1e>,
+[32m0|absenbot | [39m    preKeyId: 2404
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BfWrxoPCcYrMa0IKXGTI9TEZ8J+X8Niv810qz1YA+8Rq': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 f5 ab c6 83 c2 71 8a cc 6b 42 0a 5c 64 c8 f5 31 19 f0 9f 97 f0 d8 af f3 5d 2a cf 56 00 fb c4 6a>,
+[32m0|absenbot | [39m      privKey: <Buffer 40 55 db 2c c1 5c e7 20 18 16 c8 b7 97 22 d0 0c 86 8a 4e 34 c4 de 54 9d 3d 13 14 f6 d8 69 5e 5e>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 63 ae 65 b8 75 bf 8f 7c a8 98 18 45 77 61 ad fd 43 16 40 1f 5e 3c 85 ca 66 27 40 be 80 a3 ac 5f>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 76 41 fe 06 bc f0 ea 86 f6 d7 fe 11 6b 33 25 44 92 50 ec 13 7e a9 74 da 22 64 ac e1 d2 8f 78 37>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923362844,
+[32m0|absenbot | [39m    created: 1767923362844,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 76 41 fe 06 bc f0 ea 86 f6 d7 fe 11 6b 33 25 44 92 50 ec 13 7e a9 74 da 22 64 ac e1 d2 8f 78 37>,
+[32m0|absenbot | [39m    preKeyId: 1710
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BTzGqOTVCKN5U9QpspMQV+XdVHe/DmFopdPLXoHH4b8O': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 3c c6 a8 e4 d5 08 a3 79 53 d4 29 b2 93 10 57 e5 dd 54 77 bf 0e 61 68 a5 d3 cb 5e 81 c7 e1 bf 0e>,
+[32m0|absenbot | [39m      privKey: <Buffer 28 62 3c 0b 8b bc 43 0d 26 f9 b3 39 57 c6 7c fd a7 a9 3e d8 df 78 0d c6 37 f8 b6 8c cb 6f 90 4f>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 88 36 4c 45 4f 8a 03 cf b8 01 7c 64 5f f3 1e a4 ae 08 9a 47 01 67 a5 f5 bc cf a3 3f 77 76 68 b0>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 82 76 ce 50 e0 53 00 7c 2d 25 6c 31 07 31 3e cf 30 81 56 39 e7 c4 32 52 d6 cd a2 1b c8 98 41 16>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923363098,
+[32m0|absenbot | [39m    created: 1767923363098,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 82 76 ce 50 e0 53 00 7c 2d 25 6c 31 07 31 3e cf 30 81 56 39 e7 c4 32 52 d6 cd a2 1b c8 98 41 16>,
+[32m0|absenbot | [39m    preKeyId: 1676
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BdTkU8dd6HkYgR4ONWWxUwv+5pxECFYBTTsWpsN+RoUx': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 d4 e4 53 c7 5d e8 79 18 81 1e 0e 35 65 b1 53 0b fe e6 9c 44 08 56 01 4d 3b 16 a6 c3 7e 46 85 31>,
+[32m0|absenbot | [39m      privKey: <Buffer 10 11 14 39 03 29 1a 79 2a a2 d8 92 ef 56 80 6f ff 66 4a f1 82 4a 80 8c 66 bd 16 78 b5 c3 7e 42>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 13 32 fb ce f7 62 51 83 fc 22 c7 85 2d 94 e9 1c e2 f6 24 4e fd 79 f5 16 af 12 a8 01 1d e7 bf d1>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 bc 89 73 80 bf 59 b6 5f 32 64 66 6d 35 47 00 b9 38 c7 12 f2 07 50 89 9a 78 a2 92 95 70 80 48 02>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923363387,
+[32m0|absenbot | [39m    created: 1767923363387,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 bc 89 73 80 bf 59 b6 5f 32 64 66 6d 35 47 00 b9 38 c7 12 f2 07 50 89 9a 78 a2 92 95 70 80 48 02>,
+[32m0|absenbot | [39m    preKeyId: 1667
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BVUr7xkpb5eiZeLeXaRq0F5S4+V44zy74i+tTf4VIf5T': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 55 2b ef 19 29 6f 97 a2 65 e2 de 5d a4 6a d0 5e 52 e3 e5 78 e3 3c bb e2 2f ad 4d fe 15 21 fe 53>,
+[32m0|absenbot | [39m      privKey: <Buffer b0 77 c3 b6 e4 46 d6 a7 e1 09 87 08 fd ae bd cf 71 d9 83 ac 5f d8 6b 8c 76 95 fe 29 50 d1 2a 60>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer d4 6b b4 72 d9 41 ad bf e6 00 0b fb b5 17 a4 f1 68 33 a2 28 bb c2 16 b7 59 a1 f9 e3 3f 1b fa bf>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 56 c4 03 01 d5 92 1b db 5f 39 d7 b7 ba bb 66 40 c2 a1 6f b8 c5 8e 65 8a 84 02 a2 92 49 29 e0 17>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923363642,
+[32m0|absenbot | [39m    created: 1767923363642,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 56 c4 03 01 d5 92 1b db 5f 39 d7 b7 ba bb 66 40 c2 a1 6f b8 c5 8e 65 8a 84 02 a2 92 49 29 e0 17>,
+[32m0|absenbot | [39m    preKeyId: 2386
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    BX42LW2ZjEFbfqrsLAhmbfXJlXcjqaC4lAbX3bndacUr: { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 7e 36 2d 6d 99 8c 41 5b 7e aa ec 2c 08 66 6d f5 c9 95 77 23 a9 a0 b8 94 06 d7 dd b9 dd 69 c5 2b>,
+[32m0|absenbot | [39m      privKey: <Buffer 60 44 a5 41 4c 83 3b 57 d4 95 ed 73 e4 d4 0e a8 2a de 55 94 99 fa e6 8d a9 65 27 c7 ba b8 20 62>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 12 b3 79 19 72 87 53 c7 8d ca 1d 53 a3 f5 25 73 6c e6 f8 b2 97 6a 40 38 1a a2 df b9 b0 67 57 ba>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 8e 65 d6 5d 56 70 3f b4 f2 1b 92 cb 6a 9e 0e 7b 41 7b c1 11 fa 9f 0e 95 8a 90 8d c1 dd 76 48 53>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923363897,
+[32m0|absenbot | [39m    created: 1767923363897,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 8e 65 d6 5d 56 70 3f b4 f2 1b 92 cb 6a 9e 0e 7b 41 7b c1 11 fa 9f 0e 95 8a 90 8d c1 dd 76 48 53>,
+[32m0|absenbot | [39m    preKeyId: 2430
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BTSdMEn2Sn9cvUnAgo9pRc6WQ0l+Dvm+ngaEUyr3IRpr': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 13709,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 34 9d 30 49 f6 4a 7f 5c bd 49 c0 82 8f 69 45 ce 96 43 49 7e 0e f9 be 9e 06 84 53 2a f7 21 1a 6b>,
+[32m0|absenbot | [39m      privKey: <Buffer f0 88 c5 67 11 ce e8 12 39 8f 34 2d be b1 29 d9 b2 ae a9 14 83 aa d5 eb 6e cc 45 84 3d bc 61 60>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 9f 33 76 c4 ee 0d bf 3f 77 84 f2 17 a1 f7 69 61 4a 6a 4b 58 2a ec ee 38 17 5f 09 49 34 ac bb 0e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 0f 41 0d eb 2b 45 ab 99 a8 1c 24 ae b5 88 f0 9d c9 f2 14 ed 7f e4 2f de d6 4a b8 05 81 70 a2 1e>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 fa 0c 9b 59 09 d9 62 37 5c 66 86 ba 5e d5 ee dd d5 da af 97 33 80 0b 4a 86 36 e5 ec 1f 38 05 46>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767923364155,
+[32m0|absenbot | [39m    created: 1767923364155,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 4f 41 8b d6 9f 50 63 bc 49 ef 40 82 27 e9 7e 7a c5 cf 92 f9 c3 99 25 c2 08 21 d4 b3 78 31 79 2d>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 2,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 fa 0c 9b 59 09 d9 62 37 5c 66 86 ba 5e d5 ee dd d5 da af 97 33 80 0b 4a 86 36 e5 ec 1f 38 05 46>,
+[32m0|absenbot | [39m    preKeyId: 1714
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[01.49.24] [Para Pencari Kerja (PPK)] .dwitra ~: Kirain gimmick doang itu kuh..
+[32m0|absenbot | [39m[01.49.30] [siapa suruh ke sini?] 🐣: iyye beb
+[32m0|absenbot | [39m[01.49.44] [Para Pencari Kerja (PPK)] Aldy: Mairo kecil
+[32m0|absenbot | [39m[01.51.28] [siapa suruh ke sini?] Wahyuningsih: Mempergunakan tetangga
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BYCdrd3kI87u8Kmhx/5EEDLNN7Uv3EE4rrceRHWhxhQf': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 2055531376,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 80 9d ad dd e4 23 ce ee f0 a9 a1 c7 fe 44 10 32 cd 37 b5 2f dc 41 38 ae b7 1e 44 75 a1 c6 14 1f>,
+[32m0|absenbot | [39m      privKey: <Buffer 68 18 0d ba 63 32 0e bc 84 ef 66 a8 f5 2b f6 97 7e af c3 03 a4 d8 f4 ad 26 49 74 6f 8e 0f f4 57>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 64 0b d9 1b 92 88 88 d7 9c fa c5 6c d8 b4 96 0a 4f 0f 4d fc ae 09 70 47 7e f0 98 19 06 42 4e 1e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 5e 1c 04 40 9d e0 e5 c7 c8 52 fe 03 d0 a8 0a cb bf 67 ec ab 87 5e 2d e3 55 02 d3 54 81 0c e3 84>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 7c db 03 4e fd ce dc 54 6c 89 b6 51 a2 73 44 de 5c 84 f1 25 6c 85 d9 f1 ff fa 6d 10 e8 fd 9e 1c>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767844352399,
+[32m0|absenbot | [39m    created: 1767844352399,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 c8 cc 88 19 72 0b 3e 95 70 b8 83 8c cc d0 60 9c db eb ed e0 93 c9 8d 14 f2 99 fa 8b 06 2b af 67>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 15191669,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 7c db 03 4e fd ce dc 54 6c 89 b6 51 a2 73 44 de 5c 84 f1 25 6c 85 d9 f1 ff fa 6d 10 e8 fd 9e 1c>,
+[32m0|absenbot | [39m    preKeyId: 12101876
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[01.55.32] [siapa suruh ke sini?] Wahyuningsih: @280392946946080 @254232200507566 pantaukanka dlu orng P3M nah klw maumi back
+[32m0|absenbot | [39m[01.55.38] [siapa suruh ke sini?] Andi Alvin: okesi
+[32m0|absenbot | [39m[01.57.37] [Para Pencari Kerja (PPK)] .dwitra ~: https://www.instagram.com/reel/DTRZ5Jvk7kI/?igsh=MWJ1NHZqaDNkdXVjbA==
+[32m0|absenbot | [39mJirlah didemo
+[32m0|absenbot | [39m[02.00.09] [siapa suruh ke sini?] mazid.: siap bu prof hahaha
+[32m0|absenbot | [39m[02.00.23] [siapa suruh ke sini?] pajoo: di copy bu prof🙏🏻
+[32m0|absenbot | [39m[02.02.19] [Para Pencari Kerja (PPK)] Aldy: Emang perusahaan aneh
+[32m0|absenbot | [39m[02.03.30] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Wok di demo karna parkiran
+[32m0|absenbot | [39m[02.03.35] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Padahal parkiran didalam
+[32m0|absenbot | [39m[02.04.31] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Minta jath parkir itu
+[32m0|absenbot | [39m[02.05.54] [Para Pencari Kerja (PPK)] Aldy: Memang kadang lewatka meluber keluar mobil yang markir
+[32m0|absenbot | [39m[02.06.01] [Para Pencari Kerja (PPK)] Aldy: Sampai ke jalan
+[32m0|absenbot | [39m[02.21.53] [siapa suruh ke sini?] nr: @274749208952996 MSIH CUTI PAK MAMDU KAH?
+[32m0|absenbot | [39m[02.22.09] [siapa suruh ke sini?] ifah: iyee kemungkinan hari senin masuk
+[32m0|absenbot | [39m[02.22.16] [siapa suruh ke sini?] mazid.: capslock banget nih
+[32m0|absenbot | [39m[02.22.16] [siapa suruh ke sini?] ifah: itupun blum pasti juga 😭
+[32m0|absenbot | [39m[02.23.14] [siapa suruh ke sini?] nr: OKESIHH MAKASIH
+[32m0|absenbot | [39m[02.23.18] [Para Pencari Kerja (PPK)] .dwitra ~: Klarif duluu.. hadehh
+[32m0|absenbot | [39m[02.23.24] [siapa suruh ke sini?] nr: BIARMII HAHAHAH
+[32m0|absenbot | [39m[02.24.06] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Untung ngg kesnaa
+[32m0|absenbot | [39m[02.24.18] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Terlalu crot
+[32m0|absenbot | [39m[02.24.19] [Para Pencari Kerja (PPK)] Aldy: Ke sama gih
+[32m0|absenbot | [39m[02.24.22] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Sampai meluber
+[32m0|absenbot | [39m[02.24.24] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Ogah
+[32m0|absenbot | [39m[02.25.34] [Para Pencari Kerja (PPK)] .dwitra ~: Kukira kamu di cabang perintis
+[32m0|absenbot | [39m[02.33.15] [siapa suruh ke sini?] Mahabintang Pallawabonang: P lapar
+[32m0|absenbot | [39m[03.06.32] [siapa suruh ke sini?] Ir'Fikri Anggara Hasbar: 22222
+[32m0|absenbot | [39m[03.06.55] [siapa suruh ke sini?] Wahyuningsih: Dr mk kau ambil bekalmu yo
+[32m0|absenbot | [39m[03.07.49] [siapa suruh ke sini?] Amrina Rosyadah: dua
+[32m0|absenbot | [39m[03.09.46] [siapa suruh ke sini?] Mahabintang Pallawabonang: Heeeh mn ada🤣
+[32m0|absenbot | [39m[03.10.36] [siapa suruh ke sini?] Wahyuningsih: Kuliatk
+[32m0|absenbot | [39m[03.10.39] [siapa suruh ke sini?] Wahyuningsih: Jln dr motormu
+[32m0|absenbot | [39m[03.13.49] [Para Pencari Kerja (PPK)] Aldy: Wok, ini kenapa lama sekali
+[32m0|absenbot | [39m[03.14.35] [Para Pencari Kerja (PPK)] .dwitra ~: Menolak di uninstall itu
+[32m0|absenbot | [39m[03.15.29] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Gboleh uninstall
+[32m0|absenbot | [39m[03.15.58] [siapa suruh ke sini?] Muh Rezki: jumatan ji masjid disini?
+[32m0|absenbot | [39m[03.20.23] [Para Pencari Kerja (PPK)] Satria: disuruh ngoding lagi itu
+[32m0|absenbot | [39m[03.24.37] [Para Pencari Kerja (PPK)] Aldy: Gak bis abuat blogspot ternyata
+[32m0|absenbot | [39m[03.25.00] [siapa suruh ke sini?] Mahabintang Pallawabonang: I dunno
+[32m0|absenbot | [39m[03.26.22] [siapa suruh ke sini?] Ir'Fikri Anggara Hasbar: Turu
+[32m0|absenbot | [39m[03.28.58] [siapa suruh ke sini?] selena: kodong anakku😭
+[32m0|absenbot | [39m[03.32.54] [siapa suruh ke sini?] Amrina Rosyadah: beuh mantapnya
+[32m0|absenbot | [39m[03.37.03] [siapa suruh ke sini?] Amrina Rosyadah: asikk
+[32m0|absenbot | [39m[03.37.10] [siapa suruh ke sini?] Amrina Rosyadah: we knp nda balik pko inci?
+[32m0|absenbot | [39m[03.37.20] [siapa suruh ke sini?] Amrina Rosyadah: nah adami kuliat ini prof sm tetta kmbli
+[32m0|absenbot | [39m[03.37.23] [siapa suruh ke sini?] Mahabintang Pallawabonang: 2in
+[32m0|absenbot | [39m[03.38.24] [siapa suruh ke sini?] Wahyuningsih: Hhh na tingggalka
+[32m0|absenbot | [39m[03.41.13] [siapa suruh ke sini?] Wahyuningsih: Mantap
+[32m0|absenbot | [39m[03.42.51] [siapa suruh ke sini?] nr: Mkn dmna ko?
+[32m0|absenbot | [39m[03.47.38] [siapa suruh ke sini?] Wahyuningsih: Kantin aja
+[32m0|absenbot | [39m[03.48.12] [siapa suruh ke sini?] Wahyuningsih: Ayo kantin
+[32m0|absenbot | [39m[03.48.15] [siapa suruh ke sini?] Wahyuningsih: @185869776478348
+[32m0|absenbot | [39m[03.49.01] [siapa suruh ke sini?] nr: GAS
+[32m0|absenbot | [39m[03.49.08] [siapa suruh ke sini?] Amrina Rosyadah: ayoo kantin  guais
+[32m0|absenbot | [39m[03.49.32] [siapa suruh ke sini?] pajoo: di perut mi saya
+[32m0|absenbot | [39m[03.50.39] [siapa suruh ke sini?] Wahyuningsih: Ayomi
+[32m0|absenbot | [39m[03.50.41] [siapa suruh ke sini?] Wahyuningsih: Dehhh
+[32m0|absenbot | [39m[03.54.09] [siapa suruh ke sini?] nr: Otiwi
+[32m0|absenbot | [39m[03.54.35] [siapa suruh ke sini?] Wahyuningsih: Ayomi
+[32m0|absenbot | [39m[03.56.44] [siapa suruh ke sini?] .: Nitippp
+[32m0|absenbot | [39m[03.56.55] [siapa suruh ke sini?] Wahyuningsih: @185869776478348 ayomi kantin
+[32m0|absenbot | [39m[03.57.42] [WIBUBERS UNDIPA] Day: ada yg mw ambil asisten ngajar ?
+[32m0|absenbot | [39m[03.57.45] [WIBUBERS UNDIPA] Day: tmnku nyari
+[32m0|absenbot | [39m[03.58.20] [siapa suruh ke sini?] Wahyuningsih: @166975527465183 ayo
+[32m0|absenbot | [39m[03.59.45] [siapa suruh ke sini?] Amrina Rosyadah: nda kekantinko?
+[32m0|absenbot | [39m[03.59.50] [siapa suruh ke sini?] Amrina Rosyadah: ohh mau soljum di'
+[32m0|absenbot | [39m[04.02.12] [siapa suruh ke sini?] nr: Kemaiko eh
+[32m0|absenbot | [39m[04.02.24] [siapa suruh ke sini?] nr: Kau kemaiko eh
+[32m0|absenbot | [39m[04.02.55] [siapa suruh ke sini?] Mahabintang Pallawabonang: Yoi beb
+[32m0|absenbot | [39m[04.07.58] [Para Pencari Kerja (PPK)] .dwitra ~: Baru seminggu yang lalu yah ternyata aku dari polman.. udah kangen aku cik sama bolu cukke mweheh
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BbekumERyi6PRV3zlY3wYE+7+mf99cbEcQG54yucKUE0': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 516268966,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 b7 a4 ba 61 11 ca 2e 8f 45 5d f3 95 8d f0 60 4f bb fa 67 fd f5 c6 c4 71 01 b9 e3 2b 9c 29 41 34>,
+[32m0|absenbot | [39m      privKey: <Buffer 08 2f f5 2b a5 1f c4 ca 23 4c 75 84 f0 ce 0c 87 71 39 a9 76 64 f1 63 c8 a1 5a 75 de 03 05 61 63>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 07 04 02 a7 7c 28 d4 8c fe 18 87 ff 32 7f 19 77 49 f1 ff c3 bb 30 19 e9 d5 ce 50 38 6a 0d fa 50>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 3f 95 96 7b a0 7e c2 18 07 8b ef e2 da 89 7c 1f 25 6b e7 f3 a5 d5 e8 09 b7 30 f5 d1 21 12 df 14>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 60 fa c3 4d 18 d8 11 86 7f f1 c6 f0 6f ac f5 b0 4e 71 8d 80 5c cf a2 ca da 6c b4 91 9b 94 f6 5a>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767899020271,
+[32m0|absenbot | [39m    created: 1767899020271,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 0e a5 20 e7 9a 54 99 89 c3 e8 6c fd 08 8e b8 ca da aa 54 d1 27 83 ff c9 41 a6 e4 17 23 ea f0 59>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 12953814,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 60 fa c3 4d 18 d8 11 86 7f f1 c6 f0 6f ac f5 b0 4e 71 8d 80 5c cf a2 ca da 6c b4 91 9b 94 f6 5a>,
+[32m0|absenbot | [39m    preKeyId: 1018569
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BfNgbwhcOzeB+lYqZ/iNX/oTx5hUBFpzQ/WpBn1pACVw': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 839497219,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 f3 60 6f 08 5c 3b 37 81 fa 56 2a 67 f8 8d 5f fa 13 c7 98 54 04 5a 73 43 f5 a9 06 7d 69 00 25 70>,
+[32m0|absenbot | [39m      privKey: <Buffer 30 aa 64 f5 a4 a6 f6 24 5c 48 cc 16 7e 6c 4e ab 8c 26 03 49 2f 20 3c e1 03 27 d8 84 0d 85 6b 46>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 b0 a4 08 ce 3f e5 fa 7b 56 7c 8c ac 87 79 29 fd cf 75 18 c7 b5 80 96 3c 06 ef 49 a2 e5 5a 62 63>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer de c0 1e 15 08 dd 22 93 3f 5b e8 bf 42 cf fc df 2f 3d 8e 01 89 84 bc 0d 56 a4 ea b8 6d c0 8a 8a>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 1e c4 0f 23 97 51 1a 07 6e 41 6c 68 20 ad cb 0c 1a 28 95 41 f4 43 81 04 60 1f 45 49 01 99 21 71>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767931740283,
+[32m0|absenbot | [39m    created: 1767931740283,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 78 3a 19 2d 3c 0a 5e ea d5 19 94 97 0b 69 c5 fb ce b2 7c 4f 25 1c 4d dc 0f d5 eb 8c db f1 1d 72>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 1689905,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 1e c4 0f 23 97 51 1a 07 6e 41 6c 68 20 ad cb 0c 1a 28 95 41 f4 43 81 04 60 1f 45 49 01 99 21 71>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[04.22.09] [WIBUBERS UNDIPA] Unknown: info dong yang pernah dapat bu intan di praktikum mikrokontroler
+[32m0|absenbot | [39mini ibu memang 2 kali final kah?
+[32m0|absenbot | [39m[04.42.33] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Deh
+[32m0|absenbot | [39m[04.42.39] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Kangen maknnnya doang
+[32m0|absenbot | [39m[04.42.43] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Bukan aldyhmya
+[32m0|absenbot | [39m[04.42.43] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Fake
+[32m0|absenbot | [39m❌ Connection Closed: Connection Closed
+[32m0|absenbot | [39m[WARNING] WhatsApp disconnected
+[32m0|absenbot | [39m🔄 Attempting to reconnect...
+[32m0|absenbot | [39m🤖 Memulai Bot (v2.3000.1027934701) + SCHEDULER
+[32m0|absenbot | [39m✅ KONEKSI STABIL. Scheduler Aktif.
+[32m0|absenbot | [39m[SUCCESS] WhatsApp connected
+[32m0|absenbot | [39m✅ Auth server running on port 3004
+[32m0|absenbot | [39m⚠️ Port 3004 in use, trying 3005
+[32m0|absenbot | [39m✅ Auth server running on port 3005
+[32m0|absenbot | [39m[05.07.13] [Para Pencari Kerja (PPK)] Aldy: Sini lagi
+[32m0|absenbot | [39m[05.07.18] [Para Pencari Kerja (PPK)] Aldy: Pekan depan libur hari Jumat
+[32m0|absenbot | [39m[05.09.27] Abdul Syukur: BanSos Mahasiswa
+[32m0|absenbot | [39m[05.09.34] Abdul Syukur: Ada lagi Nun
+[32m0|absenbot | [39m[05.17.37] [Para Pencari Kerja (PPK)] .dwitra ~: Kamu nda datang sama sekali
+[32m0|absenbot | [39m[05.18.16] [Para Pencari Kerja (PPK)] Aldy: BTW, SATria lagi sakit, kalian nda mau jenguk
+[32m0|absenbot | [39m[05.18.27] [Para Pencari Kerja (PPK)] Aldy: Jangan tanya SATria kalau saya yang bilang 🤫
+[32m0|absenbot | [39m[05.19.46] [Para Pencari Kerja (PPK)] .dwitra ~: Waduh gws sat.. sorry nda bisa kesana.. dipake mulu motor ini apalagi baru datang kakakku.  Dia yang sering pake
+[32m0|absenbot | [39m[05.24.17] [siapa suruh ke sini?] Pian: coba bde lomba lari ki disini?
+[32m0|absenbot | [39m[05.24.32] [siapa suruh ke sini?] Wahyuningsih: Biarma kalah
+[32m0|absenbot | [39m[05.24.51] [siapa suruh ke sini?] Ir'Fikri Anggara Hasbar: Ingpokan kalo mau mi dicek
+[32m0|absenbot | [39m[05.25.00] [siapa suruh ke sini?] Wahyuningsih: Blmpa d ruangan
+[32m0|absenbot | [39m[05.25.22] [siapa suruh ke sini?] Wahyuningsih: Perasaan baru”ki ketemu
+[32m0|absenbot | [39m[05.26.34] [siapa suruh ke sini?] Ir'Fikri Anggara Hasbar: Beda org mungkin
+[32m0|absenbot | [39m[AUTH] Admin logged in to dashboard
+[32m0|absenbot | [39m[05.28.04] [Para Pencari Kerja (PPK)] Aldy: Kok?
+[32m0|absenbot | [39m[API] /api/groups/active called
+[32m0|absenbot | [39m[API] Check bot connection state...
+[32m0|absenbot | [39m[API] Fetching participating groups...
+[32m0|absenbot | [39m[API] Raw groups fetched: 128
+[32m0|absenbot | [39m[API] Returning 128 groups to client
+[32m0|absenbot | [39m[GROUPS] Updated group: 120363405314436242@g.us
+[32m0|absenbot | [39m[INFO] Group 120363405314436242@g.us updated via dashboard
+[32m0|absenbot | [39m[05.32.40] [siapa suruh ke sini?] Wahyuningsih: Kayaknya
+[32m0|absenbot | [39m[05.33.24] [siapa suruh ke sini?] Amrina Rosyadah: manami eskrimku kasihan
+[32m0|absenbot | [39m[05.34.02] [WIBUBERS UNDIPA] Leaf.: Banyak na itu
+[32m0|absenbot | [39m[05.34.31] [WIBUBERS UNDIPA] A: Kenapa bisa 2x final
+[32m0|absenbot | [39m[API] /api/groups/active called
+[32m0|absenbot | [39m[API] Check bot connection state...
+[32m0|absenbot | [39m[API] Fetching participating groups...
+[32m0|absenbot | [39m[API] Raw groups fetched: 128
+[32m0|absenbot | [39m[API] Returning 128 groups to client
+[32m0|absenbot | [39m[05.37.54] [Para Pencari Kerja (PPK)] Satria: cdih obatnya padahal bolu cukei skalian cukei penjualnya
+[32m0|absenbot | [39m[05.38.17] [Para Pencari Kerja (PPK)] Aldy: Cukkeiii
+[32m0|absenbot | [39m[05.45.35] [WIBUBERS UNDIPA] ~: Agak laen
+[32m0|absenbot | [39m[05.45.38] [WIBUBERS UNDIPA] ~: 1x ji setahuku
+[32m0|absenbot | [39m[05.46.08] [WIBUBERS UNDIPA] sui: Nda ku tau juga kak
+[32m0|absenbot | [39m[05.46.21] [WIBUBERS UNDIPA] sui: Ini masih abu" antara jadi dan tidak
+[32m0|absenbot | [39m[05.46.28] [WIBUBERS UNDIPA] sui: Karna asdos bilang harusnya tdk
+[32m0|absenbot | [39m[05.46.54] [WIBUBERS UNDIPA] ~: Klo praktikum setahuku sebelum final uas
+[32m0|absenbot | [39m[05.47.04] [WIBUBERS UNDIPA] sui: Assalamu alaikum, selamat pagi ananda sekalian. Untuk Final II Hari Jumat, silakan kalian pelajari semuanya, sebagai fokus:
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mDAFTAR KISI-KISI PERCOBAAN YANG DIMASUKKAN KE UAS PRAKTIKUM SISTEM MIKTROKONTROLER:
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m1.  Sensor Flame dan Sensor MQ2, Sounder, Virtual Terminal, LED dan jurnal praktikumnya
+[32m0|absenbot | [39m2.  Sensor Ultrasonik, Sounder, Virtual Terminal, LED, dan jurnal praktikumnya.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mUjian untuk belajar, bukan belajar untuk ujian.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mMekanisme Ujian:
+[32m0|absenbot | [39m1. Menyerahkan kartu kontrol dan menyediakan pulpen saat ujian.
+[32m0|absenbot | [39m2. Mengenakan kemeja dan sepatu lengkap sebelum memasuki lab.
+[32m0|absenbot | [39m3. Tidak membuka catatan/buku/mengakses hape saat ujian.
+[32m0|absenbot | [39m4. Tidak melakukan joki saat ujian.
+[32m0|absenbot | [39m5. Mengisi identitas (NIM, Nama, Kelas) pada lembar jawaban di kertas yang telah disediakan di dalam lab.
+[32m0|absenbot | [39m6. Mengerjakan soal ujian secara simulasi dengan tertib, tidak boleh pindah-pindah tempat duduk kecuali atas izin dari pengawas ujian.
+[32m0|absenbot | [39m7. Menyerahkan lembar ujian tepat waktu atau menyimpannya di depan PC sesuai arahan pengawas.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mTerima kasih atas kerjasama dan kepatuhannya.
+[32m0|absenbot | [39mDosen Pengampu Mata Kuliah,
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mIr. Indo Intan, M.T.
+[32m0|absenbot | [39m[05.47.19] [WIBUBERS UNDIPA] ~: Final test praktikum sebelum final test teori
+[32m0|absenbot | [39m[05.48.09] [WIBUBERS UNDIPA] ~: Selesai mi final pertama mu?
+[32m0|absenbot | [39m[05.48.18] [WIBUBERS UNDIPA] sui: Selesai mi
+[32m0|absenbot | [39m[05.48.30] [WIBUBERS UNDIPA] sui: Itu hari seblm libur natal dan tahun baru
+[32m0|absenbot | [39m[05.49.05] [Para Pencari Kerja (PPK)] .dwitra ~: Suruh aldy beli terus cukke dis
+[32m0|absenbot | [39m[05.53.07] [WIBUBERS UNDIPA] Muh. Yusuf Zahir: bah, ada dibilang pretest sama test finalna
+[32m0|absenbot | [39m1 minggu sebelum final ujian, pas final ujian lagi
+[32m0|absenbot | [39m[05.53.56] [WIBUBERS UNDIPA] Muh. Yusuf Zahir: setidaknya ndak disuruh buat video menjelaskan
+[32m0|absenbot | [39m[05.54.49] [WIBUBERS UNDIPA] sui: Saya nda pernah di ksh tau
+[32m0|absenbot | [39m[05.59.47] [siapa suruh ke sini?] nr: @271111237464183 @77481260380259
+[32m0|absenbot | [39m[05.59.55] [WIBUBERS UNDIPA] ~: Klo misalnya ndk bagus ki ini dosen menurutmu ada itu kuesioner dikasih ko itu sama dia
+[32m0|absenbot | [39m[06.00.06] [WIBUBERS UNDIPA] ~: Kasih rata kiri saja penilaian nya
+[32m0|absenbot | [39m[API] /api/groups/active called
+[32m0|absenbot | [39m[API] Check bot connection state...
+[32m0|absenbot | [39m[API] Fetching participating groups...
+[32m0|absenbot | [39m[API] Raw groups fetched: 128
+[32m0|absenbot | [39m[API] Returning 128 groups to client
+[32m0|absenbot | [39m[06.31.29] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Cukke
+[32m0|absenbot | [39m[06.41.33] [Para Pencari Kerja (PPK)] Satria: Cukkeii
+[32m0|absenbot | [39m[06.44.14] [Para Pencari Kerja (PPK)] Aldy: Dewi baru makan satu, SATria sudah habisin satu toples, jir
+[32m0|absenbot | [39m[06.44.25] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Pemakan
+[32m0|absenbot | [39m[06.46.12] [WIBUBERS UNDIPA] Muh. Yusuf Zahir: khusus bu Indo Intan ini, yang lain ndakji
+[32m0|absenbot | [39m[06.48.22] [WIBUBERS UNDIPA] kiki: sudah ma
+[32m0|absenbot | [39m[06.54.30] [Tes] Akmal: .menu
+[32m0|absenbot | [39m[06.54.38] [Tes] Akmal: *BOT MAGANGHUB*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mHalo! Saya asisten absensi MagangHub Anda.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Daftar Perintah:*
+[32m0|absenbot | [39m1️⃣ *!daftar* - Registrasi akun (Wajib)
+[32m0|absenbot | [39m2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)
+[32m0|absenbot | [39m3️⃣ *!cek* - Cek status kehadiran hari ini
+[32m0|absenbot | [39m4️⃣ *!riwayat* - Lihat riwayat absen
+[32m0|absenbot | [39m5️⃣ *!help* - Panduan & Cara pakai
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Bot dapat mengingatkan dan dan akan siapkan draft. Balas *ya* untuk kirim, atau *copy-paste & edit* draft untuk revisi._
+[32m0|absenbot | [39m[06.54.44] [Tes] Akmal: .absen
+[32m0|absenbot | [39m[06.56.22] [Tes] Akmal: _Sedang menyiapkan laporan otomatis dari riwayat Anda..._
+[32m0|absenbot | [39m[06.56.40] [Para Pencari Kerja (PPK)] .dwitra ~: Nda dikasi kesempatan men cukke
+[32m0|absenbot | [39m[06.57.28] [Tes] Akmal: ✅ Draft laporan telah dikirim ke Chat Pribadi Anda. Silakan cek.
+[32m0|absenbot | [39m[06.58.18] [Para Pencari Kerja (PPK)] Satria: yang satu malu malu yang satu ga tau malu
+[32m0|absenbot | [39m[06.58.57] [Para Pencari Kerja (PPK)] Satria: maap dew my first time gweh eating makan bolu cukke
+[32m0|absenbot | [39m[SCHEDULER] Running afternoon reminder (16:00 Asia/Jayapura)...
+[32m0|absenbot | [39m[07.08.17] [Magang Di Pluit🎷💸] Grady Jonathan: @172133716123741 @107215721594883 uda pada dapet Catapa belum?
+[32m0|absenbot | [39m[07.08.55] [Magang Di Pluit🎷💸] Cindy Mettana: EH UDAH
+[32m0|absenbot | [39m[07.08.56] [Magang Di Pluit🎷💸] Cindy Mettana: di email
+[32m0|absenbot | [39m[07.09.14] [Magang Di Pluit🎷💸] Grady Jonathan: naiss
+[32m0|absenbot | [39m[07.09.18] [Magang Di Pluit🎷💸] Grady Jonathan: aku juga baru dapet
+[32m0|absenbot | [39m[07.09.34] [Magang Di Pluit🎷💸] Grady Jonathan: petunjuk penggunaannya belum di share lgi ya di grup?
+[32m0|absenbot | [39m[07.10.45] [Para Pencari Kerja (PPK)] .dwitra ~: Nda malu2 aku rek... Penuh duluan perutkuu
+[32m0|absenbot | [39m[07.10.50] [Magang Di Pluit🎷💸] Cindy Mettana: BELUM
+[32m0|absenbot | [39m[07.10.59] [Magang Di Pluit🎷💸] Cindy Mettana: hrus selfi ya absennya?
+[32m0|absenbot | [39m[07.11.06] [Para Pencari Kerja (PPK)] .dwitra ~: Aowkaowk amaan... Nda tau aku sesuka itu sama bolu cukke
+[32m0|absenbot | [39m[07.13.09] [Magang Di Pluit🎷💸] Vincent I: itu hrs mulai dari kapan wee
+[32m0|absenbot | [39m[07.13.10] [Magang Di Pluit🎷💸] Vincent I: wkwkkw
+[32m0|absenbot | [39m[07.14.39] [Magang Di Pluit🎷💸] Cindy Mettana: gatau, kita kan pagi belum berarti ya itungannya hmm
+[32m0|absenbot | [39m[07.15.07] [Magang Di Pluit🎷💸] Vincent I: ku mulai mingdep aja deh wkwkkw
+[32m0|absenbot | [39m[07.16.57] [Magang Di Pluit🎷💸] Grady Jonathan: iyaa senin paling
+[32m0|absenbot | [39m[07.17.21] [Magang Di Pluit🎷💸] Grady Jonathan: tapi ntar pulang coba di cek lgi kalau dia bisa selfie atau ngga
+[32m0|absenbot | [39m[07.21.44] [Magang Di Pluit🎷💸] Cindy Mettana: iyaaa sama
+[32m0|absenbot | [39m[07.23.10] [Para Pencari Kerja (PPK)] Satria: enak rek, cetakan kuenya mirip kue bolu tapi dia keras yang bawahnya biasa hangus
+[32m0|absenbot | [39m[07.24.08] [Para Pencari Kerja (PPK)] Aldy: Cukkeiii
+[32m0|absenbot | [39m[07.34.35] [Para Pencari Kerja (PPK)] .dwitra ~: Nah iyaa . Kek ada crunchy2 nya
+[32m0|absenbot | [39m[07.35.38] [Para Pencari Kerja (PPK)] Satria: Ini dia yang kucari
+[32m0|absenbot | [39m[07.37.07] [Para Pencari Kerja (PPK)] .dwitra ~: Mobilador bangettt☝️😔
+[32m0|absenbot | [39m[07.37.25] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Gelooooo
+[32m0|absenbot | [39m[07.37.51] [Para Pencari Kerja (PPK)] Aldy: Kukira joke mobilador itu gak serius 😞
+[32m0|absenbot | [39m[07.38.27] [Para Pencari Kerja (PPK)] .dwitra ~: Mending rakit pc dah kata ku
+[32m0|absenbot | [39m[07.38.52] [Para Pencari Kerja (PPK)] Aldy: Rakit PC gak mending lagi sekarang 😞
+[32m0|absenbot | [39m[07.39.20] [Para Pencari Kerja (PPK)] .dwitra ~: Mending pake mobilador😭
+[32m0|absenbot | [39m[07.40.03] [Para Pencari Kerja (PPK)] Aldy: Mending mobillegend
+[32m0|absenbot | [39m[07.42.01] [Para Pencari Kerja (PPK)] Satria: Mending hoek lah dasar pengkhianat 😏
+[32m0|absenbot | [39m[07.42.14] [Para Pencari Kerja (PPK)] Aldy: Kau yang mana?
+[32m0|absenbot | [39m[07.42.19] [Para Pencari Kerja (PPK)] Satria: Makan tuh RAM
+[32m0|absenbot | [39m[07.42.31] [Para Pencari Kerja (PPK)] Satria: Ak vain glory bang
+[32m0|absenbot | [39m[07.42.45] [Para Pencari Kerja (PPK)] Satria: Moba kok analog 😏😎
+[32m0|absenbot | [39m[07.43.53] [Para Pencari Kerja (PPK)] Satria: Ak serius cok 😠
+[32m0|absenbot | [39m[07.44.06] [Para Pencari Kerja (PPK)] Satria: Era Pc Gaming Telah Berakhir
+[32m0|absenbot | [39m[07.45.30] [siapa suruh ke sini?] nr: ABSENNN UANG
+[32m0|absenbot | [39m[07.45.59] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Syudahhh
+[32m0|absenbot | [39m[07.50.03] [siapa suruh ke sini?] Mahabintang Pallawabonang: Stgh 5 pki pulang
+[32m0|absenbot | [39m[07.50.17] [siapa suruh ke sini?] nr: ABSENN SJA
+[32m0|absenbot | [39m[07.50.24] [siapa suruh ke sini?] nr: BIAR DK LUPA
+[32m0|absenbot | [39m[07.53.14] [siapa suruh ke sini?] Mahabintang Pallawabonang: Ok beb
+[32m0|absenbot | [39m[SCHEDULER] Running afternoon reminder (16:00 Asia/Makassar)...
+[32m0|absenbot | [39m[08.00.43] [siapa suruh ke sini?] selena: selaluna main di londri😭🫵
+[32m0|absenbot | [39m[08.01.10] [siapa suruh ke sini?] Mahabintang Pallawabonang: Nacariko fandi junior
+[32m0|absenbot | [39m[08.02.15] [siapa suruh ke sini?] selena: inai sedeng fandi junior
+[32m0|absenbot | [39m[08.02.20] [siapa suruh ke sini?] selena: i only own 1 kid tho
+[32m0|absenbot | [39m[08.03.18] [siapa suruh ke sini?] Mahabintang Pallawabonang: Inie fandi junior. Fandi part 2 mo paeng😭😭
+[32m0|absenbot | [39m[08.03.21] [siapa suruh ke sini?] nr: siapa di sni yang sudah di suruh buat IKU desember
+[32m0|absenbot | [39m[08.04.52] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Sudahmi sy
+[32m0|absenbot | [39m[08.04.54] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Berubah mi
+[32m0|absenbot | [39m[08.18.44] [siapa suruh ke sini?] Amrina Rosyadah: brubahmi IKU mu diweb?
+[32m0|absenbot | [39m[08.18.56] [siapa suruh ke sini?] Ria Anugrah: thx @77481260380259 @271111237464183
+[32m0|absenbot | [39m[08.18.56] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Iyya berubahmi
+[32m0|absenbot | [39m[08.19.55] [siapa suruh ke sini?] Amrina Rosyadah: oalahh okeii
+[32m0|absenbot | [39m[08.20.30] [siapa suruh ke sini?] selena: mau jugaaa @77481260380259 @271111237464183
+[32m0|absenbot | [39m[08.30.57] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Markipull
+[32m0|absenbot | [39m[08.32.10] [Tes] ME: .absen
+[32m0|absenbot | [39m[08.32.12] [Tes] Akmal: Anda belum terdaftar. Gunakan *!daftar* terlebih dahulu.
+[32m0|absenbot | [39m[08.32.16] [Tes] ME: .daftar
+[32m0|absenbot | [39m[08.32.16] Akmal: *PENDAFTARAN AKUN*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mPastikan Anda mendaftar menggunakan email dan password akun *Monev / SiapKerja* asli agar bot dapat melakukan absensi secara otomatis. Klik link di bawah ini untuk menghubungkan akun MagangHub kamu:
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mhttp://monev-absenbot.my.id/auth/28053b27847f0308155d12a25603ec3e38cf19e51c2c6443fceee38670c87c4a
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m(Link ini aman tidak menyimpan password kamu, hanya menyimpan cookies login, hanya berlaku 10 menit)
+[32m0|absenbot | [39m[08.32.17] [Tes] Akmal: Link pendaftaran sudah dikirim ke Chat Pribadi.
+[32m0|absenbot | [39m[08.32.32] [siapa suruh ke sini?] Arsal Masudd: Hahah
+[32m0|absenbot | [39m[08.33.57] Akmal: *REGISTRASI BERHASIL*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mAkun Anda berhasil terdaftar.
+[32m0|absenbot | [39mGunakan perintah *!absen* untuk mengirim laporan harian.
+[32m0|absenbot | [39matau bisa langsung kesini https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[08.34.14] ME: .absen aku hari ini melanjutkan untuk pengembangan web virtual tour yaitu mencoba memasukkan video agar bsa di tonton oleh user, kendala tidak ada
+[32m0|absenbot | [39m[08.34.21] Akmal: *DRAF LAPORAN ANDA*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (157 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada integrasi fitur pemutar video agar konten dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (158 karakter)
+[32m0|absenbot | [39mMemahami teknis penyematan video yang optimal serta pentingnya memastikan performa pemutaran tetap lancar demi menjaga pengalaman pengguna dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar dan stabil, sehingga tidak ada kendala teknis maupun hambatan berarti yang ditemukan saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BZkSOvSLXJDwnFPrM98+lBTC85vJSlhdils83gQBTAVr': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 858232950,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 99 12 3a f4 8b 5c 90 f0 9c 53 eb 33 df 3e 94 14 c2 f3 9b c9 4a 58 5d 8a 5b 3c de 04 01 4c 05 6b>,
+[32m0|absenbot | [39m      privKey: <Buffer 88 69 7e 49 a2 4b 71 7d 8d 7d 55 72 fc 2e 0b e4 c4 c2 05 ac 0f cd 5c c9 b3 a0 6c f4 e5 1b 2a 4d>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 fe 1b 74 c8 6e f0 2c b0 2d 72 d2 2a fd 11 dd e3 99 f9 f5 fc 1d 50 c3 ea 74 da de 37 8c 6d 32 79>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 94 8e 17 ce 5a bc 0f 4c 12 39 c8 f6 d3 5a ab 9a 93 00 7b 12 d0 5b 12 82 3a 93 17 97 48 73 df 2a>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 f4 0b 5f ac 90 48 ea 98 8f 28 f1 e9 20 e0 96 77 71 ce 6a 36 84 7e ee 14 2d c1 97 f8 60 9f 10 3c>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767878440703,
+[32m0|absenbot | [39m    created: 1767878440703,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 d2 3a 4e 29 98 5f 22 31 6e 3a 0e da 61 13 8d 18 d7 01 39 79 69 ba 90 d7 b1 d5 df e0 61 a8 e1 2c>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 8748856,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 f4 0b 5f ac 90 48 ea 98 8f 28 f1 e9 20 e0 96 77 71 ce 6a 36 84 7e ee 14 2d c1 97 f8 60 9f 10 3c>,
+[32m0|absenbot | [39m    preKeyId: 1463
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[08.35.58] ME: *DRAF LAPORAN ANDA*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (157 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (158 karakter)
+[32m0|absenbot | [39mMemahami teknis embed video, serta pentingnya memastikan performa video tetap lancar demi menjaga pengalaman user dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar dan stabil, sehingga tidak ada kendala teknis maupun hambatan berarti yang ditemukan saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.35.58] Akmal: *DRAF DIPERBARUI* ✨
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (156 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (133 karakter)
+[32m0|absenbot | [39mMemahami teknis embed video, serta pentingnya memastikan performa video tetap lancar demi menjaga pengalaman user dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar dan stabil, sehingga tidak ada kendala teknis maupun hambatan berarti yang ditemukan saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.36.24] ME: *DRAF DIPERBARUI* ✨
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (156 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (133 karakter)
+[32m0|absenbot | [39mMemahami teknik embed video, serta pentingnya memastikan performa video tetap lancar demi menjaga pengalaman user dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar dan stabil, sehingga tidak ada kendala teknis maupun hambatan berarti yang ditemukan saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.36.24] Akmal: *DRAF DIPERBARUI* ✨
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (156 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (133 karakter)
+[32m0|absenbot | [39mMemahami teknik embed video, serta pentingnya memastikan performa video tetap lancar demi menjaga pengalaman user dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar dan stabil, sehingga tidak ada kendala teknis maupun hambatan berarti yang ditemukan saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.36.41] ME: *DRAF DIPERBARUI* ✨
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (156 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (133 karakter)
+[32m0|absenbot | [39mMemahami teknik embed video, serta pentingnya memastikan performa video tetap lancar dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar dan stabil, sehingga tidak ada kendala teknis maupun hambatan berarti yang ditemukan saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.36.42] Akmal: *DRAF DIPERBARUI* ✨
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (156 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (104 karakter)
+[32m0|absenbot | [39mMemahami teknik embed video, serta pentingnya memastikan performa video tetap lancar dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar dan stabil, sehingga tidak ada kendala teknis maupun hambatan berarti yang ditemukan saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.37.22] ME: *DRAF DIPERBARUI* ✨
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (156 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (104 karakter)
+[32m0|absenbot | [39mMemahami teknik embed video, serta pentingnya memastikan performa video tetap lancar dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (161 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar, sehingga tidak ada kendala maupun hambatan berarti saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.37.22] Akmal: *DRAF DIPERBARUI* ✨
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (156 karakter)
+[32m0|absenbot | [39mMelanjutkan proses pengembangan website virtual tour dengan fokus pada penambahan fitur video agar konten video dapat dinikmati oleh user secara interaktif.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (104 karakter)
+[32m0|absenbot | [39mMemahami teknik embed video, serta pentingnya memastikan performa video tetap lancar dalam virtual tour.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (128 karakter)
+[32m0|absenbot | [39mSeluruh proses pengerjaan hari ini berjalan dengan lancar, sehingga tidak ada kendala maupun hambatan berarti saat pengembangan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Ketik *ya* untuk kirim._
+[32m0|absenbot | [39m[08.37.38] ME: ya
+[32m0|absenbot | [39m[08.37.39] Akmal: ✅ *BERHASIL!*
+[32m0|absenbot | [39mLaporan Anda telah terkirim ke web MagangHub.
+[32m0|absenbot | [39m[08.49.15] [siapa suruh ke sini?] mazid.: sama sama riri
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m[SHUTDOWN] Received SIGINT. Cleaning up...
+[32m0|absenbot | [39m[SHUTDOWN] Cleanup complete. Exiting.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m╔════════════════════════════════════════════════════════════╗
+[32m0|absenbot | [39m║              🌍 ENVIRONMENT DETECTION                       ║
+[32m0|absenbot | [39m╠════════════════════════════════════════════════════════════╣
+[32m0|absenbot | [39m║  Platform    : linux                                       ║
+[32m0|absenbot | [39m║  Environment : vps                                         ║
+[32m0|absenbot | [39m║  Env Name    : VPS/Server (Linux)                          ║
+[32m0|absenbot | [39m║  Project Root: /home/ubuntu/absenbot                       ║
+[32m0|absenbot | [39m║  Chromium    : /usr/bin/chromium-browser                   ║
+[32m0|absenbot | [39m╚════════════════════════════════════════════════════════════╝
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m[COMMANDS] Loaded: absen
+[32m0|absenbot | [39m[COMMANDS] Loaded: all
+[32m0|absenbot | [39m[COMMANDS] Loaded: broadcast
+[32m0|absenbot | [39m[COMMANDS] Loaded: cek
+[32m0|absenbot | [39m[COMMANDS] Loaded: daftar
+[32m0|absenbot | [39m[COMMANDS] Loaded: dev
+[32m0|absenbot | [39m[COMMANDS] Loaded: hapus
+[32m0|absenbot | [39m[COMMANDS] Loaded: help
+[32m0|absenbot | [39m[COMMANDS] Loaded: ingatkan
+[32m0|absenbot | [39m[COMMANDS] Loaded: listuser
+[32m0|absenbot | [39m[COMMANDS] Loaded: menu, hai
+[32m0|absenbot | [39m[COMMANDS] Loaded: riwayat
+[32m0|absenbot | [39m[COMMANDS] Loaded: setgroup
+[32m0|absenbot | [39m[COMMANDS] Loaded: test
+[32m0|absenbot | [39m[COMMANDS] Total commands loaded: 15
+[32m0|absenbot | [39m🤖 Memulai Bot (v2.3000.1027934701) + SCHEDULER
+[32m0|absenbot | [39m✅ KONEKSI STABIL. Scheduler Aktif.
+[32m0|absenbot | [39m[SUCCESS] WhatsApp connected
+[32m0|absenbot | [39m✅ Auth server running on port 3000
+[32m0|absenbot | [39m[08.53.17] Akmal: !absen
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[QUEUE] Added task: Login-akmaljie12355@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-akmaljie12355@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for akmaljie12355@gmail.com (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-akmaljie12355@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-09
+[32m0|absenbot | [39m[08.53.54] ME: *SUDAH ABSEN*
+[32m0|absenbot | [39mAnda telah absen hari ini.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m[SHUTDOWN] Received SIGINT. Cleaning up...
+[32m0|absenbot | [39m[SHUTDOWN] Cleanup complete. Exiting.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m╔════════════════════════════════════════════════════════════╗
+[32m0|absenbot | [39m║              🌍 ENVIRONMENT DETECTION                       ║
+[32m0|absenbot | [39m╠════════════════════════════════════════════════════════════╣
+[32m0|absenbot | [39m║  Platform    : linux                                       ║
+[32m0|absenbot | [39m║  Environment : vps                                         ║
+[32m0|absenbot | [39m║  Env Name    : VPS/Server (Linux)                          ║
+[32m0|absenbot | [39m║  Project Root: /home/ubuntu/absenbot                       ║
+[32m0|absenbot | [39m║  Chromium    : /usr/bin/chromium-browser                   ║
+[32m0|absenbot | [39m╚════════════════════════════════════════════════════════════╝
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m[COMMANDS] Loaded: absen
+[32m0|absenbot | [39m[COMMANDS] Loaded: all
+[32m0|absenbot | [39m[COMMANDS] Loaded: broadcast
+[32m0|absenbot | [39m[COMMANDS] Loaded: cek
+[32m0|absenbot | [39m[COMMANDS] Loaded: daftar
+[32m0|absenbot | [39m[COMMANDS] Loaded: dev
+[32m0|absenbot | [39m[COMMANDS] Loaded: hapus
+[32m0|absenbot | [39m[COMMANDS] Loaded: help
+[32m0|absenbot | [39m[COMMANDS] Loaded: ingatkan
+[32m0|absenbot | [39m[COMMANDS] Loaded: listuser
+[32m0|absenbot | [39m[COMMANDS] Loaded: menu, hai
+[32m0|absenbot | [39m[COMMANDS] Loaded: riwayat
+[32m0|absenbot | [39m[COMMANDS] Loaded: setgroup
+[32m0|absenbot | [39m[COMMANDS] Loaded: test
+[32m0|absenbot | [39m[COMMANDS] Total commands loaded: 15
+[32m0|absenbot | [39m🤖 Memulai Bot (v2.3000.1027934701) + SCHEDULER
+[32m0|absenbot | [39m✅ KONEKSI STABIL. Scheduler Aktif.
+[32m0|absenbot | [39m[SUCCESS] WhatsApp connected
+[32m0|absenbot | [39m✅ Auth server running on port 3000
+[32m0|absenbot | [39m[08.55.12] Akmal: !menu
+[32m0|absenbot | [39m[08.55.15] ME: *BOT MAGANGHUB*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mHalo! Saya asisten absensi MagangHub Anda.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Daftar Perintah:*
+[32m0|absenbot | [39m1️⃣ *!daftar* - Registrasi akun (Wajib)
+[32m0|absenbot | [39m2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)
+[32m0|absenbot | [39m3️⃣ *!cek* - Cek status kehadiran hari ini
+[32m0|absenbot | [39m4️⃣ *!riwayat* - Lihat riwayat absen
+[32m0|absenbot | [39m5️⃣ *!help* - Panduan & Cara pakai
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Bot dapat mengingatkan dan dan akan siapkan draft. Balas *ya* untuk kirim, atau *copy-paste & edit* draft untuk revisi._
+[32m0|absenbot | [39m[API] /api/groups/active called
+[32m0|absenbot | [39m[API] Check bot connection state...
+[32m0|absenbot | [39m[API] Fetching participating groups...
+[32m0|absenbot | [39m[API] Raw groups fetched: 128
+[32m0|absenbot | [39m[API] Returning 128 groups to client
+[32m0|absenbot | [39m[GROUPS] Updated group: 120363405314436242@g.us
+[32m0|absenbot | [39m[INFO] Group 120363405314436242@g.us updated via dashboard
+[32m0|absenbot | [39m[API] /api/groups/active called
+[32m0|absenbot | [39m[API] Check bot connection state...
+[32m0|absenbot | [39m[API] Fetching participating groups...
+[32m0|absenbot | [39m[API] Raw groups fetched: 128
+[32m0|absenbot | [39m[API] Returning 128 groups to client
+[32m0|absenbot | [39m[GROUPS] Updated group: 120363405314436242@g.us
+[32m0|absenbot | [39m[INFO] Group 120363405314436242@g.us updated via dashboard
+[32m0|absenbot | [39m[WARNING] !absen Maintenance Mode ENABLED
+[32m0|absenbot | [39m[09.00.35] Akmal: !menu
+[32m0|absenbot | [39m[09.00.37] ME: *BOT MAGANGHUB*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mHalo! Saya asisten absensi MagangHub Anda.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Daftar Perintah:*
+[32m0|absenbot | [39m1️⃣ *!daftar* - Registrasi akun (Wajib)
+[32m0|absenbot | [39m2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)
+[32m0|absenbot | [39m3️⃣ *!cek* - Cek status kehadiran hari ini
+[32m0|absenbot | [39m4️⃣ *!riwayat* - Lihat riwayat absen
+[32m0|absenbot | [39m5️⃣ *!help* - Panduan & Cara pakai
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Bot dapat mengingatkan dan dan akan siapkan draft. Balas *ya* untuk kirim, atau *copy-paste & edit* draft untuk revisi._
+[32m0|absenbot | [39m[09.00.44] Akmal: !absen
+[32m0|absenbot | [39m[09.00.44] ME: *MAINTENANCE RUTIN*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mFitur !absen sedang dalam maintenance. Mohon coba lagi beberapa saat lagi ya.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mSementara bisa absen manual via web: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[WARNING] !absen Maintenance Mode DISABLED
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BdUzB+JFxBGJ4aIcShnpacRMf0/lM+M/+/PI0FsrEmEZ': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 2039752156,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 d5 33 07 e2 45 c4 11 89 e1 a2 1c 4a 19 e9 69 c4 4c 7f 4f e5 33 e3 3f fb f3 c8 d0 5b 2b 12 61 19>,
+[32m0|absenbot | [39m      privKey: <Buffer f0 65 65 b7 46 a4 18 ce 4b 2e 68 97 d4 3b 02 11 4c 3b a4 8e a7 f1 82 1b fa 8e 00 f8 e1 65 40 51>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 42 e9 9e 8e 5a 00 a0 bc 81 27 a3 67 e9 96 59 ff c8 7d 09 a0 90 9b 53 0b 60 f0 99 6f 20 8e 75 10>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer e3 8c 84 a3 d9 63 42 fd 7a c2 7e 62 ce bd 7f b0 6a 0e af e7 77 3d 7d 4d b7 68 3a 80 ee 85 34 64>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 a4 24 56 ff fd 29 42 11 42 46 95 a8 59 4d c9 3c cc 5d 48 05 e0 7c 82 d5 58 70 7e 1d fc a3 ef 70>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767892853649,
+[32m0|absenbot | [39m    created: 1767892853649,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 df 90 9b f9 27 1e 45 0c c7 cd 95 ef 84 16 2a 3f 86 27 55 4c 35 7c fc 2e f4 7a 75 20 19 f2 be 3f>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 15793667,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 a4 24 56 ff fd 29 42 11 42 46 95 a8 59 4d c9 3c cc 5d 48 05 e0 7c 82 d5 58 70 7e 1d fc a3 ef 70>,
+[32m0|absenbot | [39m    preKeyId: 3203438
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[10.26.36] [siapa suruh ke sini?] nr: Dehh assauna lee
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m[SHUTDOWN] Received SIGINT. Cleaning up...
+[32m0|absenbot | [39m[SHUTDOWN] Cleanup complete. Exiting.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m╔════════════════════════════════════════════════════════════╗
+[32m0|absenbot | [39m║              🌍 ENVIRONMENT DETECTION                       ║
+[32m0|absenbot | [39m╠════════════════════════════════════════════════════════════╣
+[32m0|absenbot | [39m║  Platform    : linux                                       ║
+[32m0|absenbot | [39m║  Environment : vps                                         ║
+[32m0|absenbot | [39m║  Env Name    : VPS/Server (Linux)                          ║
+[32m0|absenbot | [39m║  Project Root: /home/ubuntu/absenbot                       ║
+[32m0|absenbot | [39m║  Chromium    : /usr/bin/chromium-browser                   ║
+[32m0|absenbot | [39m╚════════════════════════════════════════════════════════════╝
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m[COMMANDS] Loaded: absen
+[32m0|absenbot | [39m[COMMANDS] Loaded: all
+[32m0|absenbot | [39m[COMMANDS] Loaded: broadcast
+[32m0|absenbot | [39m[COMMANDS] Loaded: cek
+[32m0|absenbot | [39m[COMMANDS] Loaded: daftar
+[32m0|absenbot | [39m[COMMANDS] Loaded: dev
+[32m0|absenbot | [39m[COMMANDS] Loaded: hapus
+[32m0|absenbot | [39m[COMMANDS] Loaded: help
+[32m0|absenbot | [39m[COMMANDS] Loaded: ingatkan
+[32m0|absenbot | [39m[COMMANDS] Loaded: listuser
+[32m0|absenbot | [39m[COMMANDS] Loaded: menu, hai
+[32m0|absenbot | [39m[COMMANDS] Loaded: riwayat
+[32m0|absenbot | [39m[COMMANDS] Loaded: setgroup
+[32m0|absenbot | [39m[COMMANDS] Loaded: test
+[32m0|absenbot | [39m[COMMANDS] Total commands loaded: 15
+[32m0|absenbot | [39m🤖 Memulai Bot (v2.3000.1027934701) + SCHEDULER
+[32m0|absenbot | [39m✅ KONEKSI STABIL. Scheduler Aktif.
+[32m0|absenbot | [39m[SUCCESS] WhatsApp connected
+[32m0|absenbot | [39m[SCHEDULER] Socket updated
+[32m0|absenbot | [39m[SCHEDULER] Socket updated
+[32m0|absenbot | [39m[SCHEDULER] Initializing crons for timezones: Asia/Jakarta, Asia/Makassar, Asia/Jayapura
+[32m0|absenbot | [39m[SCHEDULER] Per-group timezones enabled. System defaults to WITA for Private Chat & Emergency.
+[32m0|absenbot | [39m✅ Auth server running on port 3000
+[32m0|absenbot | [39m[10.31.06] Akmal: !absen
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-09
+[32m0|absenbot | [39m[10.31.07] ME: *SUDAH ABSEN*
+[32m0|absenbot | [39mAnda telah absen hari ini.
+[32m0|absenbot | [39m[10.33.34] [siapa suruh ke sini?] mazid.: !cek
+[32m0|absenbot | [39m[API] Checking attendance status for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[QUEUE] Added task: Login-mazid.gifari16@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for mazid.gifari16@gmail.com (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-mazid.gifari16@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] ❌ No attendance for 2026-01-09
+[32m0|absenbot | [39m[10.34.10] [siapa suruh ke sini?] ME: *BELUM ABSEN*
+[32m0|absenbot | [39mAnda belum mengirim laporan hari ini.
+[32m0|absenbot | [39m[10.36.09] [siapa suruh ke sini?] nr: !cek
+[32m0|absenbot | [39m[10.36.10] [siapa suruh ke sini?] ME: Anda belum terdaftar. Gunakan *!daftar* terlebih dahulu.
+[32m0|absenbot | [39m[10.36.16] [siapa suruh ke sini?] nr: ! daftar
+[32m0|absenbot | [39m[10.36.21] [siapa suruh ke sini?] nr: !daftar
+[32m0|absenbot | [39m[AUTH] Token cleanup interval started
+[32m0|absenbot | [39m[AUTH] Generated auth URL: http://monev-absenbot.my.id/auth/6c87a436300270e3bd3083fcfba2aae005b771470513073623a73ec38f360a20
+[32m0|absenbot | [39m[10.36.22] [siapa suruh ke sini?] ME: Link pendaftaran sudah dikirim ke Chat Pribadi.
+[32m0|absenbot | [39m[QUEUE] Added task: Login-asafiahnur@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-asafiahnur@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[DEBUG] ❌ LOGIN ERROR: Login Timeout - stuck at: https://account.kemnaker.go.id/auth/login
+[32m0|absenbot | [39m[DEBUG] Stack: Error: Login Timeout - stuck at: https://account.kemnaker.go.id/auth/login
+[32m0|absenbot | [39m    at _puppeteerLoginCore (/home/ubuntu/absenbot/src/services/magang.js:252:19)
+[32m0|absenbot | [39m    at async /home/ubuntu/absenbot/src/services/magang.js:94:16
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-asafiahnur@gmail.com. Remaining: 0
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BQYhDVdOmOL47dKCXca+iA+9hM1VMcjYUlAP2nqe/ocz': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 2077492596,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 06 21 0d 57 4e 98 e2 f8 ed d2 82 5d c6 be 88 0f bd 84 cd 55 31 c8 d8 52 50 0f da 7a 9e fe 87 33>,
+[32m0|absenbot | [39m      privKey: <Buffer e0 cf 38 d9 c9 22 36 1f 7b f0 2e d3 b3 96 9a f9 07 3c ac 60 ea 15 67 0d 31 de 84 22 e7 61 98 77>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 1a 09 92 01 5f 6f d5 ad 11 e8 5c c6 71 e0 4c d4 3e 6b 97 f3 83 1f fe 73 f9 95 76 7c 92 4a 97 2e>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer 50 50 89 dc af ef ce be 62 43 a5 b9 65 d1 94 c2 58 d1 e3 94 44 56 ce c2 7a 96 8f 02 6b b7 26 ed>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 8c 62 39 96 75 29 aa 8e 67 ba 4a 98 7e b1 5b 92 5f e7 98 f6 b8 67 94 88 b0 24 e9 5e d1 4c cd 42>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767955046409,
+[32m0|absenbot | [39m    created: 1767955046409,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 21 d2 5d 1e bd 8b ae 49 f4 a5 c5 a1 a0 da 47 31 92 27 9a ee d7 8b eb df d5 f3 d0 36 de 7d a7 60>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 10879674,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 8c 62 39 96 75 29 aa 8e 67 ba 4a 98 7e b1 5b 92 5f e7 98 f6 b8 67 94 88 b0 24 e9 5e d1 4c cd 42>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[10.44.54] Akmal: !absen
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-09
+[32m0|absenbot | [39m[10.44.54] ME: *SUDAH ABSEN*
+[32m0|absenbot | [39mAnda telah absen hari ini.
+[32m0|absenbot | [39m[10.58.34] [siapa suruh ke sini?] mazid.: !absen
+[32m0|absenbot | [39m[API] Checking attendance status for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] ❌ No attendance for 2026-01-09
+[32m0|absenbot | [39m[API] Getting 3 day(s) attendance history for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] Found 3/3 days of history
+[32m0|absenbot | [39m[AI] Trying Gimita Dolphin (Primary)...
+[32m0|absenbot | [39m[DOLPHIN] Sending request...
+[32m0|absenbot | [39m[10.58.35] [siapa suruh ke sini?] ME: _Sedang menyiapkan laporan otomatis dari riwayat Anda..._
+[32m0|absenbot | [39m[AI] Improving Dolphin result with Gimita Gemini...
+[32m0|absenbot | [39m[GIMITA] Sending request...
+[32m0|absenbot | [39m[AI] Dolphin result successfully improved by Gimita Gemini
+[32m0|absenbot | [39m[AI] Raw Lengths: A=161, P=163, K=169
+[32m0|absenbot | [39m[AI] Final Lengths: A=161, P=163, K=169
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m📦 [DEBUG] DATA SIAP KIRIM (AI GENERATED): {
+[32m0|absenbot | [39m  "aktivitas": "Melaksanakan pelayanan penyajian minuman kopi secara profesional kepada pengunjung di area Co-Working Space Politeknik Pariwisata Makassar sesuai dengan pesanan.",
+[32m0|absenbot | [39m  "pembelajaran": "Saya dapat memahami dan mempraktikkan alur pelayanan minuman kopi yang tepat dengan mengacu pada standar SOP yang berlaku di lingkungan Co-Working Space Poltekpar.",
+[32m0|absenbot | [39m  "kendala": "Tidak ditemukan kendala yang berarti dalam bertugas karena adanya bimbingan serta arahan yang sangat teliti dan jelas dari Co-mentor selama proses pelayanan berlangsung."
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[PREVIEW] Saving draft for 77481260380259@s.whatsapp.net (Type: ai)
+[32m0|absenbot | [39m[10.58.42] [siapa suruh ke sini?] ME: ✅ Draft laporan telah dikirim ke Chat Pribadi Anda. Silakan cek.
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BUEWiilvGbmQhPAmud6dyWyR7q+3CTg1GnjqwdwJAT5J': { chainKey: [Object], chainType: 2, messageKeys: {} },
+[32m0|absenbot | [39m    'BUJxwQtDnYu51SAgrz/ttfOVp2r4YFsS05AKs6R5o6Qu': { chainKey: [Object], chainType: 2, messageKeys: {} },
+[32m0|absenbot | [39m    BdtLpMQacxnXkA5FsKKWLw3lxAZgGdiwTa93JOMn1swB: { chainKey: [Object], chainType: 2, messageKeys: [Object] },
+[32m0|absenbot | [39m    'BZyWzfaxI8Ab65gU0PyISBi5j4WnKvLDFR2arlDU/Ps1': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 540569625,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 9c 96 cd f6 b1 23 c0 1b eb 98 14 d0 fc 88 48 18 b9 8f 85 a7 2a f2 c3 15 1d 9a ae 50 d4 fc fb 35>,
+[32m0|absenbot | [39m      privKey: <Buffer a8 03 66 5d 7a 7d ca b3 a9 bb d2 ae 4d d6 39 6a a7 5a 7a 6c 85 68 e9 8d 0c 60 c7 11 82 eb 45 5c>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 db 4b a4 c4 1a 73 19 d7 90 0e 45 b0 a2 96 2f 0d e5 c4 06 60 19 d8 b0 4d af 77 24 e3 27 d6 cc 01>,
+[32m0|absenbot | [39m    previousCounter: 43,
+[32m0|absenbot | [39m    rootKey: <Buffer 90 62 e0 ce e1 b7 dc 56 e9 46 50 cf c3 24 e2 77 62 e9 cf 7d d5 26 d8 60 dd 35 d2 93 a0 33 81 9f>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 41 89 1a 53 6d 3b b8 a3 eb d9 2e 2b 9d aa dd 18 60 de 29 1e a2 fb a3 84 f6 95 cb ef e4 fe d2 75>,
+[32m0|absenbot | [39m    baseKeyType: 2,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767947860765,
+[32m0|absenbot | [39m    created: 1767773559281,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 40 5d c5 7c 6c 02 7e 49 e2 c9 49 24 23 4d a2 81 78 89 fe 91 77 52 d7 70 05 ef ed 36 1a 53 d3 41>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[10.58.43] ME: *DRAF LAPORAN OTOMATIS* 🤖
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (161 karakter)
+[32m0|absenbot | [39mMelaksanakan pelayanan penyajian minuman kopi secara profesional kepada pengunjung di area Co-Working Space Politeknik Pariwisata Makassar sesuai dengan pesanan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (163 karakter)
+[32m0|absenbot | [39mSaya dapat memahami dan mempraktikkan alur pelayanan minuman kopi yang tepat dengan mengacu pada standar SOP yang berlaku di lingkungan Co-Working Space Poltekpar.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (169 karakter)
+[32m0|absenbot | [39mTidak ditemukan kendala yang berarti dalam bertugas karena adanya bimbingan serta arahan yang sangat teliti dan jelas dari Co-mentor selama proses pelayanan berlangsung.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mKetik *ya* untuk kirim, atau ceritakan aktivitas Anda untuk laporan baru:
+[32m0|absenbot | [39m_Contoh: !absen belajar database_
+[32m0|absenbot | [39m[HANDLER] Ignored identical draft update (Loop Prevention)
+[32m0|absenbot | [39m[10.59.14] [siapa suruh ke sini?] mazid.: bohong tdk ada kamu kirim
+[32m0|absenbot | [39m[10.59.25] mazid.: !absen
+[32m0|absenbot | [39m[API] Checking attendance status for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] ❌ No attendance for 2026-01-09
+[32m0|absenbot | [39m[API] Getting 3 day(s) attendance history for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] Found 3/3 days of history
+[32m0|absenbot | [39m[AI] Trying Gimita Dolphin (Primary)...
+[32m0|absenbot | [39m[DOLPHIN] Sending request...
+[32m0|absenbot | [39m[AI] Improving Dolphin result with Gimita Gemini...
+[32m0|absenbot | [39m[GIMITA] Sending request...
+[32m0|absenbot | [39m[AI] Dolphin result successfully improved by Gimita Gemini
+[32m0|absenbot | [39m[AI] Raw Lengths: A=137, P=142, K=148
+[32m0|absenbot | [39m[AI] Final Lengths: A=137, P=142, K=148
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m📦 [DEBUG] DATA SIAP KIRIM (AI GENERATED): {
+[32m0|absenbot | [39m  "aktivitas": "Membantu proses pelayanan berbagai jenis minuman kopi kepada tamu di area Co-Working Space Politeknik Pariwisata Makassar sesuai pesanan.",
+[32m0|absenbot | [39m  "pembelajaran": "Saya dapat memahami tata cara melaksanakan pelayanan minuman kopi secara profesional sesuai SOP yang berlaku di lingkungan Poltekpar Makassar.",
+[32m0|absenbot | [39m  "kendala": "Tidak ada kendala yang dialami karena saya mendapatkan arahan serta bimbingan langsung dari Co-mentor yang sangat teliti dalam memberikan instruksi."
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[PREVIEW] Saving draft for 77481260380259@s.whatsapp.net (Type: ai)
+[32m0|absenbot | [39m[10.59.32] ME: *DRAF LAPORAN OTOMATIS* 🤖
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Aktivitas:* (137 karakter)
+[32m0|absenbot | [39mMembantu proses pelayanan berbagai jenis minuman kopi kepada tamu di area Co-Working Space Politeknik Pariwisata Makassar sesuai pesanan.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Pembelajaran:* (142 karakter)
+[32m0|absenbot | [39mSaya dapat memahami tata cara melaksanakan pelayanan minuman kopi secara profesional sesuai SOP yang berlaku di lingkungan Poltekpar Makassar.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Kendala:* (148 karakter)
+[32m0|absenbot | [39mTidak ada kendala yang dialami karena saya mendapatkan arahan serta bimbingan langsung dari Co-mentor yang sangat teliti dalam memberikan instruksi.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mKetik *ya* untuk kirim, atau ceritakan aktivitas Anda untuk laporan baru:
+[32m0|absenbot | [39m_Contoh: !absen belajar database_
+[32m0|absenbot | [39m[HANDLER] Ignored identical draft update (Loop Prevention)
+[32m0|absenbot | [39m[11.00.06] mazid.: ya
+[32m0|absenbot | [39m[API] Submitting attendance for mazid.gifari16@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: mazid.gifari16@gmail.com
+[32m0|absenbot | [39m[API] ✅ Attendance submitted successfully
+[32m0|absenbot | [39m[11.00.06] ME: ✅ *BERHASIL!*
+[32m0|absenbot | [39mLaporan Anda telah terkirim ke web MagangHub.
+[32m0|absenbot | [39m[11.01.08] [siapa suruh ke sini?] Akmal: masa ndada bg
+[32m0|absenbot | [39m[11.05.43] [Para Pencari Kerja (PPK)] .dwitra ~: Mobilador mu bisa gini gaak
+[32m0|absenbot | [39m[11.05.44] [Para Pencari Kerja (PPK)] .dwitra ~: https://www.instagram.com/reel/DTPnADKErB1/?igsh=MXU0dWV4bTlwdzJzMw==
+[32m0|absenbot | [39m❌ Connection Closed: Connection Lost from Server
+[32m0|absenbot | [39m[WARNING] WhatsApp disconnected
+[32m0|absenbot | [39m🔄 Attempting to reconnect...
+[32m0|absenbot | [39m🤖 Memulai Bot (v2.3000.1027934701) + SCHEDULER
+[32m0|absenbot | [39m✅ KONEKSI STABIL. Scheduler Aktif.
+[32m0|absenbot | [39m[SUCCESS] WhatsApp connected
+[32m0|absenbot | [39m[SCHEDULER] Socket updated
+[32m0|absenbot | [39m✅ Auth server running on port 3000
+[32m0|absenbot | [39m⚠️ Port 3000 in use, trying 3001
+[32m0|absenbot | [39m✅ Auth server running on port 3001
+[32m0|absenbot | [39m[11.10.37] [siapa suruh ke sini?] Mahabintang Pallawabonang: Eh sori salkir
+[32m0|absenbot | [39m[11.11.02] [siapa suruh ke sini?] Mahabintang Pallawabonang: Deymm otw bone tawwa
+[32m0|absenbot | [39m[11.11.12] [siapa suruh ke sini?] nr: Gak boleh kek gitu dek 
+[32m0|absenbot | [39mTa laporin kamu yah smaa jule
+[32m0|absenbot | [39m[11.11.19] [siapa suruh ke sini?] nr: Mau bolu cukke 
+[32m0|absenbot | [39mHati"
+[32m0|absenbot | [39m[11.11.22] [siapa suruh ke sini?] Wahyuningsih: Yoiii
+[32m0|absenbot | [39m[11.11.25] [siapa suruh ke sini?] Wahyuningsih: Okeyyy nanti yah
+[32m0|absenbot | [39m[11.11.45] [siapa suruh ke sini?] Mahabintang Pallawabonang: Sketika membayangkan Inci with Bone Accent
+[32m0|absenbot | [39m[11.12.34] [Para Pencari Kerja (PPK)] Satria: Yaelah tinggal vawa keyboard aja 😏
+[32m0|absenbot | [39m[11.12.35] [siapa suruh ke sini?] pajoo: ninu ninu
+[32m0|absenbot | [39m[11.13.11] [Para Pencari Kerja (PPK)] Aldy: Uvuvava?
+[32m0|absenbot | [39m[11.13.43] [siapa suruh ke sini?] Siti Nur Annisa Adany A: Weyyy hahaha auto ada soundnya di telinga ku
+[32m0|absenbot | [39m[11.14.07] [Para Pencari Kerja (PPK)] .dwitra ~: Lah itu tinggal bawa laptop ajah
+[32m0|absenbot | [39m[11.14.08] [Para Pencari Kerja (PPK)] Satria: Hmpir rungkd wak
+[32m0|absenbot | [39m[11.14.11] [siapa suruh ke sini?] Wahyuningsih: Nda bgituka sy nah
+[32m0|absenbot | [39m[11.14.17] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Kenapa begiru
+[32m0|absenbot | [39m[11.14.27] [Para Pencari Kerja (PPK)] .dwitra ~: Aowkaowk.. nda ada ayamnya kah
+[32m0|absenbot | [39m[11.14.35] [Para Pencari Kerja (PPK)] Satria: Aku kan mobilador 😏😎
+[32m0|absenbot | [39m[11.14.43] [Para Pencari Kerja (PPK)] Satria: Ada cuy
+[32m0|absenbot | [39m[11.15.10] [Para Pencari Kerja (PPK)] Satria: Kelamaan disimpan hmpir basi
+[32m0|absenbot | [39m[11.15.26] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Basi doang
+[32m0|absenbot | [39m[11.15.33] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Masih bisa itu
+[32m0|absenbot | [39m[11.16.09] [Para Pencari Kerja (PPK)] Satria: Tinggal campur mie aja kalaudh bgitu 🗿
+[32m0|absenbot | [39m[11.17.31] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Tutupin rasa basiny
+[32m0|absenbot | [39m[11.17.39] [Para Pencari Kerja (PPK)] ~ Kurnia Septiawan: Huek huek dikit palingan
+[32m0|absenbot | [39m[11.18.21] [Para Pencari Kerja (PPK)] Satria: Besok baku atar sama wc 🗿
+[32m0|absenbot | [39m[11.22.37] [Para Pencari Kerja (PPK)] Satria: Udh tau aku batas waktu simpannya mwehehe
+[32m0|absenbot | [39m[11.23.00] [Para Pencari Kerja (PPK)] Aldy: Beliau sudah khatam seluk-beluk pernaskun kuningan
+[32m0|absenbot | [39m[11.24.39] [Para Pencari Kerja (PPK)] Aldy: Ganti nick WA SATria jadi Sang Pria Naskun
+[32m0|absenbot | [39m[11.47.09] Akmal: .absen
+[32m0|absenbot | [39m[11.47.15] Akmal: !absen
+[32m0|absenbot | [39m[API] Checking attendance status for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-09
+[32m0|absenbot | [39m[11.47.16] ME: *SUDAH ABSEN*
+[32m0|absenbot | [39mAnda telah absen hari ini.
+[32m0|absenbot | [39m[11.47.21] Akmal: !menu
+[32m0|absenbot | [39m[11.47.23] ME: *BOT MAGANGHUB*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mHalo! Saya asisten absensi MagangHub Anda.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*Daftar Perintah:*
+[32m0|absenbot | [39m1️⃣ *!daftar* - Registrasi akun (Wajib)
+[32m0|absenbot | [39m2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)
+[32m0|absenbot | [39m3️⃣ *!cek* - Cek status kehadiran hari ini
+[32m0|absenbot | [39m4️⃣ *!riwayat* - Lihat riwayat absen
+[32m0|absenbot | [39m5️⃣ *!help* - Panduan & Cara pakai
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m_Bot dapat mengingatkan dan dan akan siapkan draft. Balas *ya* untuk kirim, atau *copy-paste & edit* draft untuk revisi._
+[32m0|absenbot | [39m[11.47.33] Akmal: !help
+[32m0|absenbot | [39m[11.47.33] ME: *PANDUAN PENGGUNAAN BOT*
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*1. Cara Absen Semi-Auto*
+[32m0|absenbot | [39m*!absen [aktivitas, pembelajaran, kendala hari ini]*
+[32m0|absenbot | [39m_Contoh: !absen belajar react membuat komponen, pembelajaran hari ini mengetahui tentang react componen, kendala hari ini tidak ada_
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*2. Cara Absen (Manual)*
+[32m0|absenbot | [39mJika ingin absen manual, gunakan perintah berikut:
+[32m0|absenbot | [39m*!absen #aktivitas [isi] #pembelajaran [isi] #kendala [isi]*
+[32m0|absenbot | [39m_Pastikan setiap bagian minimal 100 karakter._
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*3. Cara Konfirmasi*
+[32m0|absenbot | [39mSetelah bot mengirimkan draf laporan, periksa isinya. Jika sudah OK, cukup balas dengan kata *'ya'*.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39m*4. Cek Status*
+[32m0|absenbot | [39mKetik *!cek* untuk memastikan laporan Anda sudah benar-benar masuk ke sistem MagangHub.
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mSemoga membantu!
+[32m0|absenbot | [39m[API] /api/groups/active called
+[32m0|absenbot | [39m[API] Check bot connection state...
+[32m0|absenbot | [39m[API] Fetching participating groups...
+[32m0|absenbot | [39m[API] Raw groups fetched: 128
+[32m0|absenbot | [39m[API] Returning 128 groups to client
+[32m0|absenbot | [39m[11.56.28] [Para Pencari Kerja (PPK)] Akmal: tebak orang☝🏻
+[32m0|absenbot | [39m[11.57.45] [Para Pencari Kerja (PPK)] .dwitra ~: Tebak siapaa...
+[32m0|absenbot | [39m[SCHEDULER] Running evening reminder (PrivateChat: false, TZ: Asia/Jayapura)...
+[32m0|absenbot | [39m[12.12.57] [Magang Di Pluit🎷💸] Made Darmadi: https://vt.tiktok.com/ZS54H7Vdn/
+[32m0|absenbot | [39m[12.13.05] [Magang Di Pluit🎷💸] Made Darmadi: Bukan cuma saia @252887724761314 😋
+[32m0|absenbot | [39m[12.15.58] [Magang Di Pluit🎷💸] Adri: wkek
+[32m0|absenbot | [39m[WARNING] Message template 'evening_reminder' updated by admin
+[32m0|absenbot | [39m[WARNING] Message template 'evening_reminder' updated by admin
+[32m0|absenbot | [39m[SCHEDULER] Running evening reminder (PrivateChat: false, TZ: Asia/Makassar)...
+[32m0|absenbot | [39m[12.16.30] [Tes] ME: *PENGINGAT ABSENSI* 🔔
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mBagi yang belum absen hari ini, segera absen sebelum jam *23:59*.
+[32m0|absenbot | [39m*!absen [aktivitas, pembelajaran, kendala hari ini]*
+[32m0|absenbot | [39m_Contoh: !absen membuat laporan, pembelajaran hari ini mengetahui tentang cara menyusun laporan, kendala hari ini tidak ada_ 
+[32m0|absenbot | [39m
+[32m0|absenbot | [39matau langsung kesini https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[12.16.33] [siapa suruh ke sini?] ME: *PENGINGAT ABSENSI* 🔔
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mBagi yang belum absen hari ini, segera absen sebelum jam *23:59*.
+[32m0|absenbot | [39m*!absen [aktivitas, pembelajaran, kendala hari ini]*
+[32m0|absenbot | [39m_Contoh: !absen membuat laporan, pembelajaran hari ini mengetahui tentang cara menyusun laporan, kendala hari ini tidak ada_ 
+[32m0|absenbot | [39m
+[32m0|absenbot | [39matau langsung kesini https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[12.16.36] [Magang Di Pluit🎷💸] ME: *PENGINGAT ABSENSI* 🔔
+[32m0|absenbot | [39m
+[32m0|absenbot | [39mBagi yang belum absen hari ini, segera absen sebelum jam *23:59*.
+[32m0|absenbot | [39m*!absen [aktivitas, pembelajaran, kendala hari ini]*
+[32m0|absenbot | [39m_Contoh: !absen membuat laporan, pembelajaran hari ini mengetahui tentang cara menyusun laporan, kendala hari ini tidak ada_ 
+[32m0|absenbot | [39m
+[32m0|absenbot | [39matau langsung kesini https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[API] /api/groups/active called
+[32m0|absenbot | [39m[API] Check bot connection state...
+[32m0|absenbot | [39m[API] Fetching participating groups...
+[32m0|absenbot | [39m[API] Raw groups fetched: 128
+[32m0|absenbot | [39m[API] Returning 128 groups to client
+[32m0|absenbot | [39m[12.17.09] [siapa suruh ke sini?] selena: *presensi
+[32m0|absenbot | [39m[12.17.13] [siapa suruh ke sini?] selena: !cek
+[32m0|absenbot | [39m[API] Checking attendance status for 0895800781959...
+[32m0|absenbot | [39m[API] Session stale for 0895800781959 (1500 min), but attempting reuse...
+[32m0|absenbot | [39m[QUEUE] Added task: Login-0895800781959. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-0895800781959
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for 0895800781959 (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-0895800781959. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for 0895800781959...
+[32m0|absenbot | [39m[API] Session loaded: 0895800781959
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-09
+[32m0|absenbot | [39m[12.17.42] [siapa suruh ke sini?] ME: *SUDAH ABSEN*
+[32m0|absenbot | [39mAnda telah absen hari ini.
+[32m0|absenbot | [39m[12.17.51] [siapa suruh ke sini?] Akmal: bot ye wkwkw
+[32m0|absenbot | [39m[12.18.09] Siti Nur Annisa Adany A: !cek
+[32m0|absenbot | [39m[API] Checking attendance status for aica2669@gmail.com...
+[32m0|absenbot | [39m[API] Session stale for aica2669@gmail.com (1631 min), but attempting reuse...
+[32m0|absenbot | [39m[QUEUE] Added task: Login-aica2669@gmail.com. Pending: 1
+[32m0|absenbot | [39m[QUEUE] Starting task: Login-aica2669@gmail.com
+[32m0|absenbot | [39m[BROWSER] Direct navigation to Monev dashboard...
+[32m0|absenbot | [39m[BROWSER] ✅ Login successful! URL: https://monev.maganghub.kemnaker.go.id/dashboard
+[32m0|absenbot | [39m[12.18.32] [Magang Di Pluit🎷💸] adzky: persis tgl 24 lg
+[32m0|absenbot | [39m[BROWSER] ✅ Got 6 cookies from all domains
+[32m0|absenbot | [39m[BROWSER] ✅ Found accessToken!
+[32m0|absenbot | [39m[API] Session saved for aica2669@gmail.com (with token)
+[32m0|absenbot | [39m[QUEUE] Finished task: Login-aica2669@gmail.com. Remaining: 0
+[32m0|absenbot | [39m[API] Checking attendance status for aica2669@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: aica2669@gmail.com
+[32m0|absenbot | [39m[API] ✅ Found attendance for 2026-01-09
+[32m0|absenbot | [39m[12.19.46] [Tes] Akmal: !riwayat
+[32m0|absenbot | [39m[API] Getting 1 day(s) attendance history for akmaljie12355@gmail.com...
+[32m0|absenbot | [39m[API] Session loaded: akmaljie12355@gmail.com
+[32m0|absenbot | [39m[API] Found 1/1 days of history
+[32m0|absenbot | [39m[12.19.47] [Tes] ME: Riwayat dikirim ke Chat Pribadi.
+[32m0|absenbot | [39mClosing session: SessionEntry {
+[32m0|absenbot | [39m  _chains: {
+[32m0|absenbot | [39m    'BceiTGgCOS/2+t3i6Dg/GHBLArYEv0YoqtMs/3RyJEMn': { chainKey: [Object], chainType: 1, messageKeys: {} }
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  registrationId: 802134181,
+[32m0|absenbot | [39m  currentRatchet: {
+[32m0|absenbot | [39m    ephemeralKeyPair: {
+[32m0|absenbot | [39m      pubKey: <Buffer 05 c7 a2 4c 68 02 39 2f f6 fa dd e2 e8 38 3f 18 70 4b 02 b6 04 bf 46 28 aa d3 2c ff 74 72 24 43 27>,
+[32m0|absenbot | [39m      privKey: <Buffer 40 b0 ee 3b 46 90 8f c0 f1 5f 79 b6 37 f3 66 e3 f0 23 fc e4 85 70 11 a3 42 eb 84 15 a6 ff 0e 5d>
+[32m0|absenbot | [39m    },
+[32m0|absenbot | [39m    lastRemoteEphemeralKey: <Buffer 05 be fb d6 99 89 c1 29 88 88 e0 72 01 7d a8 5e bd 3a 14 67 60 46 47 2f 03 c0 d1 53 e4 b6 70 65 5f>,
+[32m0|absenbot | [39m    previousCounter: 0,
+[32m0|absenbot | [39m    rootKey: <Buffer fd 18 5b e5 6f 05 7a c2 fb 8c 75 0d 90 f5 88 85 f2 7f dc 33 61 1f 94 0f b5 41 5d c8 c6 06 96 f4>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  indexInfo: {
+[32m0|absenbot | [39m    baseKey: <Buffer 05 84 ca cf e0 d3 5f 8e eb db da 7b e3 d1 d6 83 4a 0a 9c 01 9b 8f 27 98 49 bc 41 66 3d f7 77 e7 1e>,
+[32m0|absenbot | [39m    baseKeyType: 1,
+[32m0|absenbot | [39m    closed: -1,
+[32m0|absenbot | [39m    used: 1767914569356,
+[32m0|absenbot | [39m    created: 1767914569356,
+[32m0|absenbot | [39m    remoteIdentityKey: <Buffer 05 b5 3e f5 e4 e6 fa 09 0e 74 1f 09 02 dd 86 9d f1 00 b6 22 71 4d dd b6 a3 09 38 e9 09 03 e5 8d 44>
+[32m0|absenbot | [39m  },
+[32m0|absenbot | [39m  pendingPreKey: {
+[32m0|absenbot | [39m    signedKeyId: 8010547,
+[32m0|absenbot | [39m    baseKey: <Buffer 05 84 ca cf e0 d3 5f 8e eb db da 7b e3 d1 d6 83 4a 0a 9c 01 9b 8f 27 98 49 bc 41 66 3d f7 77 e7 1e>
+[32m0|absenbot | [39m  }
+[32m0|absenbot | [39m}
+[32m0|absenbot | [39m[12.47.29] [Para Pencari Kerja (PPK)] Satria: Sdh ketebak dari ketikannya inimah
+[32m0|absenbot | [39m[12.48.29] [Para Pencari Kerja (PPK)] Satria: Sodapnyoo naskun nasi naskun
+[32m0|absenbot | [39m[12.50.06] [Para Pencari Kerja (PPK)] Aldy: Bukan saya yang jelas
+

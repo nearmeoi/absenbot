@@ -9,47 +9,17 @@ const { generateAttendanceReport, processFreeTextToReport } = require('../servic
 const { setDraft, getDraft, deleteDraft } = require('../services/previewService');
 const { isHoliday } = require('../config/holidays');
 const { loadGroupSettings } = require('../services/groupSettings');
-const { isAbsenMaintenance } = require('../services/botState');
 const { getMessage } = require('../services/messageService');
 
 module.exports = {
     name: 'absen',
     description: 'Submit laporan harian',
 
-    async execute(sock, msgObj, context) {
-        const { sender, senderNumber, isGroup, args } = context;
+async execute(sock, msgObj, context) {
+        const { sender, senderNumber, args, isGroup } = context;
 
-        // Check for ABSEN MAINTENANCE
-        if (isAbsenMaintenance()) {
-            await sock.sendMessage(sender, { text: getMessage('absen_maintenance_message') }, { quoted: msgObj });
-            return;
-        }
-
-        // Check global holiday
-        if (isHoliday()) {
-            await sock.sendMessage(sender, { text: getMessage('holiday_message') }, { quoted: msgObj });
-            return;
-        }
-
-        // Check group-specific holiday
-        if (isGroup) {
-            const groupSettings = loadGroupSettings();
-            const groupConfig = groupSettings[sender];
-            if (groupConfig) {
-                const today = new Date().toISOString().split('T')[0];
-                if (groupConfig.holidays && groupConfig.holidays.includes(today)) {
-                    await sock.sendMessage(sender, { text: getMessage('holiday_message') }, { quoted: msgObj });
-                    return;
-                }
-                const dayOfWeek = new Date().getDay();
-                const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-                if (isWeekend && groupConfig.skipWeekends !== false) {
-                    await sock.sendMessage(sender, { text: getMessage('holiday_message') }, { quoted: msgObj });
-                    return;
-                }
-            }
-        }
-
+        // Check if user is registered
+        const user = getUserByPhone(senderNumber);
         const user = getUserByPhone(senderNumber);
         if (!user) {
             await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
@@ -74,7 +44,6 @@ module.exports = {
 
         // Zero-input mode: Auto-generate from history
         if (!args || args.trim() === '') {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
             await sock.sendMessage(sender, { text: getMessage('absen_loading') }, { quoted: msgObj });
 
             const history = await getRiwayat(user.email, user.password, 3);
@@ -117,8 +86,6 @@ module.exports = {
         }
 
         // With args: Process report
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
-
         let reportData = { aktivitas: '', pembelajaran: '', kendala: '', type: '' };
 
         // Manual tag mode

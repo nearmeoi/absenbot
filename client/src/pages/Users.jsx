@@ -3,9 +3,7 @@ import api from '../utils/api';
 import { Trash2, UserX, Users as UsersIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
-    Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    IconButton, Typography, CircularProgress, Avatar, Chip, Card, CardContent,
-    useMediaQuery, useTheme, Skeleton
+    Box, IconButton, Typography, CircularProgress, Avatar, Chip, useMediaQuery, useTheme
 } from '@mui/material';
 
 export default function Users() {
@@ -51,140 +49,72 @@ export default function Users() {
         } catch { return email; }
     };
 
-    // Loading skeleton for mobile
-    const MobileSkeleton = () => (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {[1, 2, 3].map(i => (
-                <Card key={i}>
-                    <CardContent sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Skeleton variant="circular" width={40} height={40} />
-                        <Box sx={{ flex: 1 }}>
-                            <Skeleton width="60%" height={20} />
-                            <Skeleton width="80%" height={16} sx={{ mt: 0.5 }} />
-                        </Box>
-                    </CardContent>
-                </Card>
-            ))}
-        </Box>
-    );
-
-    // Mobile user card
-    const MobileUserCard = ({ user }) => (
-        <Card sx={{ mb: 1.5 }}>
-            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar sx={{ width: 40, height: 40, bgcolor: 'primary.soft', color: 'primary.main', fontSize: '1rem' }}>
-                        {user.email?.[0]?.toUpperCase()}
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="subtitle2" fontWeight={600} noWrap>
-                            {formatName(user.email)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-                            {user.email}
-                        </Typography>
-                        <Chip
-                            label={user.phone.split('@')[0]}
-                            size="small"
-                            variant="outlined"
-                            sx={{ mt: 0.5, height: 20, fontSize: '0.6875rem' }}
-                        />
-                    </Box>
-                    <IconButton color="error" size="small" onClick={() => handleDelete(user.phone)}>
-                        <Trash2 size={18} />
-                    </IconButton>
-                </Box>
-            </CardContent>
-        </Card>
-    );
+    // Loading skeleton
+    if (loading) {
+        return (
+            <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                    <div key={i} className="border-4 border-black p-4 h-24 bg-white animate-pulse shadow-[8px_8px_0_#000] rounded-2xl" />
+                ))}
+            </div>
+        );
+    }
 
     // Empty state
-    const EmptyState = () => (
-        <Box sx={{ textAlign: 'center', py: { xs: 4, sm: 6 }, color: 'text.secondary' }}>
-            <UserX size={48} strokeWidth={1.5} />
-            <Typography variant="h6" sx={{ mt: 2 }}>No Users Found</Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>
-                Users will appear here once they register via WhatsApp.
-            </Typography>
-        </Box>
-    );
-
-    if (loading) {
-        return isMobile ? <MobileSkeleton /> : (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>
+    if (users.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center p-12 border-4 border-black bg-white shadow-[8px_8px_0_#000] rounded-2xl text-center">
+                <UserX size={64} strokeWidth={1.5} className="mb-4" />
+                <h2 className="text-2xl font-black uppercase">No Users Found</h2>
+                <p className="font-bold text-lg mt-2">Users will appear here once they register.</p>
+            </div>
         );
     }
 
     return (
-        <Box>
+        <div className="space-y-6">
             {/* Header */}
-            <Paper sx={{ mb: { xs: 1.5, sm: 0 }, overflow: 'hidden' }}>
-                <Box sx={{ p: { xs: 1.5, sm: 2 }, borderBottom: !isMobile ? 1 : 0, borderColor: 'divider' }}>
-                    <Typography variant="h6" sx={{ fontSize: { xs: '0.9375rem', sm: '1rem' } }}>
-                        Registered Users ({users.length})
-                    </Typography>
-                </Box>
+            <div className="border-4 border-black bg-[#ff6b6b] p-4 shadow-[8px_8px_0_#000] rounded-2xl">
+                <h1 className="text-2xl font-black uppercase text-white tracking-widest">
+                    Registered Users ({users.length})
+                </h1>
+            </div>
 
-                {/* Desktop Table View */}
-                {!isMobile && (
-                    <TableContainer>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Name</TableCell>
-                                    <TableCell>Phone (WA)</TableCell>
-                                    <TableCell>Email</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {users.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={4}>
-                                            <EmptyState />
-                                        </TableCell>
-                                    </TableRow>
-                                ) : users.map((user) => (
-                                    <TableRow key={user.phone} hover>
-                                        <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'primary.soft', color: 'primary.main' }}>
-                                                    {user.email?.[0]?.toUpperCase()}
-                                                </Avatar>
-                                                <Typography variant="subtitle2" fontWeight={600}>
-                                                    {formatName(user.email)}
-                                                </Typography>
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip label={user.phone.split('@')[0]} size="small" variant="outlined" />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="body2" color="text.secondary">{user.email}</Typography>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <IconButton color="error" size="small" onClick={() => handleDelete(user.phone)}>
-                                                <Trash2 size={16} />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                )}
-            </Paper>
-
-            {/* Mobile Card View */}
-            {isMobile && (
-                <Box>
-                    {users.length === 0 ? (
-                        <EmptyState />
-                    ) : (
-                        users.map((user) => <MobileUserCard key={user.phone} user={user} />)
-                    )}
-                </Box>
-            )}
-        </Box>
+            {/* Users Grid/List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {users.map((user) => (
+                    <div key={user.phone} className="border-4 border-black bg-white p-5 shadow-[8px_8px_0_#000] rounded-2xl relative group hover:-translate-y-1 transition-transform">
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 bg-[#3b82f6] border-2 border-black rounded-full flex items-center justify-center text-white font-black text-xl">
+                                    {user.email?.[0]?.toUpperCase()}
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-lg leading-tight">
+                                        {formatName(user.email)}
+                                    </h3>
+                                    <div className="inline-block bg-black text-white text-xs font-bold px-2 py-0.5 mt-1 transform -skew-x-12">
+                                        {user.phone.split('@')[0]}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button 
+                                onClick={() => handleDelete(user.phone)}
+                                className="bg-red-500 border-2 border-black p-2 rounded-lg hover:bg-red-600 hover:shadow-[2px_2px_0_#000] transition-all"
+                                title="Delete User"
+                            >
+                                <Trash2 size={18} color="white" strokeWidth={3} />
+                            </button>
+                        </div>
+                        
+                        <div className="mt-4 pt-3 border-t-4 border-black">
+                            <span className="text-sm font-bold uppercase tracking-wide text-gray-500">EMAIL ACCESS</span>
+                            <div className="font-bold text-md truncate">{user.email}</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }

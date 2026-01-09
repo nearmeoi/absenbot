@@ -11,11 +11,14 @@ const chalk = require('chalk');
 const { getAllUsers, deleteUser, getUserByPhone } = require('../services/database');
 const { cekStatusHarian, getRiwayat } = require('../services/magang');
 const { generateAuthUrl } = require('../services/secureAuth');
-const { getMessage } = require('../services/messageService');
+const { getMessage, loadMessages, updateMessage } = require('../services/messageService');
 const { addHoliday, removeHoliday, getAllHolidays, isHoliday, getAllowedGroups } = require('../config/holidays');
 const { log, getLogs, getStats, LOG_TYPES } = require('../services/activityLogger');
 const botState = require('../services/botState');
-const { processFreeTextToReport } = require('../services/aiService'); // Note: remote renamed groqService to aiService
+const { processFreeTextToReport } = require('../services/aiService');
+const { 
+    loadSchedules, addSchedule, updateSchedule, deleteSchedule, runTestScheduler 
+} = require('../services/scheduler');
 
 // Dashboard client path
 const clientDistPath = path.join(__dirname, '../../client/dist/index.html');
@@ -208,23 +211,64 @@ router.get('/api/users/:phone/history', requireAuth, async (req, res) => {
 
 // Get scheduler status
 router.get('/api/scheduler', requireAuth, (req, res) => {
-    const schedules = [
-        { time: '08:00', name: 'Morning Reminder', type: 'morning' },
-        { time: '16:00', name: 'Markipul', type: 'afternoon' },
-        { time: '21:00', name: 'Evening Reminder 1', type: 'evening1' },
-        { time: '23:00', name: 'Evening Reminder 2', type: 'evening2' },
-        { time: '23:50', name: 'Draft Push', type: 'draftpush' },
-        { time: '23:59', name: 'Emergency Auto-Submit', type: 'emergency' }
-    ];
-
     res.json({
         enabled: botState.isSchedulerEnabled(),
         timezone: 'Multi-timezone (WIB/WITA/WIT)',
-        schedules
+        schedules: loadSchedules()
     });
 });
 
-// Toggle scheduler
+// Add new schedule
+router.post('/api/scheduler', requireAuth, express.json(), (req, res) => {
+    const { time, type, messageKey, description, days } = req.body;
+    
+    if (!time || !type) {
+        return res.status(400).json({ error: 'Time and Type are required' });
+    }
+
+    const newSchedule = {
+        id: `sched_${Date.now()}`,
+        time,
+        days: days || '1-5',
+        type,
+        messageKey: messageKey || '',
+        description: description || 'New Schedule',
+        enabled: true
+    };
+
+    addSchedule(newSchedule);
+    log(LOG_TYPES.SCHEDULER, `New schedule added: ${newSchedule.id}`);
+    res.json({ success: true, schedule: newSchedule });
+});
+
+// Update schedule
+router.put('/api/scheduler/:id', requireAuth, express.json(), (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    const updated = updateSchedule(id, updates);
+    if (updated) {
+        log(LOG_TYPES.SCHEDULER, `Schedule updated: ${id}`);
+        res.json({ success: true, schedule: updated });
+    } else {
+        res.status(404).json({ error: 'Schedule not found' });
+    }
+});
+
+// Delete schedule
+router.delete('/api/scheduler/:id', requireAuth, (req, res) => {
+    const { id } = req.params;
+    const deleted = deleteSchedule(id);
+    
+    if (deleted) {
+        log(LOG_TYPES.SCHEDULER, `Schedule deleted: ${id}`);
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ error: 'Schedule not found' });
+    }
+});
+
+// Toggle scheduler global switch
 router.post('/api/scheduler/toggle', requireAuth, (req, res) => {
     const current = botState.isSchedulerEnabled();
     botState.setSchedulerEnabled(!current);
@@ -235,34 +279,21 @@ router.post('/api/scheduler/toggle', requireAuth, (req, res) => {
 
 // Manual trigger scheduler
 router.post('/api/scheduler/trigger/:type', requireAuth, async (req, res) => {
-    const { type } = req.params;
+    const { type } = req.params; // This 'type' is actually the schedule ID now
 
     if (!botSocket) {
         return res.status(503).json({ error: 'Bot not connected' });
     }
 
     try {
-        const scheduler = require('../services/scheduler');
-
-        switch (type) {
-            case 'morning':
-                await scheduler.runMorningReminder(botSocket);
-                break;
-            case 'afternoon':
-                await scheduler.runAfternoonReminder(botSocket);
-                break;
-            case 'reminder':
-                await scheduler.runAutoReminder(botSocket);
-                break;
-            case 'emergency':
-                await scheduler.runEmergencyAutoSubmit(botSocket);
-                break;
-            default:
-                return res.status(400).json({ error: 'Invalid trigger type' });
+        const result = await runTestScheduler(botSocket, type);
+        
+        if (result.success) {
+            log(LOG_TYPES.SCHEDULER, `Manual trigger: ${type} via dashboard`);
+            res.json({ success: true, triggered: type });
+        } else {
+            res.status(404).json({ error: result.message });
         }
-
-        log(LOG_TYPES.SCHEDULER, `Manual trigger: ${type} via dashboard`);
-        res.json({ success: true, triggered: type });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -321,16 +352,23 @@ router.post('/api/users/check-all', requireAuth, async (req, res) => {
 });
 
 // ========================================
+// TERMINAL SHELL (Legacy / Fallback)
+// ========================================
+// WebSocket implementation is now handled in secureAuth.js
+
+// ========================================
 // BOT STATUS CONTROL
 // ========================================
 
 // Get bot status (consolidated - includes all status info)
 router.get('/api/bot/status', requireAuth, (req, res) => {
+    const { getCommandKeys } = require('../commands');
     res.json({
         status: botState.getBotStatus(),
         connected: botState.isBotConnected(),
         schedulerEnabled: botState.isSchedulerEnabled(),
-        absenMaintenance: botState.isAbsenMaintenance()
+        maintenanceCommands: botState.getMaintenanceCommands(),
+        availableCommands: getCommandKeys()
     });
 });
 
@@ -345,15 +383,21 @@ router.post('/api/bot/status', requireAuth, express.json(), (req, res) => {
     res.json({ success: true, status: botState.getBotStatus() });
 });
 
-// Toggle Absen Maintenance
-router.post('/api/bot/absen-maintenance', requireAuth, express.json(), (req, res) => {
-    const { enabled } = req.body;
-    if (typeof enabled !== 'boolean') {
-        return res.status(400).json({ error: 'Enabled must be boolean' });
+// Toggle Specific Command Maintenance
+router.post('/api/bot/command-maintenance', requireAuth, express.json(), (req, res) => {
+    const { command } = req.body;
+    if (!command) {
+        return res.status(400).json({ error: 'Command name required' });
     }
-    botState.setAbsenMaintenance(enabled);
-    log(LOG_TYPES.WARNING, `!absen Maintenance Mode ${enabled ? 'ENABLED' : 'DISABLED'}`);
-    res.json({ success: true, enabled: botState.isAbsenMaintenance() });
+    botState.toggleCommandMaintenance(command);
+    const isNowMaint = botState.isCommandUnderMaintenance(command);
+    log(LOG_TYPES.WARNING, `Maintenance for !${command} is now ${isNowMaint ? 'ENABLED' : 'DISABLED'}`);
+    res.json({ 
+        success: true, 
+        command, 
+        isMaintenance: isNowMaint,
+        maintenanceCommands: botState.getMaintenanceCommands()
+    });
 });
 
 // Export getter for messageHandler (using botState)
@@ -395,9 +439,6 @@ router.post('/api/groups', requireAuth, express.json(), (req, res) => {
 // ========================================
 // DEVELOPMENT / TESTING ROUTES
 // ========================================
-
-const { loadMessages, updateMessage } = require('../services/messageService');
-const { runTestScheduler } = require('../services/scheduler');
 
 // Get all message templates
 router.get('/api/messages', requireAuth, (req, res) => {

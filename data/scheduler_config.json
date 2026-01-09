@@ -1,0 +1,65 @@
+[
+  {
+    "id": "morning_reminder",
+    "time": "08:00",
+    "days": "1-5",
+    "type": "group_hidetag",
+    "messageKey": "morning_reminder",
+    "description": "Pengingat Pagi",
+    "enabled": true
+  },
+  {
+    "id": "afternoon_reminder",
+    "time": "16:00",
+    "days": "1-5",
+    "type": "group_hidetag",
+    "messageKey": "afternoon_reminder",
+    "description": "Pengingat Sore (Pulang)",
+    "enabled": true
+  },
+  {
+    "id": "evening_reminder_1",
+    "time": "21:00",
+    "days": "1-5",
+    "type": "group_hidetag",
+    "messageKey": "evening_reminder",
+    "description": "Pengingat Malam 1",
+    "enabled": true
+  },
+  {
+    "id": "evening_reminder_2",
+    "time": "23:00",
+    "days": "1-5",
+    "type": "group_hidetag_japri",
+    "messageKey": "evening_reminder",
+    "description": "Pengingat Malam 2 (+Japri)",
+    "enabled": true
+  },
+  {
+    "id": "draft_push",
+    "time": "23:50",
+    "days": "1-5",
+    "type": "draft_push",
+    "messageKey": null,
+    "description": "Draft Push (Darurat)",
+    "enabled": true
+  },
+  {
+    "id": "emergency_submit",
+    "time": "23:59",
+    "days": "1-5",
+    "type": "emergency_submit",
+    "messageKey": null,
+    "description": "Auto Submit (Darurat)",
+    "enabled": true
+  },
+  {
+    "id": "sched_1767967711403",
+    "time": "18:00",
+    "days": "1-5",
+    "type": "group_hidetag",
+    "messageKey": "evening_reminder",
+    "description": "Maghrib",
+    "enabled": true
+  }
+]
