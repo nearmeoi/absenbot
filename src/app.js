@@ -3,7 +3,7 @@ const pino = require("pino")
 const chalk = require("chalk")
 const readline = require("readline")
 const { AUTH_STATE_DIR } = require('./config/constants');
-const { initScheduler } = require('./services/scheduler');
+const { initScheduler, setBotSocket } = require('./services/scheduler');
 const { initAuthServer } = require('./services/secureAuth');
 const messageHandler = require('./handlers/messageHandler');
 
@@ -93,6 +93,9 @@ async function connectToWhatsApp() {
             const dashboardRoutes = require('./routes/dashboardRoutes');
             dashboardRoutes.setBotSocket(sock);
             dashboardRoutes.setBotConnected(true);
+
+            // Update scheduler socket
+            setBotSocket(sock);
 
             // INIT SCHEDULER (only once)
             if (!schedulerInitialized) {

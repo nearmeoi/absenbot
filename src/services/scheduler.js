@@ -12,6 +12,13 @@ const { loadGroupSettings } = require('./groupSettings');
 const { getMessage } = require('./messageService');
 const { isSchedulerEnabled } = require('./botState'); // Use centralized state to avoid circular dependency
 
+let botSocket = null;
+
+function setBotSocket(sock) {
+    botSocket = sock;
+    console.log(chalk.cyan('[SCHEDULER] Socket updated'));
+}
+
 // Check if today is weekend or holiday for a specific timezone
 function isWeekendOrHoliday(timezone = 'Asia/Makassar') {
     const now = new Date();
@@ -82,7 +89,12 @@ async function broadcastSimpleWithHidetag(sock, groupId, msgKey) {
 }
 
 // Morning reminder (08:00)
-async function runMorningReminder(sock, timezone = 'Asia/Makassar') {
+async function runMorningReminder(providedSock, timezone = 'Asia/Makassar') {
+    const sock = providedSock || botSocket;
+    if (!sock) {
+        console.error(chalk.red('[SCHEDULER] Cannot run morning reminder: Bot socket not connected'));
+        return;
+    }
     console.log(chalk.magenta(`[SCHEDULER] Running morning reminder (08:00 ${timezone})...`));
     if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday(timezone)) return;
@@ -100,7 +112,12 @@ async function runMorningReminder(sock, timezone = 'Asia/Makassar') {
 }
 
 // Afternoon reminder (16:00)
-async function runAfternoonReminder(sock, timezone = 'Asia/Makassar') {
+async function runAfternoonReminder(providedSock, timezone = 'Asia/Makassar') {
+    const sock = providedSock || botSocket;
+    if (!sock) {
+        console.error(chalk.red('[SCHEDULER] Cannot run afternoon reminder: Bot socket not connected'));
+        return;
+    }
     console.log(chalk.magenta(`[SCHEDULER] Running afternoon reminder (16:00 ${timezone})...`));
     if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday(timezone)) return;
@@ -118,7 +135,12 @@ async function runAfternoonReminder(sock, timezone = 'Asia/Makassar') {
 }
 
 // Evening reminder (21:00, 23:00)
-async function runAutoReminder(sock, enablePrivateChat = false, timezone = 'Asia/Makassar') {
+async function runAutoReminder(providedSock, enablePrivateChat = false, timezone = 'Asia/Makassar') {
+    const sock = providedSock || botSocket;
+    if (!sock) {
+        console.error(chalk.red('[SCHEDULER] Cannot run evening reminder: Bot socket not connected'));
+        return;
+    }
     console.log(chalk.magenta(`[SCHEDULER] Running evening reminder (PrivateChat: ${enablePrivateChat}, TZ: ${timezone})...`));
     if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday(timezone)) return;
@@ -158,7 +180,12 @@ async function runAutoReminder(sock, enablePrivateChat = false, timezone = 'Asia
 }
 
 // PROXY: Generate Draft and Push to User at 23:50
-async function runDraftPush(sock, timezone = 'Asia/Makassar') {
+async function runDraftPush(providedSock, timezone = 'Asia/Makassar') {
+    const sock = providedSock || botSocket;
+    if (!sock) {
+        console.error(chalk.red('[SCHEDULER] Cannot run draft push: Bot socket not connected'));
+        return;
+    }
     console.log(chalk.magenta(`[SCHEDULER] Running draft push (23:50 ${timezone})...`));
     // Draft push and Emergency are global/system-wide for now (WITA)
     // To avoid redundant AI calls, we only run it for the main timezone
@@ -204,7 +231,12 @@ async function runDraftPush(sock, timezone = 'Asia/Makassar') {
 }
 
 // EMERGENCY: Auto-submit at 23:59 for users who haven't submitted
-async function runEmergencyAutoSubmit(sock, timezone = 'Asia/Makassar') {
+async function runEmergencyAutoSubmit(providedSock, timezone = 'Asia/Makassar') {
+    const sock = providedSock || botSocket;
+    if (!sock) {
+        console.error(chalk.red('[SCHEDULER] Cannot run emergency submit: Bot socket not connected'));
+        return;
+    }
     console.log(chalk.magenta(`[SCHEDULER] Running emergency auto-submit (23:59 ${timezone})...`));
     if (timezone !== 'Asia/Makassar') return;
 
@@ -268,6 +300,8 @@ async function runTestScheduler(sock, type) {
 }
 
 function initScheduler(sock) {
+    setBotSocket(sock);
+
     // Collect all required timezones (WIB, WITA, WIT)
     // Even if no groups use them yet, we register standard ones for convenience
     const standardTimezones = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'];
@@ -282,28 +316,28 @@ function initScheduler(sock) {
 
     timezones.forEach(tz => {
         // Morning reminder (08:00)
-        cron.schedule('0 8 * * 1-5', () => runMorningReminder(sock, tz), { timezone: tz });
+        cron.schedule('0 8 * * 1-5', () => runMorningReminder(null, tz), { timezone: tz });
 
         // Afternoon reminder (16:00 - Markipul)
-        cron.schedule('0 16 * * 1-5', () => runAfternoonReminder(sock, tz), { timezone: tz });
+        cron.schedule('0 16 * * 1-5', () => runAfternoonReminder(null, tz), { timezone: tz });
 
         // Evening reminders
         // 21:00 -> NO Private Chat
-        cron.schedule('0 21 * * 1-5', () => runAutoReminder(sock, false, tz), { timezone: tz });
+        cron.schedule('0 21 * * 1-5', () => runAutoReminder(null, false, tz), { timezone: tz });
 
         // 23:00 -> WITH Private Chat (Only for Makassar/system default to avoid redundancy)
-        cron.schedule('0 23 * * 1-5', () => runAutoReminder(sock, true, tz), { timezone: tz });
+        cron.schedule('0 23 * * 1-5', () => runAutoReminder(null, true, tz), { timezone: tz });
 
         // DRAFT PUSH (23:50) - Only for Makassar/system default
-        cron.schedule('50 23 * * 1-5', () => runDraftPush(sock, tz), { timezone: tz });
+        cron.schedule('50 23 * * 1-5', () => runDraftPush(null, tz), { timezone: tz });
 
         // EMERGENCY (23:59) - Only for Makassar/system default
-        cron.schedule('59 23 * * 1-5', () => runEmergencyAutoSubmit(sock, tz), { timezone: tz });
+        cron.schedule('59 23 * * 1-5', () => runEmergencyAutoSubmit(null, tz), { timezone: tz });
     });
 
     console.log(chalk.blue('[SCHEDULER] Per-group timezones enabled. System defaults to WITA for Private Chat & Emergency.'));
 }
 
-module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit, runMorningReminder, runAfternoonReminder, runTestScheduler };
+module.exports = { initScheduler, setBotSocket, runAutoReminder, runEmergencyAutoSubmit, runMorningReminder, runAfternoonReminder, runTestScheduler };
 
 module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit, runMorningReminder, runAfternoonReminder, runTestScheduler };
