@@ -3,6 +3,7 @@ import axios from 'axios';
 // Create axios instance with base URL for dashboard API
 const api = axios.create({
     baseURL: '/dashboard/api',
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json'
     }

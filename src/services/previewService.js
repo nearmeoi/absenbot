@@ -31,7 +31,7 @@ function getDraft(sender) {
     const draft = pendingPreviews.get(sender);
     if (!draft) return null;
 
-    // 5-minute timeout
+    // 5-minute timeout (updated from 15)
     const expiry = 5 * 60 * 1000;
     if (Date.now() - draft.timestamp > expiry) {
         pendingPreviews.delete(sender);
@@ -50,7 +50,7 @@ function deleteDraft(sender) {
 }
 
 /**
- * Cleanup stale drafts (older than 24h)
+ * Cleanup stale drafts
  */
 function cleanup() {
     const now = Date.now();

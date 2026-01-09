@@ -7,6 +7,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const chalk = require('chalk');
 const { getAllUsers, deleteUser, getUserByPhone } = require('../services/database');
 const { cekStatusHarian, getRiwayat } = require('../services/magang');
 const { generateAuthUrl } = require('../services/secureAuth');
@@ -22,13 +23,18 @@ const clientDistPath = path.join(__dirname, '../../client/dist/index.html');
 let botSocket = null;
 
 // Dashboard password from env
-const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || 'admin123';
+const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '123456';
 
 // ========================================
 // MIDDLEWARE
 // ========================================
 
 function requireAuth(req, res, next) {
+    // BYPASS AUTHENTICATION (Requested by user to fix login loop issues)
+    // console.log(chalk.yellow(`[AUTH-BYPASS] Allowing access to: ${req.path}`));
+    return next();
+    
+    /* Original Auth Logic (Disabled)
     if (req.session && req.session.authenticated) {
         return next();
     }
@@ -36,6 +42,7 @@ function requireAuth(req, res, next) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
     return res.redirect('/dashboard/login');
+    */
 }
 
 // ========================================
@@ -52,8 +59,16 @@ router.post('/login', express.json(), (req, res) => {
 
     if (password === DASHBOARD_PASSWORD) {
         req.session.authenticated = true;
-        log(LOG_TYPES.AUTH, 'Admin logged in to dashboard');
-        return res.json({ success: true });
+        // Force session save before sending response
+        req.session.save((err) => {
+            if (err) {
+                console.error(chalk.red('[SESSION] Error saving session:'), err);
+                return res.status(500).json({ error: 'Gagal menyimpan session' });
+            }
+            log(LOG_TYPES.AUTH, 'Admin logged in to dashboard');
+            return res.json({ success: true });
+        });
+        return;
     }
 
     log(LOG_TYPES.WARNING, 'Failed login attempt to dashboard');
@@ -314,7 +329,8 @@ router.get('/api/bot/status', requireAuth, (req, res) => {
     res.json({
         status: botState.getBotStatus(),
         connected: botState.isBotConnected(),
-        schedulerEnabled: botState.isSchedulerEnabled()
+        schedulerEnabled: botState.isSchedulerEnabled(),
+        absenMaintenance: botState.isAbsenMaintenance()
     });
 });
 
@@ -327,6 +343,17 @@ router.post('/api/bot/status', requireAuth, express.json(), (req, res) => {
     botState.setBotStatus(status);
     log(LOG_TYPES.WARNING, `Bot status changed to: ${status.toUpperCase()}`);
     res.json({ success: true, status: botState.getBotStatus() });
+});
+
+// Toggle Absen Maintenance
+router.post('/api/bot/absen-maintenance', requireAuth, express.json(), (req, res) => {
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Enabled must be boolean' });
+    }
+    botState.setAbsenMaintenance(enabled);
+    log(LOG_TYPES.WARNING, `!absen Maintenance Mode ${enabled ? 'ENABLED' : 'DISABLED'}`);
+    res.json({ success: true, enabled: botState.isAbsenMaintenance() });
 });
 
 // Export getter for messageHandler (using botState)
@@ -562,6 +589,11 @@ function setBotConnected(connected) {
 
 // SPA Catch-all (Must be last route before exports)
 router.get(/(.*)/, (req, res) => {
+    // Prevent caching of the index.html file
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     // Serve React App for any other GET request not handled above
     if (fs.existsSync(clientDistPath)) {
         res.sendFile(clientDistPath);

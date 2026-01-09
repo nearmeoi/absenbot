@@ -1,89 +1,58 @@
-/* Dashboard SaaS Theme */
-:root {
-  /* Color Palette - Slate & Blue (SaaS Style) */
-  --bg-body: #0f172a;
-  --bg-surface: #1e293b;
-  --bg-surface-hover: #334155;
-  --border: #334155;
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-light: rgba(59, 130, 246, 0.1);
-  --success: #10b981;
-  --success-light: rgba(16, 185, 129, 0.1);
-  --warning: #f59e0b;
-  --warning-light: rgba(245, 158, 11, 0.1);
-  --danger: #ef4444;
-  --danger-light: rgba(239, 68, 68, 0.1);
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --transition: 0.2s ease;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Reset & Base */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: var(--bg-body);
-  color: var(--text-main);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
+  font-family: 'Space Grotesk', sans-serif;
 }
 
-a {
-  text-decoration: none;
-  color: inherit;
+.neo {
+  border: 3px solid #000;
+  box-shadow: 4px 4px 0 #000;
 }
 
-ul {
-  list-style: none;
+.grid-bg {
+  background-image: linear-gradient(#eee 1px, transparent 1px), linear-gradient(90deg, #eee 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
-button {
-  font-family: inherit;
+@layer components {
+    .neo-box {
+        @apply border-[3px] border-black shadow-[4px_4px_0_#000];
+    }
+    .neo-button {
+        @apply border-[3px] border-black shadow-[4px_4px_0_#000] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all;
+    }
+    .neo-input {
+        @apply border-[3px] border-black p-2 focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow;
+    }
 }
 
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* WhatsApp Preview (Used in Development.jsx) */
+/* WhatsApp Preview (Preserved for compatibility) */
 .whatsapp-preview {
   background-color: #0b141a;
   background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
   background-blend-mode: soft-light;
-  background-size: 300px;
+  background-size: 200px; /* Smaller on mobile */
   border-radius: 12px;
-  padding: 1.5rem;
-  min-height: 300px;
+  padding: 1rem;
+  min-height: 200px; /* Smaller on mobile */
   display: flex;
   flex-direction: column;
   font-family: Helvetica, Arial, sans-serif;
   position: relative;
   overflow: hidden;
+}
+
+@media (min-width: 600px) {
+  .whatsapp-preview {
+    background-size: 300px;
+    padding: 1.5rem;
+    min-height: 300px;
+  }
 }
 
 .wa-bubble {
@@ -92,12 +61,20 @@ button {
   padding: 6px 7px 8px 9px;
   border-radius: 7.5px;
   border-top-left-radius: 0;
-  max-width: 90%;
+  max-width: 95%; /* More space on mobile */
   align-self: flex-start;
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
   position: relative;
-  font-size: 14.2px;
-  line-height: 19px;
+  font-size: 13px; /* Slightly smaller on mobile */
+  line-height: 18px;
+}
+
+@media (min-width: 600px) {
+  .wa-bubble {
+    max-width: 90%;
+    font-size: 14.2px;
+    line-height: 19px;
+  }
 }
 
 .wa-bubble::before {
@@ -117,26 +94,22 @@ button {
   float: right;
   margin-left: 7px;
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(241, 241, 242, 0.6);
   display: flex;
   align-items: center;
   gap: 3px;
 }
 
-/* WA Markdown */
-.wa-bold {
-  font-weight: bold;
+@media (min-width: 600px) {
+  .wa-time {
+    font-size: 11px;
+  }
 }
 
-.wa-italic {
-  font-style: italic;
-}
-
-.wa-strike {
-  text-decoration: line-through;
-}
-
+.wa-bold { font-weight: bold; }
+.wa-italic { font-style: italic; }
+.wa-strike { text-decoration: line-through; }
 .wa-code {
   font-family: monospace;
   background: rgba(255, 255, 255, 0.1);

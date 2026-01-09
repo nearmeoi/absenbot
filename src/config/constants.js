@@ -13,6 +13,9 @@ const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
     ? process.env.ADMIN_NUMBERS.split(',').map(n => n.trim())
     : [];
 
+// Bot Command Prefix (Default: !)
+const BOT_PREFIX = process.env.BOT_PREFIX || '!';
+
 // ========================================
 // ENVIRONMENT DETECTION
 // ========================================
@@ -303,5 +306,6 @@ module.exports = {
     SESSION_TIMEOUT_MS,
 
     // New addition
-    ADMIN_NUMBERS
+    ADMIN_NUMBERS,
+    BOT_PREFIX
 };

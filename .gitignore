@@ -19,9 +19,6 @@ logs/
 temp/
 *.log
 
-# Test files (tidak perlu di VPS)
-#   
-
 # IDE & OS
 .vscode/
 .idea/

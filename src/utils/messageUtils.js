@@ -1,0 +1,73 @@
+/**
+ * Message Utils
+ * Common utilities for message parsing and handling
+ */
+
+/**
+ * Parse draft from user-edited message
+ * @param {string} text - Message text
+ * @returns {Object|null} Parsed draft object or null
+ */
+function parseDraftFromMessage(text) {
+    let cleanText = text;
+
+    // Pre-processing: Strip terminal/chat prefixes like "[15.05.27] ME:" or "[15.05.27] +62 812..."
+    // This allows users to copy-paste directly from logs/terminals
+    cleanText = cleanText.replace(/^\[\d{2}\.\d{2}\.\d{2}\] \w+: /g, ''); // Single line
+    cleanText = cleanText.replace(/\n\[\d{2}\.\d{2}\.\d{2}\] \w+: /g, '\n'); // Multi line occurrences
+
+    // Remove headers
+    cleanText = cleanText.replace(/\*DRAF LAPORAN ANDA\*/i, '');
+    cleanText = cleanText.replace(/\*DRAF LAPORAN OTOMATIS\*/i, '');
+    cleanText = cleanText.replace(/\*DRAF DIPERBARUI\*[^\n]*/i, '');
+
+    // Remove footer instructions
+    const instructionPatterns = [
+        /(\n\s*)?_?Ketik\s+(\*ya\*)?\s*untuk\s+kirim\.?_?[\s\S]*$/i,
+        /(\n\s*)?_?Ketik\s+(\*ya\*)?\s*untuk\s+mengirim\s+laporan[\s\S]*$/i,
+        /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\)[\s\S]*$/i,
+        /(\n\s*)?_?Ketik\s+(\*ya\*)?\s*untuk\s+kirim,\s+atau[\s\S]*$/i
+    ];
+
+    for (const pattern of instructionPatterns) {
+        cleanText = cleanText.replace(pattern, '');
+    }
+
+    cleanText = cleanText.replace(/(?<!\w)\*ya\*(?!\w)/g, '');
+
+    // Parse sections
+    const parseSection = (label) => {
+        const regex = new RegExp(`\\*${label}:\\*\\s*(\\([\\d]+\\s*karakter\\))?\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
+        const match = cleanText.match(regex);
+        return match ? match[2].trim() : '';
+    };
+
+    const aktivitas = parseSection('Aktivitas');
+    const pembelajaran = parseSection('Pembelajaran');
+    const kendala = parseSection('Kendala');
+
+    if (!aktivitas && !pembelajaran) return null;
+
+    return {
+        aktivitas: aktivitas || '',
+        pembelajaran: pembelajaran || '',
+        kendala: kendala || 'Tidak ada kendala.',
+        type: 'manual'
+    };
+}
+
+/**
+ * Normalize phone number to standard format
+ * @param {string} phone 
+ * @returns {string} Normalized phone number
+ */
+function normalizeToStandard(phone) {
+    if (!phone) return '';
+    let digits = phone.split('@')[0].split(':')[0].replace(/\D/g, '');
+    return digits + '@s.whatsapp.net';
+}
+
+module.exports = {
+    parseDraftFromMessage,
+    normalizeToStandard
+};

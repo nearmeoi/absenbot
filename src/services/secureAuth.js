@@ -92,10 +92,12 @@ function initAuthServer() {
     // Session middleware for dashboard
     app.use(session({
         secret: process.env.DASHBOARD_SECRET || 'absenbot-secret-key-change-this',
-        resave: false,
+        resave: true, // Force session to be saved back to the session store
         saveUninitialized: false,
+        rolling: true, // Force a session identifier cookie to be set on every response
         cookie: {
             secure: false, // Set to true if using HTTPS
+            sameSite: 'lax',
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         }
     }));
