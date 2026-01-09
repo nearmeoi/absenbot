@@ -338,6 +338,11 @@ function initScheduler(sock) {
     console.log(chalk.blue('[SCHEDULER] Per-group timezones enabled. System defaults to WITA for Private Chat & Emergency.'));
 }
 
-module.exports = { initScheduler, setBotSocket, runAutoReminder, runEmergencyAutoSubmit, runMorningReminder, runAfternoonReminder, runTestScheduler };
+exports.initScheduler = initScheduler;
+exports.setBotSocket = setBotSocket;
+exports.runAutoReminder = runAutoReminder;
+exports.runEmergencyAutoSubmit = runEmergencyAutoSubmit;
+exports.runMorningReminder = runMorningReminder;
+exports.runAfternoonReminder = runAfternoonReminder;
+exports.runTestScheduler = runTestScheduler;
 
-module.exports = { initScheduler, runAutoReminder, runEmergencyAutoSubmit, runMorningReminder, runAfternoonReminder, runTestScheduler };

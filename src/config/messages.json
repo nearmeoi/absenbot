@@ -1,7 +1,7 @@
 {
   "morning_reminder": "Pagi guys\nSemangat buat hari ini.",
   "afternoon_reminder": "*MARKIPUL* \nSudah waktunya balik!\nJangan lupa isi absen hari ini.",
-  "evening_reminder": "*PENGINGAT ABSENSI* 🔔\n\nBagi yang belum absen hari ini, segera absen sebelum jam *23:59*.\n*!absen [aktivitas, pembelajaran, kendala hari ini]*\n_Contoh: !absen belajar react membuat komponen, pembelajaran hari ini mengetahui tentang react componen, kendala hari ini tidak ada_ \n\natau langsung kesini https://monev.maganghub.kemnaker.go.id/dashboard",
+  "evening_reminder": "*PENGINGAT ABSENSI* 🔔\n\nBagi yang belum absen hari ini, segera absen sebelum jam *23:59*.\n*!absen [aktivitas, pembelajaran, kendala hari ini]*\n_Contoh: !absen membuat laporan, pembelajaran hari ini mengetahui tentang cara menyusun laporan, kendala hari ini tidak ada_ \n\natau langsung kesini https://monev.maganghub.kemnaker.go.id/dashboard",
   "draft_alert": "*DARURAT DRAF ABSENSI OTOMATIS* ⚠️\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan untukmu. Balas *ya* untuk kirim.",
   "emergency_submit": "*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh sistem agar absensi Anda aman.",
   "menu": "*BOT MAGANGHUB*\n\nHalo! Saya asisten absensi MagangHub Anda.\n\n*Daftar Perintah:*\n1️⃣ *!daftar* - Registrasi akun (Wajib)\n2️⃣ *!absen* [cerita] - Lapor (Semi-Auto)\n3️⃣ *!cek* - Cek status kehadiran hari ini\n4️⃣ *!riwayat* - Lihat riwayat absen\n5️⃣ *!help* - Panduan & Cara pakai\n\n_Bot dapat mengingatkan dan dan akan siapkan draft. Balas *ya* untuk kirim, atau *copy-paste & edit* draft untuk revisi._",

@@ -9,6 +9,7 @@ const messageHandler = require('./handlers/messageHandler');
 
 const usePairingCode = true;
 let schedulerInitialized = false; // Prevent multiple scheduler init
+let authServerInitialized = false; // Prevent multiple auth server init
 
 const question = (text) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -87,7 +88,10 @@ async function connectToWhatsApp() {
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
 
             // INIT AUTH SERVER (only once)
-            initAuthServer();
+            if (!authServerInitialized) {
+                initAuthServer();
+                authServerInitialized = true;
+            }
 
             // Pass socket to dashboard for broadcast/trigger features
             const dashboardRoutes = require('./routes/dashboardRoutes');

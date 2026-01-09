@@ -220,14 +220,18 @@ const messageHandler = async (sock, msg) => {
                     }
                     return;
                 }
-                // AI revision
-                else {
-                    await sock.sendMessage(sender, { react: { text: getMessage('reaction_write'), key: msgObj.key } });
-                    await sock.sendMessage(sender, { text: getMessage('draft_update_loading') }, { quoted: msgObj });
-
-                    const user = getUserByPhone(senderNumber);
-                    const history = await getRiwayat(user.email, user.password, 3);
-
+                                    // AI revision
+                                    else {
+                                        const user = getUserByPhone(senderNumber);
+                                        if (!user) {
+                                             await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
+                                             return;
+                                        }
+                
+                                        await sock.sendMessage(sender, { react: { text: getMessage('reaction_write'), key: msgObj.key } });
+                                        await sock.sendMessage(sender, { text: getMessage('draft_update_loading') }, { quoted: msgObj });
+                
+                                        const history = await getRiwayat(user.email, user.password, 3);
 
 
                     // Fallback if no pending draft (new session from copy-paste)

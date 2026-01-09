@@ -422,8 +422,19 @@ Tanpa komentar tambahan.`;
 
     // 4. Try Gemini Google (Fallback 4)
     if (!content && GEMINI_API_KEY) {
-        // ... (Existing Gemini logic if needed, but omitted for brevity in this replace block as it was complex)
-        // Simplified fallback for now or rely on return error
+        console.log(chalk.cyan('[AI] Trying Gemini Google (Fallback)...'));
+        try {
+            const response = await axios.post(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+                { contents: [{ parts: [{ text: combinedPrompt }] }] },
+                { timeout: 60000 }
+            );
+            if (response.data.candidates && response.data.candidates.length > 0) {
+                 content = response.data.candidates[0].content.parts[0].text;
+            }
+        } catch (err) {
+            console.error(chalk.red('[GEMINI-FALLBACK] Error:'), err.message);
+        }
     }
 
     if (!content) {
