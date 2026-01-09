@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, AlertCircle } from 'lucide-react';
-import { Box, Card, CardContent, TextField, Button, Typography, Alert, Container, CircularProgress } from '@mui/material';
 
 export default function Login() {
     const [password, setPassword] = useState('');
@@ -18,8 +17,7 @@ export default function Login() {
         try {
             const success = await login(password);
             if (success) {
-                // Force full reload to ensure session cookies are correctly recognized by the browser
-                // and to trigger a fresh checkAuth() call on mount
+                // Force full reload for session
                 window.location.href = '/dashboard/';
             } else {
                 setError('Invalid password');
@@ -32,59 +30,58 @@ export default function Login() {
     };
 
     return (
-        <Container component="main" maxWidth="xs" sx={{ height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <Box sx={{ mb: 4, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Box sx={{ p: 2, bgcolor: 'primary.main', borderRadius: 3, mb: 2, color: 'white' }}>
-                    <LayoutGrid size={32} />
-                </Box>
-                <Typography component="h1" variant="h4" fontWeight="bold">
-                    AbsenBot
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                    Dashboard Access
-                </Typography>
-            </Box>
+        <div className="min-h-screen grid-bg flex flex-col justify-center items-center p-4">
+            <div className="neo bg-white w-full max-w-sm p-8 flex flex-col items-center gap-6 relative">
+                {/* Decorative elements */}
+                <div className="absolute -top-3 -left-3 w-6 h-6 bg-black"></div>
+                <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-black"></div>
 
-            <Card elevation={3}>
-                <CardContent sx={{ p: 3 }}>
-                    <form onSubmit={handleSubmit}>
-                        {error && (
-                            <Alert severity="error" sx={{ mb: 3 }} icon={<AlertCircle size={20} />}>
-                                {error}
-                            </Alert>
-                        )}
+                <div className="neo bg-primary w-16 h-16 flex items-center justify-center transform -rotate-3 hover:rotate-3 transition-transform">
+                    <LayoutGrid size={32} className="text-black" />
+                </div>
 
-                        <TextField
-                            margin="normal"
-                            required
-                            fullWidth
-                            name="password"
-                            label="Admin PIN"
+                <div className="text-center space-y-1">
+                    <h1 className="text-4xl font-black uppercase tracking-tighter">AbsenBot</h1>
+                    <div className="text-xs font-bold bg-black text-white px-2 py-0.5 inline-block transform skew-x-[-12deg]">
+                        DASHBOARD ACCESS
+                    </div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6 mt-4">
+                    {error && (
+                        <div className="bg-red-100 border-2 border-black p-3 font-bold flex items-center gap-2 text-sm shadow-[4px_4px_0_#ff6b6b]">
+                            <AlertCircle size={20} className="text-red-600" />
+                            <span className="uppercase">{error}</span>
+                        </div>
+                    )}
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest pl-1">Security PIN</label>
+                        <input
                             type="password"
-                            id="password"
-                            autoComplete="current-password"
+                            placeholder="••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            className="neo-input w-full font-black text-2xl text-center tracking-[0.5em] h-14 bg-gray-50 uppercase placeholder:tracking-normal placeholder:font-bold placeholder:text-gray-300"
                             disabled={isLoading}
                             autoFocus
-                            inputProps={{ inputMode: 'numeric', pattern: '[0-9]*' }}
-                            placeholder="Enter Dashboard PIN"
-                            sx={{ mb: 3 }}
+                            inputMode="numeric"
                         />
+                    </div>
 
-                        <Button
-                            type="submit"
-                            fullWidth
-                            variant="contained"
-                            size="large"
-                            disabled={isLoading}
-                            sx={{ py: 1.5 }}
-                        >
-                            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Enter Dashboard'}
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
-        </Container>
+                    <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="neo-button w-full bg-black text-white p-4 font-black text-xl uppercase hover:bg-[#0df259] hover:text-black hover:border-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? 'ACCESSING...' : 'ENTER'}
+                    </button>
+                </form>
+            </div>
+
+            <div className="mt-8 text-xs font-bold uppercase tracking-widest opacity-40">
+                Authorized Personnel Only
+            </div>
+        </div>
     );
 }

@@ -74,5 +74,7 @@
   "hidetag_format": "Format: !all [pesan]",
   "hidetag_done": "Broadcast group selesai.",
   "ai_rate_limit": "Server AI sedang sibuk. Coba lagi dalam beberapa saat ya. 🙏",
-  "ai_empty_response": "AI tidak merespon. Coba lagi dalam beberapa detik."
+  "ai_empty_response": "AI tidak merespon. Coba lagi dalam beberapa detik.",
+  "draft_redirect_pc": "✅ Draft laporan telah dikirim ke Chat Pribadi Anda. Silakan cek.",
+  "draft_update_redirect_pc": "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda."
 }

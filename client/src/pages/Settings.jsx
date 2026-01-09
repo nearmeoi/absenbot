@@ -1,28 +1,28 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
-import { Plus, Trash2, Calendar, Info, MessageSquare, Save, Power, Settings as SettingsIcon } from 'lucide-react';
+import { Plus, Trash2, Calendar, Info, MessageSquare, Save, Settings as SettingsIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
     Box, Card, CardHeader, CardContent, Typography, TextField, Button,
-    List, ListItem, ListItemText, ListItemSecondaryAction, IconButton,
-    Alert, Paper, MenuItem, Grid, Divider, FormControlLabel, Switch
+    List, ListItem, ListItemText, IconButton, Alert, Paper, MenuItem,
+    FormControlLabel, Switch, useMediaQuery, useTheme, Skeleton, Collapse,
+    Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
+import { ChevronDown } from 'lucide-react';
 
 export default function Settings() {
-    // Bot Status State
     const [absenMaintenance, setAbsenMaintenance] = useState(false);
     const [loadingStatus, setLoadingStatus] = useState(true);
-
-    // Holiday State
     const [holidays, setHolidays] = useState([]);
     const [loadingHolidays, setLoadingHolidays] = useState(true);
     const [newDate, setNewDate] = useState('');
-
-    // Message State
     const [messages, setMessages] = useState({});
     const [selectedKey, setSelectedKey] = useState('evening_reminder');
     const [editContent, setEditContent] = useState('');
     const [loadingMessages, setLoadingMessages] = useState(true);
+
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     useEffect(() => {
         loadStatus();
@@ -30,7 +30,6 @@ export default function Settings() {
         loadMessages();
     }, []);
 
-    // --- Status Logic ---
     const loadStatus = async () => {
         try {
             const res = await api.get('/bot/status');
@@ -38,6 +37,7 @@ export default function Settings() {
             setLoadingStatus(false);
         } catch (e) {
             toast.error('Failed to load bot status');
+            setLoadingStatus(false);
         }
     };
 
@@ -49,12 +49,10 @@ export default function Settings() {
             toast.success(`Maintenance Mode ${newValue ? 'ENABLED' : 'DISABLED'}`);
         } catch (e) {
             toast.error('Failed to update maintenance mode');
-            // Revert on error
             setAbsenMaintenance(!newValue);
         }
     };
 
-    // --- Holiday Logic ---
     const loadHolidays = async () => {
         try {
             const res = await api.get('/holidays');
@@ -62,6 +60,7 @@ export default function Settings() {
             setLoadingHolidays(false);
         } catch (e) {
             toast.error('Failed to load holidays');
+            setLoadingHolidays(false);
         }
     };
 
@@ -87,7 +86,6 @@ export default function Settings() {
         }
     };
 
-    // --- Message Logic ---
     const loadMessages = async () => {
         try {
             const res = await api.get('/messages');
@@ -98,6 +96,7 @@ export default function Settings() {
             setLoadingMessages(false);
         } catch (e) {
             toast.error('Failed to load messages');
+            setLoadingMessages(false);
         }
     };
 
@@ -113,12 +112,7 @@ export default function Settings() {
                 key: selectedKey,
                 content: editContent
             });
-            
-            setMessages(prev => ({
-                ...prev,
-                [selectedKey]: editContent
-            }));
-            
+            setMessages(prev => ({ ...prev, [selectedKey]: editContent }));
             toast.success('Message template updated');
         } catch (e) {
             toast.error('Failed to update message');
@@ -139,162 +133,224 @@ export default function Settings() {
         { key: 'holiday_message', label: 'Holiday Message' }
     ];
 
-    return (
-        <Box sx={{ maxWidth: 800, mx: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            
-            {/* BOT CONTROLS SECTION */}
-            <Card>
-                <CardHeader
-                    title="Bot Controls"
-                    subheader="Manage system availability"
-                    avatar={<SettingsIcon size={24} />}
-                    sx={{ borderBottom: 1, borderColor: 'divider' }}
-                />
-                <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box>
-                            <Typography variant="subtitle1" fontWeight="bold">Maintenance Mode (!absen only)</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                If enabled, users trying to use <code>!absen</code> will receive a maintenance message.
-                                <br/>Other features like <code>!riwayat</code> and <code>!cek</code> will still work.
+    // Loading skeleton
+    const LoadingSkeleton = () => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Card><CardContent><Skeleton height={60} /></CardContent></Card>
+            <Card><CardContent><Skeleton height={120} /></CardContent></Card>
+            <Card><CardContent><Skeleton height={200} /></CardContent></Card>
+        </Box>
+    );
+
+    const isLoading = loadingStatus && loadingHolidays && loadingMessages;
+    if (isLoading) return <LoadingSkeleton />;
+
+    // Common section wrapper
+    const SettingsSection = ({ title, subtitle, icon: Icon, children, defaultExpanded = true }) => (
+        <Accordion
+            defaultExpanded={defaultExpanded}
+            sx={{
+                bgcolor: 'background.paper',
+                '&:before': { display: 'none' },
+                borderRadius: '12px !important',
+                border: 1,
+                borderColor: 'divider',
+                mb: { xs: 1.5, sm: 2 },
+                overflow: 'hidden'
+            }}
+        >
+            <AccordionSummary
+                expandIcon={<ChevronDown size={20} />}
+                sx={{
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    minHeight: { xs: 56, sm: 64 },
+                    '& .MuiAccordionSummary-content': { my: 1.5 }
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Icon size={isMobile ? 18 : 20} />
+                    <Box>
+                        <Typography variant="h6" sx={{ fontSize: { xs: '0.9375rem', sm: '1rem' } }}>
+                            {title}
+                        </Typography>
+                        {subtitle && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                                {subtitle}
                             </Typography>
-                        </Box>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={absenMaintenance}
-                                    onChange={toggleAbsenMaintenance}
-                                    color="error"
-                                    disabled={loadingStatus}
-                                />
-                            }
-                            label={absenMaintenance ? "Active" : "Inactive"}
-                        />
+                        )}
                     </Box>
-                </CardContent>
-            </Card>
+                </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: { xs: 2, sm: 3 } }}>
+                {children}
+            </AccordionDetails>
+        </Accordion>
+    );
+
+    return (
+        <Box>
+            {/* BOT CONTROLS SECTION */}
+            <SettingsSection title="Bot Controls" subtitle="Manage system availability" icon={SettingsIcon}>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    alignItems: { xs: 'flex-start', sm: 'center' },
+                    justifyContent: 'space-between',
+                    gap: 2
+                }}>
+                    <Box>
+                        <Typography variant="subtitle2" fontWeight={600}>
+                            Maintenance Mode (!absen only)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                            Users will receive a maintenance message when using <code>!absen</code>.
+                        </Typography>
+                    </Box>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={absenMaintenance}
+                                onChange={toggleAbsenMaintenance}
+                                color="error"
+                                disabled={loadingStatus}
+                            />
+                        }
+                        label={absenMaintenance ? "Active" : "Inactive"}
+                        sx={{ m: 0 }}
+                    />
+                </Box>
+            </SettingsSection>
 
             {/* HOLIDAYS SECTION */}
-            <Card>
-                <CardHeader
-                    title="Custom Holidays"
-                    subheader="Manage dates when the scheduler should be paused"
-                    avatar={<Calendar size={24} />}
-                    sx={{ borderBottom: 1, borderColor: 'divider' }}
-                />
-                <CardContent>
-                    <Alert severity="info" sx={{ mb: 3 }} icon={<Info size={20} />}>
-                        Add dates when the scheduler should NOT send reminders (e.g. public holidays, company events).
-                    </Alert>
+            <SettingsSection title="Custom Holidays" subtitle="Pause scheduler on specific dates" icon={Calendar}>
+                <Alert severity="info" sx={{ mb: 2, py: 1 }} icon={<Info size={18} />}>
+                    <Typography variant="caption">
+                        Add dates when the scheduler should NOT send reminders.
+                    </Typography>
+                </Alert>
 
-                    <Box sx={{ display: 'flex', gap: 2, mb: 4 }}>
-                        <TextField
-                            fullWidth
-                            type="date"
-                            label="Select Date"
-                            InputLabelProps={{ shrink: true }}
-                            value={newDate}
-                            onChange={(e) => setNewDate(e.target.value)}
-                        />
-                        <Button
-                            variant="contained"
-                            onClick={addHoliday}
-                            startIcon={<Plus size={18} />}
-                            sx={{ px: 3 }}
-                        >
-                            Add
-                        </Button>
-                    </Box>
+                <Box sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    gap: { xs: 1, sm: 2 },
+                    mb: 3
+                }}>
+                    <TextField
+                        fullWidth
+                        type="date"
+                        label="Select Date"
+                        InputLabelProps={{ shrink: true }}
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                        size={isMobile ? 'small' : 'medium'}
+                    />
+                    <Button
+                        variant="contained"
+                        onClick={addHoliday}
+                        startIcon={<Plus size={16} />}
+                        sx={{ minWidth: { xs: '100%', sm: 100 } }}
+                    >
+                        Add
+                    </Button>
+                </Box>
 
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Registered Holidays</Typography>
-                    <Paper variant="outlined">
-                        <List disablePadding>
-                            {loadingHolidays ? <ListItem><ListItemText primary="Loading..." /></ListItem> :
-                                holidays.length === 0 ? (
-                                    <ListItem>
-                                        <ListItemText
-                                            primary={<Typography color="text.secondary" fontStyle="italic">No custom holidays set.</Typography>}
-                                        />
-                                    </ListItem>
-                                ) : holidays.map((date, i) => (
-                                    <ListItem key={i} divider={i !== holidays.length - 1}>
-                                        <ListItemText
-                                            primary={new Date(date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                            secondary={date}
-                                        />
-                                        <ListItemSecondaryAction>
-                                            <IconButton edge="end" color="error" onClick={() => deleteHoliday(date)}>
-                                                <Trash2 size={18} />
-                                            </IconButton>
-                                        </ListItemSecondaryAction>
-                                    </ListItem>
-                                ))}
-                        </List>
-                    </Paper>
-                </CardContent>
-            </Card>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Registered Holidays</Typography>
+                <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
+                    <List disablePadding dense>
+                        {loadingHolidays ? (
+                            <ListItem><ListItemText primary="Loading..." /></ListItem>
+                        ) : holidays.length === 0 ? (
+                            <ListItem>
+                                <ListItemText
+                                    primary={
+                                        <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                            No custom holidays set.
+                                        </Typography>
+                                    }
+                                />
+                            </ListItem>
+                        ) : holidays.map((date, i) => (
+                            <ListItem
+                                key={i}
+                                divider={i !== holidays.length - 1}
+                                secondaryAction={
+                                    <IconButton edge="end" color="error" onClick={() => deleteHoliday(date)} size="small">
+                                        <Trash2 size={16} />
+                                    </IconButton>
+                                }
+                            >
+                                <ListItemText
+                                    primary={new Date(date).toLocaleDateString('id-ID', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                                    secondary={date}
+                                    primaryTypographyProps={{ fontSize: { xs: '0.8125rem', sm: '0.875rem' } }}
+                                />
+                            </ListItem>
+                        ))}
+                    </List>
+                </Paper>
+            </SettingsSection>
 
             {/* MESSAGES SECTION */}
-            <Card>
-                <CardHeader
-                    title="Message Templates"
-                    subheader="Customize bot responses and automated reminders"
-                    avatar={<MessageSquare size={24} />}
-                    sx={{ borderBottom: 1, borderColor: 'divider' }}
-                />
-                <CardContent>
-                    <Grid container spacing={3}>
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Select Template"
-                                value={selectedKey}
-                                onChange={handleKeyChange}
-                                disabled={loadingMessages}
-                            >
-                                {messageKeys.map((option) => (
-                                    <MenuItem key={option.key} value={option.key}>
-                                        {option.label}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                            
-                            <Box sx={{ mt: 2 }}>
-                                <Alert severity="info" sx={{ fontSize: '0.85rem' }}>
-                                    <b>Tip:</b> You can use formatting like *bold*, _italic_, and emojis.
-                                </Alert>
-                            </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={8}>
-                            <TextField
-                                fullWidth
-                                multiline
-                                minRows={8}
-                                maxRows={15}
-                                label="Message Content"
-                                value={editContent}
-                                onChange={(e) => setEditContent(e.target.value)}
-                                disabled={loadingMessages}
-                                sx={{ fontFamily: 'monospace' }}
-                            />
-                            
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                                <Button
-                                    variant="contained"
-                                    startIcon={<Save size={18} />}
-                                    onClick={saveMessage}
-                                    disabled={loadingMessages || !editContent}
-                                >
-                                    Save Changes
-                                </Button>
-                            </Box>
-                        </Grid>
-                    </Grid>
-                </CardContent>
-            </Card>
+            <SettingsSection title="Message Templates" subtitle="Customize bot responses" icon={MessageSquare}>
+                <Box sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' },
+                    gap: { xs: 2, sm: 3 }
+                }}>
+                    <Box>
+                        <TextField
+                            select
+                            fullWidth
+                            label="Select Template"
+                            value={selectedKey}
+                            onChange={handleKeyChange}
+                            disabled={loadingMessages}
+                            size={isMobile ? 'small' : 'medium'}
+                        >
+                            {messageKeys.map((option) => (
+                                <MenuItem key={option.key} value={option.key}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
 
+                        <Alert severity="info" sx={{ mt: 2, py: 1 }}>
+                            <Typography variant="caption">
+                                <b>Tip:</b> Use *bold*, _italic_, and emojis.
+                            </Typography>
+                        </Alert>
+                    </Box>
+
+                    <Box>
+                        <TextField
+                            fullWidth
+                            multiline
+                            minRows={isMobile ? 4 : 6}
+                            maxRows={12}
+                            label="Message Content"
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            disabled={loadingMessages}
+                            InputProps={{
+                                sx: { fontFamily: 'monospace', fontSize: { xs: '0.8125rem', sm: '0.875rem' } }
+                            }}
+                        />
+
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                            <Button
+                                variant="contained"
+                                startIcon={<Save size={16} />}
+                                onClick={saveMessage}
+                                disabled={loadingMessages || !editContent}
+                                fullWidth={isMobile}
+                            >
+                                Save Changes
+                            </Button>
+                        </Box>
+                    </Box>
+                </Box>
+            </SettingsSection>
         </Box>
     );
 }

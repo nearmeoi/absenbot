@@ -310,7 +310,7 @@ TUGAS UTAMA:
 128. ATURAN PENULISAN:
     - Tetap profesional dan sopan
     - Tulis natural tapi tetap formal
-    - PANJANG: 100-170 karakter per bagian (WAJIB!)
+    - PANJANG: 100-200 karakter per bagian (WAJIB!)
     - HANYA KELUARKAN LAPORAN. Dilarang menyertakan analisis, kata pengantar, atau komentar apa pun!
 
 129. PENGECEKAN LOGIKA (COHERENCE):
@@ -333,7 +333,7 @@ PENTING:
 - HANYA KELUARKAN ISI LAPORAN.
 - DILARANG menyertakan analisis, daftar kata kunci, atau penjelasan gaya bahasa di dalam output.
 - JANGAN ADA TEKS LAIN selain format AKTIVITAS, PEMBELAJARAN, dan KENDALA di bawah.
-- Panjang 100-170 karakter per bagian.
+- Panjang 100-200 karakter per bagian.
 
 Format:
 AKTIVITAS: [isi]
@@ -348,14 +348,26 @@ KENDALA: [isi]`;
     const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
     const dolphinResult = await callGimitaDolphin(combinedPrompt);
     if (dolphinResult.success) {
-        // Now try to improve the Dolphin result with Gimita ChatAI
-        console.log(chalk.cyan('[AI] Improving Dolphin result with Gimita ChatAI...'));
-        const improvementPrompt = `Berikut adalah hasil dari AI Dolphin:\n\n${dolphinResult.content}\n\n${systemPrompt}\n\n${userPrompt}\n\nTugas Anda: Perbaiki dan tingkatkan konten di atas agar lebih koheren, profesional, dan sesuai konteks magang. Pastikan masing-masing bagian panjangnya antara 100-170 karakter. Hanya kembalikan dalam format:\nAKTIVITAS: [isi]\nPEMBELAJARAN: [isi]\nKENDALA: [isi]\n\nTanpa komentar tambahan.`;
+        // Now try to improve the Dolphin result with Gimita Gemini
+        console.log(chalk.cyan('[AI] Improving Dolphin result with Gimita Gemini...'));
+        const improvementPrompt = `Berikut adalah hasil dari AI Dolphin:\n\n${dolphinResult.content}\n\n${systemPrompt}\n\n${userPrompt}\n\nTugas Anda: Perbaiki dan "manusiawikan" konten di atas agar lebih luwes, enak dibaca, namun tetap profesional.
+        
+PENTING:
+- Perbaiki kalimat yang kaku atau "robot banget".
+- Pastikan Aktivitas, Pembelajaran, dan Kendala NYAMBUNG satu sama lain (koheren).
+- Panjang karakter WAJIB antara 100-200 karakter per bagian.
 
-        const improvedResult = await callGimitaChatAI(improvementPrompt, 'deepseek-v3');
+Hanya kembalikan dalam format:
+AKTIVITAS: [isi]
+PEMBELAJARAN: [isi]
+KENDALA: [isi]
+
+Tanpa komentar tambahan.`;
+
+        const improvedResult = await callGimitaGemini(improvementPrompt);
         if (improvedResult.success) {
             content = improvedResult.content;
-            console.log(chalk.green('[AI] Dolphin result successfully improved by Gimita ChatAI'));
+            console.log(chalk.green('[AI] Dolphin result successfully improved by Gimita Gemini'));
         } else {
             // If improvement fails, use original Dolphin result
             console.warn(chalk.yellow(`[AI] Improvement failed, using original Dolphin result: ${improvedResult.error}`));
@@ -434,7 +446,7 @@ KENDALA: [isi]`;
 
     // Padding and Truncation Logic
     const MIN_CHARS = 100;
-    const MAX_CHARS = 170;
+    const MAX_CHARS = 200;
 
     // Clamping Logic: Pad if too short, Truncate if too long
     const clamp = (text, type) => {
@@ -555,19 +567,31 @@ ATURAN LAIN:
 - PASTIKAN isi Aktivitas, Pembelajaran, dan Kendala SALING NYAMBUNG secara logis.
 - JANGAN pakai gaya robot/default jika ada riwayat. Ikuti riwayat!
 - Tetap sopan dan profesional (kecuali riwayat user sangat santai).
-- PANJANG: 100-170 karakter per bagian (WAJIB!).
+- PANJANG: 100-200 karakter per bagian (WAJIB!).
 
 Format Output (Hanya teks di bawah, tanpa tambahan lain!):
 AKTIVITAS: [isi]
 PEMBELAJARAN: [isi]
 KENDALA: [isi]`;
 
-        const improvementPrompt = `Berikut adalah hasil dari AI Dolphin:\n\n${dolphinResult.content}\n\n${systemPromptForStory}\n\nCerita User: "${userText}"\n\nBuatkan laporan dengan gaya saya!\n\nTugas Anda: Perbaiki dan tingkatkan konten di atas agar lebih koheren, profesional, dan sesuai konteks magang. Pastikan masing-masing bagian panjangnya antara 100-170 karakter. Hanya kembalikan dalam format:\nAKTIVITAS: [isi]\nPEMBELAJARAN: [isi]\nKENDALA: [isi]\n\nTanpa komentar tambahan.`;
+        const improvementPrompt = `Berikut adalah hasil dari AI Dolphin:\n\n${dolphinResult.content}\n\n${systemPromptForStory}\n\nCerita User: "${userText}"\n\nTugas Anda: Perbaiki dan "manusiawikan" konten di atas agar lebih luwes, enak dibaca, namun tetap profesional.
+        
+PENTING:
+- Perbaiki kalimat yang kaku atau "robot banget".
+- Pastikan Aktivitas, Pembelajaran, dan Kendala NYAMBUNG satu sama lain (koheren).
+- Panjang karakter WAJIB antara 100-200 karakter per bagian.
 
-        const improvedResult = await callGimitaChatAI(improvementPrompt, 'deepseek-v3');
+Hanya kembalikan dalam format:
+AKTIVITAS: [isi]
+PEMBELAJARAN: [isi]
+KENDALA: [isi]
+
+Tanpa komentar tambahan.`;
+
+        const improvedResult = await callGimitaGemini(improvementPrompt);
         if (improvedResult.success) {
             content = improvedResult.content;
-            console.log(chalk.green('[AI] Dolphin result successfully improved by Gimita ChatAI for Story Mode'));
+            console.log(chalk.green('[AI] Dolphin result successfully improved by Gimita Gemini for Story Mode'));
         } else {
             // If improvement fails, use original Dolphin result
             console.warn(chalk.yellow(`[AI] Improvement failed, using original Dolphin result: ${improvedResult.error}`));
@@ -622,7 +646,7 @@ KENDALA: [isi]`;
 
     // --- ENGINE 4: GEMINI GOOGLE (Final Fallback) ---
     if (!content && GEMINI_API_KEY) {
-         const callGeminiFallback = async (prompt, retries = 1) => {
+        const callGeminiFallback = async (prompt, retries = 1) => {
             for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
                     const response = await axios.post(
@@ -657,7 +681,7 @@ KENDALA: [isi]`;
     let kendala = parseSection('KENDALA', content);
 
     const MIN_CHARS = 100;
-    const MAX_CHARS = 170;
+    const MAX_CHARS = 200;
 
     const clamp = (text, type) => {
         let result = text;
