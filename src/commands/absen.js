@@ -18,20 +18,30 @@ module.exports = {
 async execute(sock, msgObj, context) {
         const { sender, senderNumber, args, isGroup } = context;
 
-        // Check if user is registered
-        const user = getUserByPhone(senderNumber);
-        const user = getUserByPhone(senderNumber);
-        if (!user) {
-            await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
+        // 1. Immediate check for empty input (FAST RESPONSE)
+        if (!args || args.trim() === '') {
+            const hint = `Silakan berikan keterangan aktivitas Anda hari ini setelah *!absen*.\n\n` +
+                `_Contoh: !absen Hari ini saya belajar membuat API dan melakukan testing._\n\n` +
+                `Atau gunakan format manual dengan bantuan template:\n` +
+                `Ketik *!template* untuk mendapatkan format isian manual.`;
+            
+            await sock.sendMessage(sender, { text: hint }, { quoted: msgObj });
             return;
         }
 
-        // Pre-check: Already submitted today?
+        // 2. Check if user is registered
+        const user = getUserByPhone(senderNumber);
+        if (!user) {
+            await sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') }, { quoted: msgObj });
+            return;
+        }
+
+        // 3. Pre-check: Already submitted today? (NETWORK CALL)
         try {
             const statusCheck = await cekStatusHarian(user.email, user.password);
             if (statusCheck.success && statusCheck.sudahAbsen) {
                 const log = statusCheck.data;
-                const reply = getMessage('cek_sudah_absen')
+                const reply = getMessage('ABSEN_CHECK_DONE')
                     .replace('{date}', log.date)
                     .replace('{activity}', log.activity_log ? log.activity_log.substring(0, 50) + '...' : '-');
 
@@ -40,49 +50,6 @@ async execute(sock, msgObj, context) {
             }
         } catch (e) {
             console.error("[CMD:ABSEN] Error pre-check:", e);
-        }
-
-        // Zero-input mode: Auto-generate from history
-        if (!args || args.trim() === '') {
-            await sock.sendMessage(sender, { text: getMessage('absen_loading') }, { quoted: msgObj });
-
-            const history = await getRiwayat(user.email, user.password, 3);
-            const aiResult = await generateAttendanceReport(history.success ? history.logs : []);
-
-            if (!aiResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('absen_failed_auto') }, { quoted: msgObj });
-                return;
-            }
-
-            const reportData = {
-                aktivitas: aiResult.aktivitas,
-                pembelajaran: aiResult.pembelajaran,
-                kendala: aiResult.kendala,
-                type: 'ai'
-            };
-
-            console.log(chalk.yellow('\n📦 [DEBUG] DATA SIAP KIRIM (AI GENERATED):'), JSON.stringify({
-                aktivitas: reportData.aktivitas,
-                pembelajaran: reportData.pembelajaran,
-                kendala: reportData.kendala
-            }, null, 2));
-
-            setDraft(senderNumber, reportData);
-
-            const previewText = `*DRAF LAPORAN OTOMATIS* 🤖\n\n` +
-                `*Aktivitas:* (${reportData.aktivitas.length} karakter)\n${reportData.aktivitas}\n\n` +
-                `*Pembelajaran:* (${reportData.pembelajaran.length} karakter)\n${reportData.pembelajaran}\n\n` +
-                `*Kendala:* (${reportData.kendala.length} karakter)\n${reportData.kendala}\n\n` +
-                `Ketik *ya* untuk kirim, atau ceritakan aktivitas Anda untuk laporan baru:\n` +
-                `_Contoh: !absen belajar database_`;
-
-            if (isGroup) {
-                await sock.sendMessage(sender, { text: getMessage('draft_redirect_pc') }, { quoted: msgObj });
-                await sock.sendMessage(senderNumber, { text: previewText });
-            } else {
-                await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
-            }
-            return;
         }
 
         // With args: Process report
@@ -117,7 +84,7 @@ async execute(sock, msgObj, context) {
             }
 
             if (errors.length > 0) {
-                const errorMsg = getMessage('absen_too_short').replace('{errors}', errors.join('\n'));
+                const errorMsg = getMessage('ABSEN_TOO_SHORT').replace('{errors}', errors.join('\n'));
                 await sock.sendMessage(sender, { text: errorMsg }, { quoted: msgObj });
                 return;
             }
@@ -127,7 +94,7 @@ async execute(sock, msgObj, context) {
             const aiResult = await processFreeTextToReport(args, history.success ? history.logs : []);
 
             if (!aiResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('absen_failed_ai').replace('{error}', aiResult.error) }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('ABSEN_FAILED_AI').replace('{error}', aiResult.error) }, { quoted: msgObj });
                 return;
             }
 
@@ -141,7 +108,7 @@ async execute(sock, msgObj, context) {
 
         setDraft(senderNumber, reportData);
 
-        const previewText = getMessage('draft_preview')
+        const previewText = getMessage('DRAFT_PREVIEW')
             .replace('{aktivitas_len}', reportData.aktivitas.length)
             .replace('{aktivitas}', reportData.aktivitas)
             .replace('{pembelajaran_len}', reportData.pembelajaran.length)
@@ -150,7 +117,7 @@ async execute(sock, msgObj, context) {
             .replace('{kendala}', reportData.kendala);
 
         if (isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('draft_redirect_pc') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('DRAFT_REDIRECT_PC') }, { quoted: msgObj });
             await sock.sendMessage(senderNumber, { text: previewText });
         } else {
             await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });

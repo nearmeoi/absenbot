@@ -10,7 +10,7 @@ const { setDraft } = require('./previewService');
 const { getAllowedGroups, isHoliday } = require('../config/holidays');
 
 const { loadGroupSettings } = require('./groupSettings');
-const { getMessage } = require('./messageService');
+const { getMessage, updateMessage } = require('./messageService');
 const { isSchedulerEnabled } = require('./botState');
 
 // Config path
@@ -38,10 +38,19 @@ function loadSchedules() {
 }
 
 function saveSchedules(schedules) {
-    fs.writeFileSync(SCHEDULE_CONFIG_FILE, JSON.stringify(schedules, null, 2));
+    // Sort by time (08:00 before 16:00)
+    const sorted = [...schedules].sort((a, b) => a.time.localeCompare(b.time));
+    fs.writeFileSync(SCHEDULE_CONFIG_FILE, JSON.stringify(sorted, null, 2));
 }
 
-function addSchedule(schedule) {
+function addSchedule(schedule, customContent = null) {
+    if (customContent) {
+        // Create dynamic key for custom message
+        const newKey = `SCHED_CUSTOM_${Date.now()}`;
+        updateMessage(newKey, customContent);
+        schedule.messageKey = newKey;
+    }
+
     const schedules = loadSchedules();
     schedules.push(schedule);
     saveSchedules(schedules);
@@ -49,10 +58,20 @@ function addSchedule(schedule) {
     return schedule;
 }
 
-function updateSchedule(id, updates) {
+function updateSchedule(id, updates, customContent = null) {
     const schedules = loadSchedules();
     const index = schedules.findIndex(s => s.id === id);
     if (index !== -1) {
+        if (customContent) {
+            let key = schedules[index].messageKey;
+            // If it's already a custom key, update it. If not, generate new one.
+            if (!key || !key.startsWith('SCHED_CUSTOM_')) {
+                key = `SCHED_CUSTOM_${Date.now()}`;
+            }
+            updateMessage(key, customContent);
+            updates.messageKey = key;
+        }
+
         schedules[index] = { ...schedules[index], ...updates };
         saveSchedules(schedules);
         reloadScheduler();

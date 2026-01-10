@@ -82,7 +82,7 @@ const messageHandler = async (sock, msg) => {
 
         // Maintenance mode (Global Status)
         if (botStatus === 'maintenance') {
-            await sock.sendMessage(sender, { text: getMessage('maintenance_message') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('GENERAL_MAINTENANCE') }, { quoted: msgObj });
             return;
         }
 
@@ -123,7 +123,7 @@ const messageHandler = async (sock, msg) => {
                 try {
                     sock.sendMessage(sender, { 
                         react: { 
-                            text: getMessage('reaction_wait') || '⏳', 
+                            text: getMessage('REACTION_WAIT') || '⏳', 
                             key: msgObj.key 
                         } 
                     }).catch(e => console.error('[HANDLER] Async reaction error:', e.message));
@@ -155,7 +155,7 @@ const messageHandler = async (sock, msg) => {
             const user = getUserByPhone(senderNumber);
             if (!user) return;
 
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_rocket'), key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('REACTION_ROCKET'), key: msgObj.key } });
 
             const loginResult = await prosesLoginDanAbsen({
                 email: user.email,
@@ -166,17 +166,19 @@ const messageHandler = async (sock, msg) => {
             });
 
             if (loginResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('submit_success') }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('ABSEN_SUBMIT_SUCCESS') }, { quoted: msgObj });
                 deleteDraft(senderNumber);
             } else {
-                await sock.sendMessage(sender, { text: getMessage('submit_failed').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('ABSEN_SUBMIT_FAILED').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
             }
             return;
         }
 
         // --- DRAFT EDIT FLOW ---
         const pendingDraft = getDraft(senderNumber);
-        if ((pendingDraft || isDraftContent) && !isCommand) {
+        const isTemplate = textMessage.includes("Aktivitas pada hari ini adalah") || textMessage.includes("Isi dan kirim balik pesan ini");
+
+        if ((pendingDraft || isDraftContent) && !isCommand && !isTemplate) {
             const lowerText = textMessage.toLowerCase();
 
             const hasAllKeywords = lowerText.includes('aktivitas') &&
@@ -208,7 +210,7 @@ const messageHandler = async (sock, msg) => {
                     }
 
                     if (errors.length > 0) {
-                        await sock.sendMessage(sender, { text: getMessage('draft_format_error').replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
+                        await sock.sendMessage(sender, { text: getMessage('DRAFT_FORMAT_ERROR').replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
                         return;
                     }
 
@@ -225,7 +227,7 @@ const messageHandler = async (sock, msg) => {
 
                     setDraft(senderNumber, parsedEdit);
 
-                    const previewText = getMessage('draft_updated')
+                    const previewText = getMessage('DRAFT_UPDATED')
                         .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
                         .replace('{aktivitas}', parsedEdit.aktivitas)
                         .replace('{pembelajaran_len}', parsedEdit.pembelajaran.length)
@@ -245,12 +247,12 @@ const messageHandler = async (sock, msg) => {
                                     else {
                                         const user = getUserByPhone(senderNumber);
                                         if (!user) {
-                                             await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
+                                             await sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') }, { quoted: msgObj });
                                              return;
                                         }
                 
-                                        await sock.sendMessage(sender, { react: { text: getMessage('reaction_write'), key: msgObj.key } });
-                                        await sock.sendMessage(sender, { text: getMessage('draft_update_loading') }, { quoted: msgObj });
+                                        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_WRITE'), key: msgObj.key } });
+                                        await sock.sendMessage(sender, { text: getMessage('DRAFT_UPDATE_LOADING') }, { quoted: msgObj });
                 
                                         const history = await getRiwayat(user.email, user.password, 3);
 
@@ -263,7 +265,7 @@ const messageHandler = async (sock, msg) => {
                     const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
 
                     if (!aiResult.success) {
-                        await sock.sendMessage(sender, { text: getMessage('draft_update_failed') }, { quoted: msgObj });
+                        await sock.sendMessage(sender, { text: getMessage('DRAFT_UPDATE_FAILED') }, { quoted: msgObj });
                         return;
                     }
 
@@ -276,7 +278,7 @@ const messageHandler = async (sock, msg) => {
 
                     setDraft(senderNumber, reportData);
 
-                    const previewText = getMessage('draft_updated')
+                    const previewText = getMessage('DRAFT_UPDATED')
                         .replace('{aktivitas_len}', reportData.aktivitas.length)
                         .replace('{aktivitas}', reportData.aktivitas)
                         .replace('{pembelajaran_len}', reportData.pembelajaran.length)

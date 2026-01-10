@@ -15,7 +15,7 @@ module.exports = {
 
         const user = getUserByPhone(senderNumber);
         if (!user) {
-            await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') }, { quoted: msgObj });
             return;
         }
 
@@ -24,18 +24,18 @@ module.exports = {
             days = Math.min(Math.max(parseInt(args), 1), 7);
         }
 
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
+        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_WAIT'), key: msgObj.key } });
         const result = await getRiwayat(user.email, user.password, days);
 
         if (result.success && result.logs.length > 0) {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
-            let historyText = getMessage('riwayat_header') + '\n';
+            await sock.sendMessage(sender, { react: { text: getMessage('REACTION_SUCCESS'), key: msgObj.key } });
+            let historyText = getMessage('ABSEN_HISTORY_HEADER') + '\n';
 
             result.logs.forEach(log => {
                 historyText += `\n━━━━━━━━━━━━━━━━━━\n`;
                 historyText += `*${log.date}*\n`;
                 if (log.missing || !log.activity_log) {
-                    historyText += getMessage('riwayat_no_data') + '\n';
+                    historyText += getMessage('ABSEN_HISTORY_EMPTY') + '\n';
                 } else {
                     historyText += `*Aktivitas:*\n${log.activity_log}\n\n`;
                     if (log.lesson_learned) {
@@ -48,10 +48,10 @@ module.exports = {
             });
 
             const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-            if (isGroup) await sock.sendMessage(sender, { text: getMessage('riwayat_sent_to_private') }, { quoted: msgObj });
+            if (isGroup) await sock.sendMessage(sender, { text: getMessage('ABSEN_HISTORY_SENT_PRIVATE') }, { quoted: msgObj });
             await sock.sendMessage(targetJid, { text: historyText });
         } else {
-            await sock.sendMessage(sender, { text: getMessage('riwayat_failed') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('ABSEN_HISTORY_FAILED') }, { quoted: msgObj });
         }
     }
 };

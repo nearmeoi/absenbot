@@ -14,7 +14,7 @@ module.exports = {
 
         const allUsers = getAllUsers();
         if (allUsers.length === 0) {
-            await sock.sendMessage(sender, { text: getMessage('listuser_empty') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('GROUP_LIST_EMPTY') }, { quoted: msgObj });
             return;
         }
 

@@ -33,19 +33,17 @@ const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '123456';
 // ========================================
 
 function requireAuth(req, res, next) {
-    // BYPASS AUTHENTICATION (Requested by user to fix login loop issues)
-    // console.log(chalk.yellow(`[AUTH-BYPASS] Allowing access to: ${req.path}`));
-    return next();
-    
-    /* Original Auth Logic (Disabled)
     if (req.session && req.session.authenticated) {
         return next();
     }
+    
+    // Allow API calls to return 401 instead of redirect (better for React frontend)
     if (req.path.startsWith('/api/')) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
+    
+    // Redirect normal page loads to login
     return res.redirect('/dashboard/login');
-    */
 }
 
 // ========================================
@@ -214,13 +212,14 @@ router.get('/api/scheduler', requireAuth, (req, res) => {
     res.json({
         enabled: botState.isSchedulerEnabled(),
         timezone: 'Multi-timezone (WIB/WITA/WIT)',
-        schedules: loadSchedules()
+        schedules: loadSchedules(),
+        messages: loadMessages() // Include messages lookup
     });
 });
 
 // Add new schedule
 router.post('/api/scheduler', requireAuth, express.json(), (req, res) => {
-    const { time, type, messageKey, description, days } = req.body;
+    const { time, type, messageKey, description, days, customContent } = req.body;
     
     if (!time || !type) {
         return res.status(400).json({ error: 'Time and Type are required' });
@@ -236,7 +235,7 @@ router.post('/api/scheduler', requireAuth, express.json(), (req, res) => {
         enabled: true
     };
 
-    addSchedule(newSchedule);
+    addSchedule(newSchedule, customContent);
     log(LOG_TYPES.SCHEDULER, `New schedule added: ${newSchedule.id}`);
     res.json({ success: true, schedule: newSchedule });
 });
@@ -244,9 +243,9 @@ router.post('/api/scheduler', requireAuth, express.json(), (req, res) => {
 // Update schedule
 router.put('/api/scheduler/:id', requireAuth, express.json(), (req, res) => {
     const { id } = req.params;
-    const updates = req.body;
+    const { customContent, ...updates } = req.body;
     
-    const updated = updateSchedule(id, updates);
+    const updated = updateSchedule(id, updates, customContent);
     if (updated) {
         log(LOG_TYPES.SCHEDULER, `Schedule updated: ${id}`);
         res.json({ success: true, schedule: updated });
@@ -788,7 +787,7 @@ router.post('/api/test/send-menu', requireAuth, async (req, res) => {
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         // Return real menu format (no TEST prefix, pure simulation)
-        const info = getMessage('menu');
+        const info = getMessage('GENERAL_MENU');
 
         // Always simulation mode - never send to WA
         res.json({

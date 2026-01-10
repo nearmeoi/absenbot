@@ -14,7 +14,7 @@ module.exports = {
 
     async execute(sock, msgObj, context) {
         const { sender } = context;
-        const info = getMessage('menu');
+        const info = getMessage('GENERAL_MENU');
 
         try {
             if (fs.existsSync(COVER_IMAGE)) {

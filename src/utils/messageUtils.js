@@ -26,7 +26,9 @@ function parseDraftFromMessage(text) {
         /(\n\s*)?_?Ketik\s+(\*ya\*)?\s*untuk\s+kirim\.?_?[\s\S]*$/i,
         /(\n\s*)?_?Ketik\s+(\*ya\*)?\s*untuk\s+mengirim\s+laporan[\s\S]*$/i,
         /(\n\s*)?\(ketik\s+ya\s+untuk\s+kirim\)[\s\S]*$/i,
-        /(\n\s*)?_?Ketik\s+(\*ya\*)?\s*untuk\s+kirim,\s+atau[\s\S]*$/i
+        /(\n\s*)?_?Ketik\s+(\*ya\*)?\s*untuk\s+kirim,\s+atau[\s\S]*$/i,
+        /(\n\s*)?_?Silakan\s+salin\s+pesan\s+di\s+atas[\s\S]*$/i, // Template instruction
+        /(\n\s*)?_?Salin\s+pesan\s+ini[\s\S]*$/i // Generic copy instruction
     ];
 
     for (const pattern of instructionPatterns) {

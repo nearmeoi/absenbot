@@ -14,17 +14,17 @@ module.exports = {
         const { sender, isGroup } = context;
 
         if (!isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('ingatkan_not_group') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('GROUP_ONLY_COMMAND') }, { quoted: msgObj });
             return;
         }
 
         const allUsers = getAllUsers();
         if (allUsers.length === 0) {
-            await sock.sendMessage(sender, { text: getMessage('ingatkan_empty') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('GROUP_LIST_EMPTY') }, { quoted: msgObj });
             return;
         }
 
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
+        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_WAIT'), key: msgObj.key } });
 
         let belumAbsen = [];
 
@@ -40,13 +40,13 @@ module.exports = {
         }
 
         if (belumAbsen.length > 0) {
-            let msgAlert = getMessage('siapa_header') + `\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\n`;
+            let msgAlert = getMessage('GROUP_WHO_HEADER') + `\nTanggal: ${new Date().toLocaleDateString('id-ID')}\n\n`;
             belumAbsen.forEach(num => (msgAlert += `- @${num.split("@")[0]}\n`));
             msgAlert += `\nSegera lengkapi laporan harian Anda.`;
 
             await sock.sendMessage(sender, { text: msgAlert, mentions: belumAbsen }, { ephemeralExpiration: 86400 });
         } else {
-            await sock.sendMessage(sender, { text: getMessage('siapa_all_done') }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            await sock.sendMessage(sender, { text: getMessage('GROUP_WHO_ALL_DONE') }, { quoted: msgObj, ephemeralExpiration: 86400 });
         }
     }
 };

@@ -11,6 +11,7 @@ import {
 
 export default function Scheduler() {
     const [schedules, setSchedules] = useState([]);
+    const [allMessages, setAllMessages] = useState({});
     const [loading, setLoading] = useState(true);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -20,7 +21,9 @@ export default function Scheduler() {
         time: '08:00',
         description: '',
         type: 'group_hidetag',
-        messageKey: 'morning_reminder',
+        messageKey: 'REMINDER_MORNING',
+        customContent: '',
+        useCustom: false,
         enabled: true
     });
 
@@ -35,6 +38,7 @@ export default function Scheduler() {
         try {
             const res = await api.get('/scheduler');
             setSchedules(res.data.schedules || []);
+            setAllMessages(res.data.messages || {});
             setLoading(false);
         } catch (e) {
             toast.error('Failed to load scheduler');
@@ -45,11 +49,17 @@ export default function Scheduler() {
     const handleOpenDialog = (schedule = null) => {
         if (schedule) {
             setEditingId(schedule.id);
+            
+            // Detect if it is a custom key
+            const isCustom = schedule.messageKey && schedule.messageKey.startsWith('SCHED_CUSTOM_');
+            
             setFormData({
                 time: schedule.time,
                 description: schedule.description,
                 type: schedule.type,
-                messageKey: schedule.messageKey,
+                messageKey: isCustom ? 'custom' : schedule.messageKey,
+                customContent: isCustom ? (allMessages[schedule.messageKey] || '') : '',
+                useCustom: isCustom,
                 enabled: schedule.enabled
             });
         } else {
@@ -58,7 +68,9 @@ export default function Scheduler() {
                 time: '08:00',
                 description: '',
                 type: 'group_hidetag',
-                messageKey: 'morning_reminder',
+                messageKey: 'REMINDER_MORNING',
+                customContent: '',
+                useCustom: false,
                 enabled: true
             });
         }
@@ -67,11 +79,24 @@ export default function Scheduler() {
 
     const handleSave = async () => {
         try {
+            const payload = { ...formData };
+            
+            // If using custom message, pass it in payload and ignore messageKey
+            if (formData.useCustom) {
+                if (!formData.customContent.trim()) {
+                    toast.error('Custom message content cannot be empty');
+                    return;
+                }
+                payload.messageKey = null; // Backend will generate new key
+            } else {
+                payload.customContent = null;
+            }
+
             if (editingId) {
-                await api.put(`/scheduler/${editingId}`, formData);
+                await api.put(`/scheduler/${editingId}`, payload);
                 toast.success('Schedule updated');
             } else {
-                await api.post('/scheduler', formData);
+                await api.post('/scheduler', payload);
                 toast.success('Schedule created');
             }
             setOpenDialog(false);
@@ -98,6 +123,15 @@ export default function Scheduler() {
             toast.success('Trigger command sent');
         } catch (e) {
             toast.error('Failed to trigger schedule');
+        }
+    };
+
+    const handleMessageKeyChange = (e) => {
+        const val = e.target.value;
+        if (val === 'custom') {
+            setFormData({ ...formData, messageKey: 'custom', useCustom: true });
+        } else {
+            setFormData({ ...formData, messageKey: val, useCustom: false });
         }
     };
 
@@ -268,74 +302,132 @@ export default function Scheduler() {
                 </Box>
             )}
 
-            {/* Add/Edit Dialog */}
-            <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    {editingId ? 'Edit Schedule' : 'New Schedule'}
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-                        <TextField
-                            label="Time (WITA)"
-                            type="time"
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            value={formData.time}
-                            onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                        />
-                        <TextField
-                            label="Description"
-                            fullWidth
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        />
-                        <FormControl fullWidth>
-                            <InputLabel>Type</InputLabel>
-                            <Select
-                                value={formData.type}
-                                label="Type"
-                                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                            >
-                                <MenuItem value="group_hidetag">Group Broadcast (Hidetag)</MenuItem>
-                                <MenuItem value="group_hidetag_japri">Broadcast + Japri Unfinished</MenuItem>
-                                <MenuItem value="draft_push">Draft Push (Darurat)</MenuItem>
-                                <MenuItem value="emergency_submit">Auto Submit (Emergency)</MenuItem>
-                            </Select>
-                        </FormControl>
-                        
-                        {(formData.type === 'group_hidetag' || formData.type === 'group_hidetag_japri') && (
-                            <FormControl fullWidth>
-                                <InputLabel>Message Template</InputLabel>
-                                <Select
-                                    value={formData.messageKey}
-                                    label="Message Template"
-                                    onChange={(e) => setFormData({ ...formData, messageKey: e.target.value })}
+            {/* Brutalist Dialog */}
+            <Dialog 
+                open={openDialog} 
+                onClose={() => setOpenDialog(false)}
+                maxWidth="sm" 
+                fullWidth
+                PaperProps={{
+                    style: {
+                        borderRadius: 16,
+                        border: '4px solid black',
+                        boxShadow: '8px 8px 0 #000',
+                        overflow: 'visible'
+                    }
+                }}
+            >
+                <div className="bg-white p-6 rounded-xl relative">
+                    {/* Close Button */}
+                    <button 
+                        onClick={() => setOpenDialog(false)}
+                        className="absolute -top-4 -right-4 bg-[#ff6b6b] text-black border-4 border-black p-2 rounded-full hover:rotate-90 transition-transform shadow-[4px_4px_0_#000]"
+                    >
+                        <X size={24} strokeWidth={3} />
+                    </button>
+
+                    <h2 className="text-2xl font-black uppercase mb-6 border-b-4 border-black pb-2">
+                        {editingId ? 'Edit Schedule' : 'New Schedule'}
+                    </h2>
+
+                    <div className="space-y-4">
+                        {/* Time Input */}
+                        <div>
+                            <label className="block font-bold text-sm uppercase mb-1">Time (WITA)</label>
+                            <input
+                                type="time"
+                                className="w-full border-4 border-black p-3 font-bold text-lg focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow"
+                                value={formData.time}
+                                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                            />
+                        </div>
+
+                        {/* Description Input */}
+                        <div>
+                            <label className="block font-bold text-sm uppercase mb-1">Description</label>
+                            <input
+                                type="text"
+                                className="w-full border-4 border-black p-3 font-bold focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                placeholder="e.g. Morning Reminder"
+                            />
+                        </div>
+
+                        {/* Type Select */}
+                        <div>
+                            <label className="block font-bold text-sm uppercase mb-1">Type</label>
+                            <div className="relative">
+                                <select
+                                    className="w-full border-4 border-black p-3 font-bold bg-white focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow appearance-none"
+                                    value={formData.type}
+                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                                 >
-                                    <MenuItem value="morning_reminder">Morning Reminder</MenuItem>
-                                    <MenuItem value="afternoon_reminder">Afternoon Reminder</MenuItem>
-                                    <MenuItem value="evening_reminder">Evening Reminder</MenuItem>
-                                </Select>
-                            </FormControl>
+                                    <option value="group_hidetag">Group Broadcast (Hidetag)</option>
+                                    <option value="group_hidetag_japri">Broadcast + Japri Unfinished</option>
+                                    <option value="draft_push">Draft Push (Emergency)</option>
+                                    <option value="emergency_submit">Auto Submit (Emergency)</option>
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">▼</div>
+                            </div>
+                        </div>
+
+                        {/* Message Template Select */}
+                        {(formData.type === 'group_hidetag' || formData.type === 'group_hidetag_japri') && (
+                            <>
+                                <div>
+                                    <label className="block font-bold text-sm uppercase mb-1">Message Template</label>
+                                    <div className="relative">
+                                        <select
+                                            className="w-full border-4 border-black p-3 font-bold bg-white focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow appearance-none"
+                                            value={formData.messageKey}
+                                            onChange={handleMessageKeyChange}
+                                        >
+                                            <option value="REMINDER_MORNING">Morning Reminder</option>
+                                            <option value="REMINDER_AFTERNOON">Afternoon Reminder</option>
+                                            <option value="REMINDER_EVENING">Evening Reminder</option>
+                                            <option value="custom">Custom Message (Buat Sendiri)</option>
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">▼</div>
+                                    </div>
+                                </div>
+                                
+                                {formData.useCustom && (
+                                    <div>
+                                        <label className="block font-bold text-sm uppercase mb-1">Custom Message Content</label>
+                                        <textarea
+                                            className="w-full border-4 border-black p-3 font-bold focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow"
+                                            rows="4"
+                                            placeholder="Tulis pesan pengingat di sini..."
+                                            value={formData.customContent}
+                                            onChange={(e) => setFormData({ ...formData, customContent: e.target.value })}
+                                        ></textarea>
+                                        <p className="text-xs font-bold mt-1 text-gray-500">Pesan ini akan disimpan sebagai template baru.</p>
+                                    </div>
+                                )}
+                            </>
                         )}
 
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={formData.enabled}
-                                    onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                                    color="success"
-                                />
-                            }
-                            label="Enable Schedule"
-                        />
-                    </Box>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-                    <Button onClick={handleSave} variant="contained" startIcon={<Save size={18} />}>
-                        Save
-                    </Button>
-                </DialogActions>
+                        {/* Enable Switch */}
+                        <div className="border-4 border-black p-4 bg-gray-50 flex items-center justify-between cursor-pointer">
+                            <span className="font-bold uppercase">Enable Schedule</span>
+                            <Switch 
+                                checked={formData.enabled} 
+                                onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })} 
+                                color="success" 
+                            />
+                        </div>
+
+                        {/* Save Button */}
+                        <button
+                            onClick={handleSave}
+                            className="w-full bg-[#0df259] border-4 border-black py-4 font-black uppercase text-xl shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all mt-4 hover:bg-[#00d648] flex items-center justify-center gap-2"
+                        >
+                            <Save size={24} strokeWidth={3} />
+                            Save Schedule
+                        </button>
+                    </div>
+                </div>
             </Dialog>
         </Box>
     );

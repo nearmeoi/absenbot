@@ -18,26 +18,26 @@ module.exports = {
 
         const existingUser = getUserByPhone(senderNumber);
         if (existingUser) {
-            await sock.sendMessage(sender, { text: getMessage('already_registered') }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            await sock.sendMessage(sender, { text: getMessage('AUTH_ALREADY_REGISTERED') }, { quoted: msgObj, ephemeralExpiration: 86400 });
             return;
         }
 
         // Generate auth URL with the original sender ID (could be LID or phone)
         const authUrl = await generateAuthUrl(originalSenderId, async (result) => {
             if (result.success) {
-                await sock.sendMessage(originalSenderId, { text: getMessage('registration_success') });
+                await sock.sendMessage(originalSenderId, { text: getMessage('AUTH_REG_SUCCESS') });
             } else {
                 await sock.sendMessage(originalSenderId, {
-                    text: getMessage('registration_failed').replace('{error}', result.message || 'Terjadi kesalahan saat registrasi.')
+                    text: getMessage('AUTH_REG_FAILED').replace('{error}', result.message || 'Terjadi kesalahan saat registrasi.')
                 });
             }
         });
 
         if (isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('registration_link_group') }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            await sock.sendMessage(originalSenderId, { text: getMessage('registration_link_private').replace('{url}', authUrl) });
+            await sock.sendMessage(sender, { text: getMessage('AUTH_REG_LINK_GROUP') }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            await sock.sendMessage(originalSenderId, { text: getMessage('AUTH_REG_LINK_PRIVATE').replace('{url}', authUrl) });
         } else {
-            await sock.sendMessage(sender, { text: getMessage('registration_link_private').replace('{url}', authUrl) }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('AUTH_REG_LINK_PRIVATE').replace('{url}', authUrl) }, { quoted: msgObj });
         }
     }
 };

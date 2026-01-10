@@ -722,4 +722,39 @@ Tanpa komentar tambahan.`;
     return { success: true, aktivitas, pembelajaran, kendala };
 }
 
-module.exports = { generateAttendanceReport, processFreeTextToReport, transcribeAudio, callGimitaGemini, callGimitaDolphin, callGimitaChatAI, improveWithGimitaGemini, improveDolphinResult };
+/**
+ * Smart Chat with Fallback Strategy
+ * Tries: Dolphin -> DeepSeek -> Gemini
+ */
+async function smartChat(prompt, systemPrompt = '') {
+    const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+    
+    // 1. Primary: DOLPHIN (High Speed)
+    console.log(chalk.cyan('[SMART-CHAT] Trying Dolphin...'));
+    let result = await callGimitaDolphin(fullPrompt);
+    if (result.success) return { success: true, content: result.content, model: 'Dolphin' };
+
+    // 2. Fallback 1: DeepSeek-V3
+    console.log(chalk.yellow('[SMART-CHAT] Dolphin failed, switching to DeepSeek...'));
+    result = await callGimitaChatAI(fullPrompt, 'deepseek-v3');
+    if (result.success) return { success: true, content: result.content, model: 'DeepSeek' };
+
+    // 3. Fallback 2: Gemini
+    console.log(chalk.yellow('[SMART-CHAT] DeepSeek failed, switching to Gemini...'));
+    result = await callGimitaGemini(fullPrompt);
+    if (result.success) return { success: true, content: result.content, model: 'Gemini' };
+
+    return { success: false, error: 'All AI services are busy.' };
+}
+
+module.exports = { 
+    generateAttendanceReport, 
+    processFreeTextToReport, 
+    transcribeAudio, 
+    callGimitaGemini, 
+    callGimitaDolphin, 
+    callGimitaChatAI, 
+    improveWithGimitaGemini, 
+    improveDolphinResult,
+    smartChat 
+};

@@ -19,17 +19,17 @@ module.exports = {
         const isAdmin = ADMIN_NUMBERS.some(num => senderDigits.includes(num) || num.includes(senderDigits));
 
         if (!isAdmin) {
-            await sock.sendMessage(sender, { text: getMessage('broadcast_admin_only') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('ADMIN_ONLY') }, { quoted: msgObj });
             return;
         }
 
         if (!args) {
-            await sock.sendMessage(sender, { text: getMessage('broadcast_format') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('ADMIN_BROADCAST_FORMAT') }, { quoted: msgObj });
             return;
         }
 
         const allUsers = getAllUsers();
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_broadcast'), key: msgObj.key } });
+        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_BROADCAST'), key: msgObj.key } });
 
         for (const u of allUsers) {
             try {
@@ -38,6 +38,6 @@ module.exports = {
             } catch (e) { }
         }
 
-        await sock.sendMessage(sender, { text: getMessage('broadcast_done') }, { quoted: msgObj });
+        await sock.sendMessage(sender, { text: getMessage('ADMIN_BROADCAST_DONE') }, { quoted: msgObj });
     }
 };

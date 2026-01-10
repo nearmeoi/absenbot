@@ -27,10 +27,10 @@ module.exports = {
         if (subCmd === 'showid') {
             const chatId = sender;
             const isGroup = sender.endsWith('@g.us');
-            const message = getMessage('dev_chat_id_header') +
+            const message = getMessage('DEV_CHAT_ID_HEADER') +
                 `Chat Type: ${isGroup ? 'Group' : 'Private'}\n` +
                 `ID: \`${chatId}\`\n\n` +
-                `${isGroup ? getMessage('dev_chat_group_add_hint').replace('{id}', chatId) : ''}`;
+                `${isGroup ? getMessage('DEV_CHAT_GROUP_ADD_HINT').replace('{id}', chatId) : ''}`;
 
             await sock.sendMessage(senderNumber, { text: message });
             return;
@@ -41,8 +41,8 @@ module.exports = {
             const dateStr = params[0] || new Date().toISOString().split('T')[0];
             const added = addHoliday(dateStr);
             const reply = added
-                ? getMessage('dev_holiday_added').replace('{date}', dateStr)
-                : getMessage('dev_holiday_exists').replace('{date}', dateStr);
+                ? getMessage('DEV_HOLIDAY_ADDED').replace('{date}', dateStr)
+                : getMessage('DEV_HOLIDAY_EXISTS').replace('{date}', dateStr);
             await sock.sendMessage(senderNumber, { text: reply });
             return;
         }
@@ -52,8 +52,8 @@ module.exports = {
             const dateStr = params[0] || new Date().toISOString().split('T')[0];
             const removed = removeHoliday(dateStr);
             const reply = removed
-                ? getMessage('dev_holiday_removed').replace('{date}', dateStr)
-                : getMessage('dev_holiday_not_found').replace('{date}', dateStr);
+                ? getMessage('DEV_HOLIDAY_REMOVED').replace('{date}', dateStr)
+                : getMessage('DEV_HOLIDAY_NOT_FOUND').replace('{date}', dateStr);
             await sock.sendMessage(senderNumber, { text: reply });
             return;
         }
@@ -65,7 +65,7 @@ module.exports = {
             const today = new Date().toISOString().split('T')[0];
             const todayIsHoliday = isHoliday();
 
-            const statusMsg = getMessage('dev_status_header') +
+            const statusMsg = getMessage('DEV_STATUS_HEADER') +
                 `Hari ini: ${today}\n` +
                 `Status: ${todayIsHoliday ? '🔴 LIBUR' : '🟢 KERJA'}\n\n` +
                 `📅 Custom Holidays (${holidays.length}):\n${holidays.length > 0 ? holidays.map(d => `  • ${d}`).join('\n') : '  (kosong)'}\n\n` +
@@ -88,22 +88,22 @@ module.exports = {
             if (action === 'add') {
                 const added = addAllowedGroup(groupId);
                 const reply = added
-                    ? getMessage('dev_group_added').replace('{id}', groupId)
-                    : getMessage('dev_group_exists').replace('{id}', groupId);
+                    ? getMessage('DEV_GROUP_ADDED').replace('{id}', groupId)
+                    : getMessage('DEV_GROUP_EXISTS').replace('{id}', groupId);
                 await sock.sendMessage(senderNumber, { text: reply });
             } else if (action === 'remove') {
                 const removed = removeAllowedGroup(groupId);
                 const reply = removed
-                    ? getMessage('dev_group_removed').replace('{id}', groupId)
-                    : getMessage('dev_group_not_found').replace('{id}', groupId);
+                    ? getMessage('DEV_GROUP_REMOVED').replace('{id}', groupId)
+                    : getMessage('DEV_GROUP_NOT_FOUND').replace('{id}', groupId);
                 await sock.sendMessage(senderNumber, { text: reply });
             } else {
-                await sock.sendMessage(senderNumber, { text: getMessage('dev_invalid_action') });
+                await sock.sendMessage(senderNumber, { text: getMessage('DEV_INVALID_ACTION') });
             }
             return;
         }
 
         // Unknown subcommand
-        await sock.sendMessage(senderNumber, { text: getMessage('dev_help') });
+        await sock.sendMessage(senderNumber, { text: getMessage('DEV_HELP') });
     }
 };

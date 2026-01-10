@@ -13,7 +13,7 @@ module.exports = {
         const { sender, isGroup, args } = context;
 
         if (!isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('hidetag_not_group') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('GROUP_ONLY_COMMAND') }, { quoted: msgObj });
             return;
         }
 

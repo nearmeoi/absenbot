@@ -15,27 +15,27 @@ module.exports = {
 
         const user = getUserByPhone(senderNumber);
         if (!user) {
-            await sock.sendMessage(sender, { text: getMessage('not_registered') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') }, { quoted: msgObj });
             return;
         }
 
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
+        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_WAIT'), key: msgObj.key } });
         const status = await cekStatusHarian(user.email, user.password);
 
         if (status.success) {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('REACTION_SUCCESS'), key: msgObj.key } });
             if (status.sudahAbsen) {
                 const log = status.data;
-                let reply = getMessage('cek_sudah_absen')
+                let reply = getMessage('ABSEN_CHECK_DONE')
                     .replace('{date}', log.date)
                     .replace('{activity}', log.activity_log.substring(0, 100));
                 await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
             } else {
-                await sock.sendMessage(sender, { text: getMessage('cek_belum_absen') }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('ABSEN_CHECK_PENDING') }, { quoted: msgObj });
             }
         } else {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
-            await sock.sendMessage(sender, { text: getMessage('cek_error').replace('{error}', status.pesan) }, { quoted: msgObj });
+            await sock.sendMessage(sender, { react: { text: getMessage('REACTION_FAIL'), key: msgObj.key } });
+            await sock.sendMessage(sender, { text: getMessage('ABSEN_CHECK_ERROR').replace('{error}', status.pesan) }, { quoted: msgObj });
         }
     }
 };

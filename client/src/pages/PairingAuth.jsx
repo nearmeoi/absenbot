@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import { CheckCircle, AlertCircle } from 'lucide-react'; // Loader2 removed (using CircularProgress)
-import { Box, Card, CardContent, Typography, TextField, Button, Alert, CircularProgress, Container } from '@mui/material';
+import { CheckCircle, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export default function PairingAuth() {
     const { token } = useParams();
@@ -31,75 +30,85 @@ export default function PairingAuth() {
 
     if (status === 'success') {
         return (
-            <Container maxWidth="xs" sx={{ mt: 8 }}>
-                <Card sx={{ textAlign: 'center', p: 2 }}>
-                    <CardContent>
-                        <Box sx={{
-                            display: 'inline-flex', p: 2, borderRadius: '50%',
-                            bgcolor: 'success.light', color: 'success.main', mb: 2
-                        }}>
-                            <CheckCircle size={32} />
-                        </Box>
-                        <Typography variant="h5" gutterBottom fontWeight="bold">Login Berhasil!</Typography>
-                        <Typography color="text.secondary" paragraph>{message}</Typography>
-                        <Typography variant="caption" color="text.disabled">Anda boleh menutup halaman ini.</Typography>
-                    </CardContent>
-                </Card>
-            </Container>
+            <div className="min-h-screen grid-bg flex flex-col justify-center items-center p-4">
+                <div className="neo bg-white w-full max-w-sm p-8 flex flex-col items-center gap-6 relative text-center">
+                    <div className="bg-[#0df259] border-4 border-black p-4 rounded-full shadow-[4px_4px_0_#000] mb-2">
+                        <CheckCircle size={48} strokeWidth={3} className="text-black" />
+                    </div>
+                    
+                    <h1 className="text-3xl font-black uppercase tracking-tighter">Login Berhasil!</h1>
+                    
+                    <div className="bg-green-100 border-2 border-black p-4 font-bold text-sm w-full">
+                        {message}
+                    </div>
+
+                    <p className="text-xs font-bold uppercase text-gray-400 mt-4">Anda boleh menutup halaman ini.</p>
+                </div>
+            </div>
         );
     }
 
     return (
-        <Container maxWidth="xs" sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 4 }}>
-            <Card elevation={4}>
-                <CardContent sx={{ p: 4 }}>
-                    <Typography variant="h5" align="center" gutterBottom fontWeight={700} sx={{ mb: 3 }}>
-                        Masuk SIAPkerja
-                    </Typography>
+        <div className="min-h-screen grid-bg flex flex-col justify-center items-center p-4">
+            <div className="neo bg-white w-full max-w-sm p-8 flex flex-col items-center gap-6 relative">
+                {/* Decorative elements */}
+                <div className="absolute -top-3 -left-3 w-6 h-6 bg-black"></div>
+                <div className="absolute -bottom-3 -right-3 w-6 h-6 bg-black"></div>
 
-                    {status === 'error' && (
-                        <Alert severity="error" sx={{ mb: 3 }} icon={<AlertCircle size={20} />}>
-                            {message}
-                        </Alert>
-                    )}
+                <div className="bg-black text-white p-3 rounded-lg border-2 border-black transform rotate-3">
+                    <ShieldCheck size={32} strokeWidth={2.5} />
+                </div>
 
-                    <form onSubmit={handleSubmit}>
-                        <TextField
-                            fullWidth
-                            label="Email / No. HP"
+                <div className="text-center space-y-1 w-full border-b-4 border-black pb-4">
+                    <h1 className="text-2xl font-black uppercase tracking-tighter">Masuk SIAPkerja</h1>
+                    <p className="text-xs font-bold text-gray-500 uppercase">Secure Pairing Authentication</p>
+                </div>
+
+                {status === 'error' && (
+                    <div className="bg-red-100 border-2 border-black p-3 font-bold flex items-center gap-2 text-sm w-full shadow-[4px_4px_0_#ff6b6b]">
+                        <AlertCircle size={20} className="text-red-600 shrink-0" />
+                        <span className="uppercase">{message}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="w-full flex flex-col gap-5">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest pl-1">Email / No. HP</label>
+                        <input
+                            type="text"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                             required
-                            placeholder="Email atau nomor handphone"
-                            margin="normal"
+                            placeholder="user@example.com"
+                            className="w-full border-4 border-black p-3 font-bold text-lg focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow bg-gray-50"
                         />
-                        <TextField
-                            fullWidth
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest pl-1">Password</label>
+                        <input
                             type="password"
-                            label="Password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             required
-                            placeholder="Password"
-                            margin="normal"
-                            sx={{ mb: 3 }}
+                            placeholder="••••••••"
+                            className="w-full border-4 border-black p-3 font-bold text-lg focus:outline-none focus:shadow-[4px_4px_0_#000] transition-shadow bg-gray-50"
                         />
-                        <Button
-                            type="submit"
-                            fullWidth
-                            variant="contained"
-                            size="large"
-                            disabled={status === 'loading'}
-                            sx={{ bgcolor: '#14b8a6', '&:hover': { bgcolor: '#0d9488' } }} // Teal color match
-                        >
-                            {status === 'loading' ? <CircularProgress size={24} color="inherit" /> : 'Masuk'}
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
-            <Typography align="center" variant="caption" color="text.secondary" sx={{ mt: 4 }}>
-                ©2025 Kemnaker RI
-            </Typography>
-        </Container>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={status === 'loading'}
+                        className="mt-2 w-full bg-[#14b8a6] border-4 border-black p-4 font-black text-xl uppercase shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all hover:bg-[#0d9488] text-white disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
+                    >
+                        {status === 'loading' ? 'Authenticating...' : 'MASUK'}
+                    </button>
+                </form>
+            </div>
+
+            <div className="mt-8 text-xs font-bold uppercase tracking-widest opacity-40">
+                ©2026 Kemnaker RI • Secured by AbsenBot
+            </div>
+        </div>
     );
 }

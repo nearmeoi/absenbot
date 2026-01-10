@@ -14,11 +14,11 @@ module.exports = {
         const { sender, isGroup } = context;
 
         if (!isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('setgroup_not_group') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('GROUP_ONLY_COMMAND') }, { quoted: msgObj });
             return;
         }
 
         fs.writeFileSync(GROUP_ID_FILE, sender);
-        await sock.sendMessage(sender, { text: getMessage('setgroup_success') }, { quoted: msgObj });
+        await sock.sendMessage(sender, { text: getMessage('GROUP_SET_SUCCESS') }, { quoted: msgObj });
     }
 };
