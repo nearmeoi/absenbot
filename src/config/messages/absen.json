@@ -1,0 +1,23 @@
+{
+  "!absen_maintenance": "*MAINTENANCE RUTIN*\n\nFitur !absen sedang dalam maintenance. Mohon coba lagi beberapa saat lagi ya.\n\nSementara bisa absen manual via web: {app_url}",
+  "!absen_loading": "_Sedang menyiapkan laporan otomatis dari riwayat Anda..._",
+  "!absen_failed_auto": "Gagal membuat laporan otomatis. Silakan coba manual:\n\n*!absen [aktivitas, pembelajaran, kendala hari ini]*\n_Contoh: !absen belajar react membuat komponen, pembelajaran hari ini mengetahui tentang react componen, kendala hari ini tidak ada_ \n\natau bisa menuju kesini {app_url}",
+  "!absen_processing_ai": "_Sedang menyusun laporan Anda..._",
+  "!absen_failed_ai": "Maaf, gagal memproses laporan Otomatis dari AI \n\n{error}",
+  "!absen_hint": "Silakan berikan keterangan aktivitas Anda hari ini setelah *!absen*.\n\n_Contoh: !absen Hari ini saya belajar membuat API dan melakukan testing._\n\nAtau gunakan format manual dengan bantuan template:\nKetik *!template* untuk mendapatkan format isian manual.\n\n*TIP:* Malas ngetik di WA? Langsung aja ke sini {app_url}",
+  "!absen_too_short": "⚠️ *Laporan Terlalu Singkat*\n\n{errors}\n\nSilakan panjangkan lagi laporannya (minimal 100 karakter per bagian).",
+  "!absen_submit_success": "✅ *BERHASIL!*\nLaporan Anda telah terkirim ke web MagangHub.",
+  "!absen_submit_failed": "❌ *GAGAL:* {error}",
+  "!cek_done": "*SUDAH ABSEN*\nAnda telah absen hari ini.",
+  "!cek_pending": "*BELUM ABSEN*\nAnda belum mengirim laporan hari ini.",
+  "!cek_error": "Terjadi kesalahan saat mengecek status: {error}",
+  "cek_payout_info": "\n\n💡 *Info Estimasi Pencairan:* \n- Batch 3: ± {days3} hari lagi (Tgl 15)\n- Batch 2: ± {days2} hari lagi (Tgl 24)\n\nJangan lupa absen agar uang saku aman!",
+  "!riwayat_header": "*RIWAYAT ABSENSI*",
+  "!riwayat_empty": "_(Tidak ada data absen)_",
+  "!riwayat_failed": "Gagal mengambil riwayat atau data kosong.",
+  "!riwayat_sent_private": "Riwayat dikirim ke Chat Pribadi.",
+  "reminder_morning": "Pagi guys\nSemangat buat hari ini.",
+  "reminder_afternoon": "*MARKIPUL* \nSudah waktunya balik!\nJangan lupa isi absen hari ini.",
+  "reminder_evening": "*PENGINGAT ABSENSI* 🔔\n\nBagi yang belum absen hari ini, segera absen sebelum jam *23:59*.\n*!absen [aktivitas, pembelajaran, kendala hari ini]*\n_Contoh: !absen membuat laporan, pembelajaran hari ini mengetahui tentang cara menyusun laporan, kendala hari ini tidak ada_ \n\natau langsung kesini {app_url}",
+  "reminder_draft_alert": "*DARURAT DRAF ABSENSI OTOMATIS* ⚠️\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan untukmu. Balas *ya* untuk kirim."
+}

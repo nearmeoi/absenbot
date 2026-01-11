@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
@@ -14,6 +15,8 @@ import Settings from './pages/Settings';
 import PairingAuth from './pages/PairingAuth';
 import SystemTest from './pages/SystemTest.jsx';
 
+import AttendanceApp from './pages/AttendanceApp';
+
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex justify-center mt-12 font-bold text-xl uppercase animate-pulse">Loading System...</div>;
@@ -29,9 +32,26 @@ const PublicRoute = ({ children }) => {
 };
 
 function App() {
+  const host = window.location.hostname;
+  
+  // Logic Inverted: Define what is explicitly DASHBOARD
+  const isDashboard = host === 'monev-absenbot.my.id' || host.includes('localhost') || !host.startsWith('app.');
+  
+  // If it's NOT dashboard (i.e. it IS app.monev-absenbot...), then it is the App
+  const isApp = !isDashboard;
+  
+  const basename = isApp ? '/' : '/dashboard';
+
   return (
     <AuthProvider>
-      <BrowserRouter basename="/dashboard">
+      <BrowserRouter basename={basename}>
+        {/* DEBUG BANNER - REMOVE LATER */}
+        {/* 
+        <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-xs p-1 z-[9999] text-center font-mono">
+           DEBUG: Host={host} | IsApp={isApp.toString()} | Base={basename}
+        </div>
+        */}
+        
         <Toaster
           position="top-right"
           toastOptions={{
@@ -52,28 +72,34 @@ function App() {
           }}
         />
         <Routes>
+          {/* Universal Route for the App */}
+          <Route path="/app" element={<AttendanceApp />} />
+
           <Route path="/auth/:token" element={<PairingAuth />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
-          {/* DIRECT ACCESS (Auth Disabled for now based on previous code comment? No, PublicRoute used for Login, Protected for Layout?) */}
-          {/* Previous code had "DIRECT ACCESS (Auth Disabled)" comment but no ProtectedRoute wrapper on Layout routes. 
-              The user might want auth. I will stick to previous logic which seemed to NOT wrap Layout in ProtectedRoute 
-              although the comment said "Auth Disabled" but `Layout` components used `useAuth`...
-              Wait, looking at previous App.jsx:
-              <Route path="/" element={<Layout />}>
-              It was NOT wrapped in ProtectedRoute.
-              I will mimic that.
-          */}
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Overview />} />
-            <Route path="users" element={<Users />} />
-            <Route path="groups" element={<Groups />} />
-            <Route path="scheduler" element={<Scheduler />} />
-            <Route path="development" element={<Development />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="test-system" element={<SystemTest />} />
+          {/* Root Route Logic */}
+          <Route path="/" element={
+              isApp 
+                ? <AttendanceApp /> 
+                : <Layout />
+          }>
+             {/* Dashboard Nested Routes - only render if we are in Dashboard mode */}
+             {!isApp && (
+               <>
+                 <Route index element={<Overview />} />
+                 <Route path="users" element={<Users />} />
+                 <Route path="groups" element={<Groups />} />
+                 <Route path="scheduler" element={<Scheduler />} />
+                 <Route path="development" element={<Development />} />
+                 <Route path="settings" element={<Settings />} />
+                 <Route path="test-system" element={<SystemTest />} />
+               </>
+             )}
           </Route>
+
           <Route path="/terminal" element={<ProtectedRoute><Terminal /></ProtectedRoute>} />
+          
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

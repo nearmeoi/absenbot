@@ -1,0 +1,19 @@
+{
+  "group_only_command": "Perintah ini harus dijalankan di dalam grup.",
+  "group_set_success": "Grup berhasil disimpan.\n\nAlarm otomatis akan dikirim ke grup ini.",
+  "group_list_empty": "Belum ada user terdaftar.",
+  "group_who_header": "*Yang Belum Absen:*",
+  "group_who_all_done": "Semua sudah absen hari ini.",
+  "admin_only": "Hanya untuk admin.",
+  "admin_broadcast_format": "Format: !broadcast [pesan]",
+  "admin_broadcast_done": "Broadcast selesai.",
+  "admin_hidetag_not_group": "Perintah ini hanya bisa digunakan di dalam grup.",
+  "admin_hidetag_format": "Format: !all [pesan]",
+  "admin_hidetag_done": "Broadcast group selesai.",
+  "reaction_wait": "⏳",
+  "reaction_success": "✅",
+  "reaction_fail": "❌",
+  "reaction_rocket": "🚀",
+  "reaction_write": "✍️",
+  "reaction_broadcast": "📢"
+}

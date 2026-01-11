@@ -12,32 +12,34 @@ module.exports = {
     adminOnly: true,
 
     async execute(sock, msgObj, context) {
-        const { sender, senderNumber, args } = context;
+        const { sender, args } = context;
 
-        // Admin check
-        const senderDigits = senderNumber.split('@')[0].replace(/:/g, '');
-        const isAdmin = ADMIN_NUMBERS.some(num => senderDigits.includes(num) || num.includes(senderDigits));
-
-        if (!isAdmin) {
-            await sock.sendMessage(sender, { text: getMessage('ADMIN_ONLY') }, { quoted: msgObj });
+        // Check if admin
+        if (!ADMIN_NUMBERS.includes(sender.replace('@s.whatsapp.net', ''))) {
+            await sock.sendMessage(sender, { text: getMessage('admin_only') }, { quoted: msgObj });
             return;
         }
 
         if (!args) {
-            await sock.sendMessage(sender, { text: getMessage('ADMIN_BROADCAST_FORMAT') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('admin_broadcast_format') }, { quoted: msgObj });
             return;
         }
 
-        const allUsers = getAllUsers();
-        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_BROADCAST'), key: msgObj.key } });
+        const users = getAllUsers();
+        await sock.sendMessage(sender, { react: { text: getMessage('reaction_broadcast') }, key: msgObj.key } );
 
-        for (const u of allUsers) {
+        let count = 0;
+        for (const user of users) {
             try {
-                await sock.sendMessage(u.phone, { text: args });
-                await new Promise(r => setTimeout(r, 500));
-            } catch (e) { }
+                // Add delay to avoid ban
+                await new Promise(r => setTimeout(r, 1000));
+                await sock.sendMessage(user.phone, { text: `📢 *INFORMASI PENTING*\n\n${args}` });
+                count++;
+            } catch (e) {
+                console.error(`Gagal kirim ke ${user.phone}:`, e.message);
+            }
         }
 
-        await sock.sendMessage(sender, { text: getMessage('ADMIN_BROADCAST_DONE') }, { quoted: msgObj });
+        await sock.sendMessage(sender, { text: `${getMessage('admin_broadcast_done')} (${count}/${users.length})` }, { quoted: msgObj });
     }
 };

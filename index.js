@@ -17,6 +17,8 @@ console.log = (...args) => {
 
 const connectToWhatsApp = require('./src/app');
 
+const { reportError } = require('./src/services/errorReporter');
+
 // Graceful Shutdown Handler (important for VPS with limited resources)
 const gracefulShutdown = (signal) => {
     console.log(`\n[SHUTDOWN] Received ${signal}. Cleaning up...`);
@@ -37,11 +39,14 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // Handle uncaught exceptions to prevent silent crashes
 process.on('uncaughtException', (err) => {
     console.error('[FATAL] Uncaught Exception:', err);
-    gracefulShutdown('UNCAUGHT_EXCEPTION');
+    reportError(err, 'UncaughtException').finally(() => {
+        gracefulShutdown('UNCAUGHT_EXCEPTION');
+    });
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+    reportError(reason, 'UnhandledRejection');
 });
 
 // Start Application

@@ -11,14 +11,20 @@ module.exports = {
     description: 'Set grup untuk pengingat otomatis',
 
     async execute(sock, msgObj, context) {
-        const { sender, isGroup } = context;
+        const { sender, isGroup, args } = context;
 
         if (!isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('GROUP_ONLY_COMMAND') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('group_only_command') }, { quoted: msgObj });
             return;
         }
 
-        fs.writeFileSync(GROUP_ID_FILE, sender);
-        await sock.sendMessage(sender, { text: getMessage('GROUP_SET_SUCCESS') }, { quoted: msgObj });
+        const groupId = msgObj.key.remoteJid;
+        const groupName = args || 'Group Absensi'; // Optional custom name
+
+        // Save group ID to file
+        const { saveGroup } = require('../services/groupSettings');
+        saveGroup(groupId, groupName);
+
+        await sock.sendMessage(sender, { text: getMessage('group_set_success') }, { quoted: msgObj });
     }
 };

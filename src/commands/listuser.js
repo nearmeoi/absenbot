@@ -11,10 +11,10 @@ module.exports = {
 
     async execute(sock, msgObj, context) {
         const { sender } = context;
+        const users = getAllUsers();
 
-        const allUsers = getAllUsers();
-        if (allUsers.length === 0) {
-            await sock.sendMessage(sender, { text: getMessage('GROUP_LIST_EMPTY') }, { quoted: msgObj });
+        if (users.length === 0) {
+            await sock.sendMessage(sender, { text: getMessage('group_list_empty') }, { quoted: msgObj });
             return;
         }
 

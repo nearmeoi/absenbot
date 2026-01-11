@@ -7,6 +7,8 @@ const { initScheduler, setBotSocket } = require('./services/scheduler');
 const { initAuthServer } = require('./services/secureAuth');
 const messageHandler = require('./handlers/messageHandler');
 
+const { initErrorReporter, reportError } = require('./services/errorReporter');
+
 const usePairingCode = true;
 let schedulerInitialized = false; // Prevent multiple scheduler init
 let authServerInitialized = false; // Prevent multiple auth server init
@@ -87,6 +89,9 @@ async function connectToWhatsApp() {
         } else if (connection === "open") {
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
 
+            // INIT ERROR REPORTER
+            initErrorReporter(sock);
+
             // INIT AUTH SERVER (only once)
             if (!authServerInitialized) {
                 initAuthServer();
@@ -166,7 +171,12 @@ async function connectToWhatsApp() {
             msg.bodyTeks = text;
             await messageHandler(sock, msg);
         } catch (e) {
-            console.error(chalk.bgRed(" HANDLER ERROR "), e)
+            console.error(chalk.bgRed(" HANDLER ERROR "), e);
+            reportError(e, 'messageHandler', { 
+                sender: remoteJid, 
+                text: text,
+                isGroup: isGroup
+            });
         }
     })
 }

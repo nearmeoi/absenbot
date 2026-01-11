@@ -25,8 +25,18 @@ const clientDistPath = path.join(__dirname, '../../client/dist/index.html');
 // Store bot socket reference (only socket is local, state is in botState.js)
 let botSocket = null;
 
+const crypto = require('crypto');
+
 // Dashboard password from env
-const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD || '123456';
+let DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD;
+
+if (!DASHBOARD_PASSWORD) {
+    // Generate random secure password if not set
+    DASHBOARD_PASSWORD = crypto.randomBytes(4).toString('hex');
+    console.log(chalk.bgRed.white.bold('\n[SECURITY WARNING] DASHBOARD_PASSWORD not set in .env'));
+    console.log(chalk.yellow(`Using temporary random password: `) + chalk.green.bold(DASHBOARD_PASSWORD));
+    console.log(chalk.yellow('Please set DASHBOARD_PASSWORD in your .env file for persistence.\n'));
+}
 
 // ========================================
 // MIDDLEWARE
@@ -787,7 +797,7 @@ router.post('/api/test/send-menu', requireAuth, async (req, res) => {
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         // Return real menu format (no TEST prefix, pure simulation)
-        const info = getMessage('GENERAL_MENU');
+        const info = getMessage('!menu');
 
         // Always simulation mode - never send to WA
         res.json({

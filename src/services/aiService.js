@@ -456,7 +456,7 @@ Tanpa komentar tambahan.`;
     console.log(chalk.gray(`[AI] Raw Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
 
     // Padding and Truncation Logic
-    const MIN_CHARS = 100;
+    const MIN_CHARS = 110; // Buffer to ensure > 100
     const MAX_CHARS = 200;
 
     // Clamping Logic: Pad if too short, Truncate if too long
@@ -467,25 +467,25 @@ Tanpa komentar tambahan.`;
         if (result.length < MIN_CHARS) {
             const suffixes = {
                 A: [
-                    " dan melakukan dokumentasi hasil kerja",
-                    " serta melakukan review terhadap progress",
-                    " dan berkoordinasi untuk kelanjutan tugas"
+                    " serta melakukan pendokumentasian hasil pengerjaan secara sistematis",
+                    " dan melakukan review berkala terhadap kemajuan tugas harian",
+                    " serta berkoordinasi dengan tim terkait untuk langkah selanjutnya"
                 ],
                 P: [
-                    " yang sangat bermanfaat untuk pengembangan skill",
-                    " dan menambah wawasan tentang best practices",
-                    " serta meningkatkan pemahaman teknis"
+                    " yang memberikan wawasan mendalam mengenai implementasi di lapangan",
+                    " serta menambah pemahaman praktis mengenai alur kerja profesional",
+                    " dan memperluas pengetahuan mengenai standar industri yang berlaku"
                 ],
                 K: [
-                    " dan semua berjalan lancar",
-                    " sehingga pekerjaan dapat diselesaikan",
-                    " dan tidak menghambat progress"
+                    " dan seluruh proses pekerjaan dapat terlaksana dengan sangat lancar",
+                    " sehingga seluruh target yang direncanakan dapat tercapai tepat waktu",
+                    " dan tidak ditemui hambatan berarti yang mengganggu jalannya aktivitas"
                 ]
             };
 
             let suffixIndex = 0;
             while (result.length < MIN_CHARS && suffixIndex < suffixes[type].length) {
-                result += suffixes[type][suffixIndex];
+                result += (result.endsWith('.') ? '' : '.') + suffixes[type][suffixIndex];
                 suffixIndex++;
             }
         }
@@ -691,20 +691,32 @@ Tanpa komentar tambahan.`;
     let pembelajaran = parseSection('PEMBELAJARAN', content);
     let kendala = parseSection('KENDALA', content);
 
-    const MIN_CHARS = 100;
+    const MIN_CHARS = 110;
     const MAX_CHARS = 200;
 
     const clamp = (text, type) => {
         let result = text;
         if (result.length < MIN_CHARS) {
             const suffixes = {
-                A: [" dan melakukan dokumentasi hasil kerja", " serta review progress"],
-                P: [" bermanfaat untuk skill", " menambah wawasan best practices"],
-                K: [" dan berjalan lancar", " sehingga selesai tepat waktu"]
+                A: [
+                    " serta melakukan pendokumentasian hasil pengerjaan secara sistematis",
+                    " dan melakukan review berkala terhadap kemajuan tugas harian",
+                    " serta berkoordinasi dengan tim terkait untuk langkah selanjutnya"
+                ],
+                P: [
+                    " yang memberikan wawasan mendalam mengenai implementasi di lapangan",
+                    " serta menambah pemahaman praktis mengenai alur kerja profesional",
+                    " dan memperluas pengetahuan mengenai standar industri yang berlaku"
+                ],
+                K: [
+                    " dan seluruh proses pekerjaan dapat terlaksana dengan sangat lancar",
+                    " sehingga seluruh target yang direncanakan dapat tercapai tepat waktu",
+                    " dan tidak ditemui hambatan berarti yang mengganggu jalannya aktivitas"
+                ]
             };
             let i = 0;
             while (result.length < MIN_CHARS && i < suffixes[type].length) {
-                result += suffixes[type][i++];
+                result += (result.endsWith('.') ? '' : '.') + suffixes[type][i++];
             }
         }
         if (result.length > MAX_CHARS) {
@@ -718,6 +730,8 @@ Tanpa komentar tambahan.`;
     aktivitas = clamp(aktivitas, 'A');
     pembelajaran = clamp(pembelajaran, 'P');
     kendala = clamp(kendala, 'K');
+
+    console.log(chalk.magenta(`[AI-DEBUG] Final Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
 
     return { success: true, aktivitas, pembelajaran, kendala };
 }

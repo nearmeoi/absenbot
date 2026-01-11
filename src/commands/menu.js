@@ -13,8 +13,8 @@ module.exports = {
     description: 'Tampilkan menu utama',
 
     async execute(sock, msgObj, context) {
-        const { sender } = context;
-        const info = getMessage('GENERAL_MENU');
+        const { sender, senderNumber } = context;
+        const info = getMessage('!menu', senderNumber);
 
         try {
             if (fs.existsSync(COVER_IMAGE)) {

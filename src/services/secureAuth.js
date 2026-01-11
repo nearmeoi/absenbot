@@ -103,13 +103,70 @@ function initAuthServer() {
     }));
 
     // Serve React App Assets
-    app.use('/dashboard', express.static(path.join(__dirname, '../../client/dist'))); // Serve React build at /dashboard
+    const clientDistPath = path.join(__dirname, '../../client/dist');
+    
+    // 1. Global static serving for common assets (manifest, sw, assets)
+    // This ensures /assets/ or /manifest.webmanifest works from ANY domain/path
+    app.use(express.static(clientDistPath, { index: false }));
+
+    app.use('/dashboard', express.static(clientDistPath)); // Original dashboard mount
+    
+    // Also serve static assets at root for app subdomain
+    app.use((req, res, next) => {
+        const host = req.headers.host || '';
+        if (host.startsWith('app.')) {
+            return express.static(clientDistPath)(req, res, next);
+        }
+        next();
+    });
+
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
     // Dashboard routes
     const dashboardRoutes = require('../routes/dashboardRoutes');
     app.use('/dashboard', dashboardRoutes);
+
+    // App routes (Public/User)
+    const appRoutes = require('../routes/appRoutes');
+    app.use('/app-api', appRoutes);
+
+    // Root redirect
+    app.get('/', (req, res) => {
+        const host = (req.headers.host || '').toLowerCase();
+        console.log(chalk.cyan(`[AUTH] Root access from host: ${host}`));
+        
+        // Check for app subdomain (various formats)
+        if (host.startsWith('app.') || host === 'app.monev-absenbot.my.id') {
+            console.log(chalk.green(`[AUTH] Serving React App for subdomain: ${host}`));
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            return res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+        }
+        
+        // If it's the main domain or something else, go to dashboard
+        console.log(chalk.yellow(`[AUTH] Redirecting to dashboard for host: ${host}`));
+        res.redirect('/dashboard');
+    });
+
+    // Subdomain catch-all for React routing AND static assets
+    app.use((req, res, next) => {
+        const host = req.headers.host || '';
+        // If on app subdomain, try to serve static file from root first
+        if (host.startsWith('app.')) {
+            // Serve static files (assets, etc) if they exist
+            express.static(clientDistPath)(req, res, (err) => {
+                if (err) return next(err);
+                // If not found, serve index.html for SPA routing (exclude API)
+                if (!req.path.startsWith('/app-api')) {
+                    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+                    return res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+                }
+                next();
+            });
+            return;
+        }
+        next();
+    });
 
 
     // Serve the Kemnaker-style Login Page (Restored)

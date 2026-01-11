@@ -10,7 +10,7 @@ module.exports = {
 
     async execute(sock, msgObj, context) {
         const { sender } = context;
-        const helpText = getMessage('GENERAL_HELP');
+        const helpText = getMessage('!help');
         await sock.sendMessage(sender, { text: helpText }, { quoted: msgObj });
     }
 };

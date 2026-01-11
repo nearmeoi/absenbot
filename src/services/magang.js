@@ -217,6 +217,24 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
                 }
             }
 
+            // CHECK FOR LOGIN ERRORS IMMEDIATELY
+            try {
+                // Wait briefly for any error alert to appear
+                await page.waitForSelector('.alert-danger, .alert-error, div[role="alert"], .text-danger', { visible: true, timeout: 5000 });
+                
+                const errorText = await page.evaluate(() => {
+                    const el = document.querySelector('.alert-danger, .alert-error, div[role="alert"], .text-danger');
+                    return el ? el.innerText.trim() : null;
+                });
+
+                if (errorText) {
+                    throw new Error(`Login Gagal: ${errorText}`);
+                }
+            } catch (e) {
+                // If timeout (no error found), proceed. If error found, rethrow.
+                if (e.message.includes('Login Gagal')) throw e;
+            }
+
             await new Promise(r => setTimeout(r, 1500));
         }
 

@@ -23,8 +23,8 @@ module.exports = {
             const success = MemoryEngine.resetSession(sender);
             await sock.sendMessage(sender, { 
                 text: success 
-                    ? getMessage('AI_RESET_SUCCESS')
-                    : getMessage('AI_RESET_EMPTY')
+                    ? getMessage('ai_reset_success')
+                    : getMessage('ai_reset_empty')
             }, { quoted: msgObj });
             return;
         }
@@ -37,7 +37,7 @@ module.exports = {
                 const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
                 if (timeLeft > 2) {
                     await sock.sendMessage(sender, { 
-                        text: getMessage('AI_COOLDOWN').replace('{seconds}', timeLeft)
+                        text: getMessage('ai_cooldown').replace('{seconds}', timeLeft)
                     }, { quoted: msgObj });
                 }
                 return;
@@ -63,7 +63,7 @@ module.exports = {
         // Validate Input
         if ((!args || args.trim() === '') && !replyContext) {
             await sock.sendMessage(sender, { 
-                text: getMessage('AI_HINT')
+                text: getMessage('ai_hint')
             }, { quoted: msgObj });
             return;
         }
@@ -90,7 +90,7 @@ Aturan:
             const result = await smartChat(userMessage, `${systemPrompt}\n\n${historyContext}`);
 
             if (result.success) {
-                const responseText = `${result.content}${getMessage('AI_FOOTER')}`;
+                const responseText = `${result.content}${getMessage('ai_footer')}`;
                 await sock.sendMessage(sender, { text: responseText }, { quoted: msgObj });
 
                 // E. Save AI Response to History
@@ -98,14 +98,14 @@ Aturan:
 
             } else {
                 await sock.sendMessage(sender, { 
-                    text: getMessage('AI_EMPTY_RESPONSE') 
+                    text: getMessage('ai_empty_response') 
                 }, { quoted: msgObj });
             }
 
         } catch (e) {
             console.error('[CMD:AI] Error:', e.message);
             await sock.sendMessage(sender, { 
-                text: getMessage('AI_ERROR_SYSTEM')
+                text: getMessage('ai_error_system')
             }, { quoted: msgObj });
         }
     }

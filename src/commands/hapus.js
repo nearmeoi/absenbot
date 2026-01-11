@@ -14,15 +14,15 @@ module.exports = {
 
         const user = getUserByPhone(senderNumber);
         if (!user) {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_DELETE_NOT_FOUND') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('!hapus_not_found') }, { quoted: msgObj });
             return;
         }
 
         const deleted = deleteUser(senderNumber);
         if (deleted) {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_DELETE_SUCCESS') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('!hapus_success') }, { quoted: msgObj });
         } else {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_DELETE_FAILED') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('!hapus_failed') }, { quoted: msgObj });
         }
     }
 };

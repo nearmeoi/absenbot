@@ -13,29 +13,54 @@ module.exports = {
     async execute(sock, msgObj, context) {
         const { sender, senderNumber } = context;
 
+        // Helper for countdown
+        const calculateCountdown = (targetDay) => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const todayDate = now.getDate();
+            
+            let target = new Date(year, month, targetDay);
+            if (todayDate > targetDay) {
+                target = new Date(year, month + 1, targetDay);
+            }
+            
+            const diff = target - new Date(year, month, todayDate);
+            return Math.floor(diff / (1000 * 60 * 60 * 24));
+        };
+
+        // Check if user is registered
         const user = getUserByPhone(senderNumber);
         if (!user) {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') }, { quoted: msgObj });
             return;
         }
 
-        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_WAIT'), key: msgObj.key } });
-        const status = await cekStatusHarian(user.email, user.password);
+        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
 
-        if (status.success) {
-            await sock.sendMessage(sender, { react: { text: getMessage('REACTION_SUCCESS'), key: msgObj.key } });
-            if (status.sudahAbsen) {
-                const log = status.data;
-                let reply = getMessage('ABSEN_CHECK_DONE')
-                    .replace('{date}', log.date)
-                    .replace('{activity}', log.activity_log.substring(0, 100));
-                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
-            } else {
-                await sock.sendMessage(sender, { text: getMessage('ABSEN_CHECK_PENDING') }, { quoted: msgObj });
-            }
+        const status = await cekStatusHarian(user.email, user.password);
+        
+        // Preparation for countdowns
+        const daysToBatch3 = calculateCountdown(15);
+        const daysToBatch2 = calculateCountdown(24);
+        
+        const countdownText = getMessage('cek_payout_info')
+            .replace('{days3}', daysToBatch3)
+            .replace('{days2}', daysToBatch2);
+
+        if (status.success && status.sudahAbsen) {
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
+            const log = status.data;
+            let reply = getMessage('!cek_done', senderNumber)
+                .replace('{date}', log.date || 'Hari ini')
+                .replace('{activity}', log.activity_log || '-');
+
+            await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+        } else if (status.success && !status.sudahAbsen) {
+            await sock.sendMessage(sender, { text: getMessage('!cek_pending', senderNumber) + countdownText }, { quoted: msgObj });
         } else {
-            await sock.sendMessage(sender, { react: { text: getMessage('REACTION_FAIL'), key: msgObj.key } });
-            await sock.sendMessage(sender, { text: getMessage('ABSEN_CHECK_ERROR').replace('{error}', status.pesan) }, { quoted: msgObj });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
+            await sock.sendMessage(sender, { text: getMessage('!cek_error', senderNumber).replace('{error}', status.pesan) + countdownText }, { quoted: msgObj });
         }
     }
 };

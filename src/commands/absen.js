@@ -15,16 +15,12 @@ module.exports = {
     name: 'absen',
     description: 'Submit laporan harian',
 
-async execute(sock, msgObj, context) {
-        const { sender, senderNumber, args, isGroup } = context;
+    async execute(sock, msgObj, context) {
+        const { sender, senderNumber, args, isGroup, originalSenderId } = context;
 
         // 1. Immediate check for empty input (FAST RESPONSE)
         if (!args || args.trim() === '') {
-            const hint = `Silakan berikan keterangan aktivitas Anda hari ini setelah *!absen*.\n\n` +
-                `_Contoh: !absen Hari ini saya belajar membuat API dan melakukan testing._\n\n` +
-                `Atau gunakan format manual dengan bantuan template:\n` +
-                `Ketik *!template* untuk mendapatkan format isian manual.`;
-            
+            const hint = getMessage('!absen_hint', senderNumber);
             await sock.sendMessage(sender, { text: hint }, { quoted: msgObj });
             return;
         }
@@ -32,7 +28,7 @@ async execute(sock, msgObj, context) {
         // 2. Check if user is registered
         const user = getUserByPhone(senderNumber);
         if (!user) {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') }, { quoted: msgObj });
             return;
         }
 
@@ -41,7 +37,7 @@ async execute(sock, msgObj, context) {
             const statusCheck = await cekStatusHarian(user.email, user.password);
             if (statusCheck.success && statusCheck.sudahAbsen) {
                 const log = statusCheck.data;
-                const reply = getMessage('ABSEN_CHECK_DONE')
+                const reply = getMessage('!cek_done', senderNumber)
                     .replace('{date}', log.date)
                     .replace('{activity}', log.activity_log ? log.activity_log.substring(0, 50) + '...' : '-');
 
@@ -84,7 +80,7 @@ async execute(sock, msgObj, context) {
             }
 
             if (errors.length > 0) {
-                const errorMsg = getMessage('ABSEN_TOO_SHORT').replace('{errors}', errors.join('\n'));
+                const errorMsg = getMessage('!absen_too_short').replace('{errors}', errors.join('\n'));
                 await sock.sendMessage(sender, { text: errorMsg }, { quoted: msgObj });
                 return;
             }
@@ -94,7 +90,7 @@ async execute(sock, msgObj, context) {
             const aiResult = await processFreeTextToReport(args, history.success ? history.logs : []);
 
             if (!aiResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('ABSEN_FAILED_AI').replace('{error}', aiResult.error) }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('!absen_failed_ai', senderNumber).replace('{error}', aiResult.error) }, { quoted: msgObj });
                 return;
             }
 
@@ -108,7 +104,7 @@ async execute(sock, msgObj, context) {
 
         setDraft(senderNumber, reportData);
 
-        const previewText = getMessage('DRAFT_PREVIEW')
+        const previewText = getMessage('draft_preview')
             .replace('{aktivitas_len}', reportData.aktivitas.length)
             .replace('{aktivitas}', reportData.aktivitas)
             .replace('{pembelajaran_len}', reportData.pembelajaran.length)
@@ -117,8 +113,8 @@ async execute(sock, msgObj, context) {
             .replace('{kendala}', reportData.kendala);
 
         if (isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('DRAFT_REDIRECT_PC') }, { quoted: msgObj });
-            await sock.sendMessage(senderNumber, { text: previewText });
+            await sock.sendMessage(sender, { text: getMessage('draft_redirect_pc') }, { quoted: msgObj });
+            await sock.sendMessage(originalSenderId, { text: previewText });
         } else {
             await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
         }

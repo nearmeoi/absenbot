@@ -41,7 +41,7 @@ module.exports = {
         // 2. !TEST MENU
         if (subCommand === 'menu') {
             const coverPath = path.join(__dirname, '../../public/img/cover.png');
-            const info = `*[TEST MODE] MAIN MENU*\n\n` + getMessage('GENERAL_MENU');
+            const info = `*[TEST MODE] MAIN MENU*\n\n` + getMessage('!menu');
 
             if (fs.existsSync(coverPath)) {
                 await sock.sendMessage(sender, { image: { url: coverPath }, caption: info }, { quoted: msgObj });
@@ -56,7 +56,7 @@ module.exports = {
             const { generateAuthUrl } = require('../services/secureAuth');
             await sock.sendMessage(sender, { text: "🔄 *[TEST]* Generating Registration Link..." }, { quoted: msgObj });
             const authUrl = await generateAuthUrl(senderNumber, async () => { });
-            const response = getMessage('AUTH_REG_LINK_PRIVATE').replace('{url}', authUrl);
+            const response = getMessage('!daftar_link_private').replace('{url}', authUrl);
             await sock.sendMessage(sender, { text: `*[TEST MODE]*\n${response}` }, { quoted: msgObj });
             return;
         }
@@ -64,12 +64,12 @@ module.exports = {
         // 4. !TEST ABSEN (No args)
         if (subCommand === 'absen' && !content) {
             const user = getUserByPhone(senderNumber);
-            if (!user) return sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') });
+            if (!user) return sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') });
 
             await sock.sendMessage(sender, { text: `🔄 *[TEST]* Menjalankan flow '!absen' (tanpa cerita)...` }, { quoted: msgObj });
             await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
             await new Promise(r => setTimeout(r, 1000));
-            await sock.sendMessage(sender, { text: getMessage('ABSEN_LOADING') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('!absen_loading') }, { quoted: msgObj });
             await new Promise(r => setTimeout(r, 1500));
             await sock.sendMessage(sender, { text: "✅ *[TEST]* Data riwayat (pura-pura) diambil.\nBot menunggu cerita Anda... (Reply pesan ini untuk lanjut test)" }, { quoted: msgObj });
             return;
@@ -78,7 +78,7 @@ module.exports = {
         // 5. !TEST ABSEN [CERITA]
         if (subCommand === 'absen' && content && !content.startsWith('manual')) {
             const user = getUserByPhone(senderNumber);
-            if (!user) return sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') });
+            if (!user) return sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') });
 
             await sock.sendMessage(sender, { text: "🔄 *[SIMULASI]* Memproses laporan dengan AI..." }, { quoted: msgObj });
 

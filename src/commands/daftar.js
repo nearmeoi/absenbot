@@ -16,28 +16,29 @@ module.exports = {
         // Ignore example email
         if (args.includes('emailmu@gmail.com')) return;
 
-        const existingUser = getUserByPhone(senderNumber);
-        if (existingUser) {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_ALREADY_REGISTERED') }, { quoted: msgObj, ephemeralExpiration: 86400 });
+        // Check if user already exists
+        const user = getUserByPhone(senderNumber);
+        if (user) {
+            await sock.sendMessage(sender, { text: getMessage('!daftar_already_registered', senderNumber) }, { quoted: msgObj, ephemeralExpiration: 86400 });
             return;
         }
 
-        // Generate auth URL with the original sender ID (could be LID or phone)
+        // Generate auth URL with callback for notification
         const authUrl = await generateAuthUrl(originalSenderId, async (result) => {
             if (result.success) {
-                await sock.sendMessage(originalSenderId, { text: getMessage('AUTH_REG_SUCCESS') });
+                await sock.sendMessage(originalSenderId, { text: getMessage('!daftar_success', senderNumber) });
             } else {
                 await sock.sendMessage(originalSenderId, {
-                    text: getMessage('AUTH_REG_FAILED').replace('{error}', result.message || 'Terjadi kesalahan saat registrasi.')
+                    text: getMessage('!daftar_failed', senderNumber).replace('{error}', result.message || 'Terjadi kesalahan saat registrasi.')
                 });
             }
         });
 
         if (isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_REG_LINK_GROUP') }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            await sock.sendMessage(originalSenderId, { text: getMessage('AUTH_REG_LINK_PRIVATE').replace('{url}', authUrl) });
+            await sock.sendMessage(sender, { text: getMessage('!daftar_link_group', senderNumber) }, { quoted: msgObj, ephemeralExpiration: 86400 });
+            await sock.sendMessage(originalSenderId, { text: getMessage('!daftar_link_private', senderNumber).replace('{url}', authUrl) });
         } else {
-            await sock.sendMessage(sender, { text: getMessage('AUTH_REG_LINK_PRIVATE').replace('{url}', authUrl) }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('!daftar_link_private', senderNumber).replace('{url}', authUrl) }, { quoted: msgObj });
         }
     }
 };

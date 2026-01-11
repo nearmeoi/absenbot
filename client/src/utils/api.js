@@ -15,8 +15,10 @@ api.interceptors.response.use(
     (error) => {
         if (error.response && error.response.status === 401) {
             // If API returns 401, redirect to login
-            // But only if we are not already on login page
-            if (!window.location.pathname.includes('/login')) {
+            // But only if we are not already on login page AND not on the public app subdomain
+            const isAppSubdomain = window.location.hostname.startsWith('app.');
+
+            if (!isAppSubdomain && !window.location.pathname.includes('/login')) {
                 window.location.href = '/dashboard/login';
             }
         }

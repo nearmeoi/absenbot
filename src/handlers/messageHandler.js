@@ -17,6 +17,8 @@ const { parseDraftFromMessage, normalizeToStandard } = require('../utils/message
 
 
 
+const { reportError } = require('../services/errorReporter');
+
 /**
  * Main message handler
  */
@@ -82,7 +84,7 @@ const messageHandler = async (sock, msg) => {
 
         // Maintenance mode (Global Status)
         if (botStatus === 'maintenance') {
-            await sock.sendMessage(sender, { text: getMessage('GENERAL_MAINTENANCE') }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: getMessage('system_maintenance', senderNumber) }, { quoted: msgObj });
             return;
         }
 
@@ -123,7 +125,7 @@ const messageHandler = async (sock, msg) => {
                 try {
                     sock.sendMessage(sender, { 
                         react: { 
-                            text: getMessage('REACTION_WAIT') || '⏳', 
+                            text: getMessage('reaction_wait') || '⏳', 
                             key: msgObj.key 
                         } 
                     }).catch(e => console.error('[HANDLER] Async reaction error:', e.message));
@@ -155,7 +157,7 @@ const messageHandler = async (sock, msg) => {
             const user = getUserByPhone(senderNumber);
             if (!user) return;
 
-            await sock.sendMessage(sender, { react: { text: getMessage('REACTION_ROCKET'), key: msgObj.key } });
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_rocket'), key: msgObj.key } });
 
             const loginResult = await prosesLoginDanAbsen({
                 email: user.email,
@@ -166,10 +168,10 @@ const messageHandler = async (sock, msg) => {
             });
 
             if (loginResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('ABSEN_SUBMIT_SUCCESS') }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('!absen_submit_success', senderNumber) }, { quoted: msgObj });
                 deleteDraft(senderNumber);
             } else {
-                await sock.sendMessage(sender, { text: getMessage('ABSEN_SUBMIT_FAILED').replace('{error}', loginResult.pesan) }, { quoted: msgObj });
+                await sock.sendMessage(sender, { text: getMessage('!absen_submit_failed', senderNumber).replace('{error}', loginResult.pesan) }, { quoted: msgObj });
             }
             return;
         }
@@ -210,7 +212,7 @@ const messageHandler = async (sock, msg) => {
                     }
 
                     if (errors.length > 0) {
-                        await sock.sendMessage(sender, { text: getMessage('DRAFT_FORMAT_ERROR').replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
+                        await sock.sendMessage(sender, { text: getMessage('draft_format_error', senderNumber).replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
                         return;
                     }
 
@@ -227,7 +229,7 @@ const messageHandler = async (sock, msg) => {
 
                     setDraft(senderNumber, parsedEdit);
 
-                    const previewText = getMessage('DRAFT_UPDATED')
+                    const previewText = getMessage('draft_updated', senderNumber)
                         .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
                         .replace('{aktivitas}', parsedEdit.aktivitas)
                         .replace('{pembelajaran_len}', parsedEdit.pembelajaran.length)
@@ -237,7 +239,7 @@ const messageHandler = async (sock, msg) => {
 
                     if (isGroup) {
                         await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
-                        await sock.sendMessage(senderNumber, { text: previewText });
+                        await sock.sendMessage(originalSenderId, { text: previewText });
                     } else {
                         await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                     }
@@ -247,12 +249,12 @@ const messageHandler = async (sock, msg) => {
                                     else {
                                         const user = getUserByPhone(senderNumber);
                                         if (!user) {
-                                             await sock.sendMessage(sender, { text: getMessage('AUTH_NOT_REGISTERED') }, { quoted: msgObj });
+                                             await sock.sendMessage(sender, { text: getMessage('!daftar_not_registered', senderNumber) }, { quoted: msgObj });
                                              return;
                                         }
                 
-                                        await sock.sendMessage(sender, { react: { text: getMessage('REACTION_WRITE'), key: msgObj.key } });
-                                        await sock.sendMessage(sender, { text: getMessage('DRAFT_UPDATE_LOADING') }, { quoted: msgObj });
+                                        await sock.sendMessage(sender, { react: { text: getMessage('reaction_write', senderNumber), key: msgObj.key } });
+                                        await sock.sendMessage(sender, { text: getMessage('draft_update_loading', senderNumber) }, { quoted: msgObj });
                 
                                         const history = await getRiwayat(user.email, user.password, 3);
 
@@ -265,7 +267,7 @@ const messageHandler = async (sock, msg) => {
                     const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
 
                     if (!aiResult.success) {
-                        await sock.sendMessage(sender, { text: getMessage('DRAFT_UPDATE_FAILED') }, { quoted: msgObj });
+                        await sock.sendMessage(sender, { text: getMessage('draft_update_failed', senderNumber) }, { quoted: msgObj });
                         return;
                     }
 
@@ -278,7 +280,7 @@ const messageHandler = async (sock, msg) => {
 
                     setDraft(senderNumber, reportData);
 
-                    const previewText = getMessage('DRAFT_UPDATED')
+                    const previewText = getMessage('draft_updated', senderNumber)
                         .replace('{aktivitas_len}', reportData.aktivitas.length)
                         .replace('{aktivitas}', reportData.aktivitas)
                         .replace('{pembelajaran_len}', reportData.pembelajaran.length)
@@ -288,7 +290,7 @@ const messageHandler = async (sock, msg) => {
 
                     if (isGroup) {
                         await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
-                        await sock.sendMessage(senderNumber, { text: previewText });
+                        await sock.sendMessage(originalSenderId, { text: previewText });
                     } else {
                         await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                     }
@@ -299,6 +301,7 @@ const messageHandler = async (sock, msg) => {
 
     } catch (e) {
         console.error(chalk.red("[HANDLER] Error:"), e);
+        reportError(e, 'messageHandler (Internal)', { sender: msg.key.remoteJid });
     }
 };
 

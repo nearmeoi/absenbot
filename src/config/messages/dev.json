@@ -1,0 +1,15 @@
+{
+  "DEV_CHAT_ID_HEADER": "*DEV: CHAT ID*\n\n",
+  "DEV_CHAT_GROUP_ADD_HINT": "Kirim ke grup: `!dev grup add {id}`",
+  "DEV_STATUS_HEADER": "*DEV: SYSTEM STATUS*\n\n",
+  "DEV_HOLIDAY_ADDED": "✅ Tanggal {date} ditandai sebagai libur.",
+  "DEV_HOLIDAY_EXISTS": "⚠️ Tanggal {date} sudah ada di daftar libur.",
+  "DEV_HOLIDAY_REMOVED": "✅ Tanggal {date} dihapus dari daftar libur.",
+  "DEV_HOLIDAY_NOT_FOUND": "⚠️ Tanggal {date} tidak ada di daftar libur.",
+  "DEV_GROUP_ADDED": "✅ Grup {id} ditambahkan ke whitelist.",
+  "DEV_GROUP_EXISTS": "⚠️ Grup {id} sudah ada di whitelist.",
+  "DEV_GROUP_REMOVED": "✅ Grup {id} dihapus dari whitelist.",
+  "DEV_GROUP_NOT_FOUND": "⚠️ Grup {id} tidak ada di whitelist.",
+  "DEV_INVALID_ACTION": "⚠️ Action tidak valid. Gunakan 'add' atau 'remove'.",
+  "DEV_HELP": "*DEV COMMANDS*\n\n!dev showid - Get chat ID\n!dev libur [date] - Set holiday\n!dev hapus-libur [date] - Remove holiday\n!dev status - System status\n!dev grup add/remove [id] - Manage groups"
+}

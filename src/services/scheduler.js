@@ -162,7 +162,7 @@ async function runGroupHidetagJapri(sock, task, timezone) {
             try {
                 const status = await cekStatusHarian(user.email, user.password);
                 if (!status.success || !status.sudahAbsen) {
-                    await sock.sendMessage(user.phone, { text: getMessage(task.messageKey) });
+                    await sock.sendMessage(user.phone, { text: getMessage(task.messageKey, user.phone) });
                     await new Promise(r => setTimeout(r, 1000));
                 }
             } catch (e) {
@@ -241,6 +241,55 @@ async function runEmergencySubmit(sock, task, timezone) {
     }
 }
 
+async function runScheduledWebReports(sock, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Web Scheduled Reports (${timezone})`));
+    const SCHEDULED_REPORTS_FILE = path.join(__dirname, '../../data/scheduled_reports.json');
+    if (!fs.existsSync(SCHEDULED_REPORTS_FILE)) return;
+
+    try {
+        const scheduled = JSON.parse(fs.readFileSync(SCHEDULED_REPORTS_FILE, 'utf8'));
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Filter reports for today and status pending
+        const toProcess = scheduled.filter(s => s.date === today && s.status === 'pending');
+
+        for (const report of toProcess) {
+            const user = (require('./database')).getUserByPhone(report.phone);
+            if (!user) {
+                report.status = 'failed';
+                report.error = 'User not found';
+                continue;
+            }
+
+            console.log(chalk.cyan(`[SCHEDULER] Auto-submitting web report for ${user.email}`));
+            const result = await prosesLoginDanAbsen({
+                email: user.email,
+                password: user.password,
+                aktivitas: report.aktivitas,
+                pembelajaran: report.pembelajaran,
+                kendala: report.kendala
+            });
+
+            if (result.success) {
+                report.status = 'success';
+                await sock.sendMessage(report.phone, { 
+                    text: `✅ *ABSENSI OTOMATIS BERHASIL*\n\nLaporan yang Anda jadwalkan melalui web telah berhasil dikirim ke MagangHub.` 
+                });
+            } else {
+                report.status = 'failed';
+                report.error = result.pesan;
+                await sock.sendMessage(report.phone, { 
+                    text: `❌ *ABSENSI OTOMATIS GAGAL*\n\nLaporan web gagal dikirim: ${result.pesan}` 
+                });
+            }
+        }
+
+        fs.writeFileSync(SCHEDULED_REPORTS_FILE, JSON.stringify(scheduled, null, 2));
+    } catch (e) {
+        console.error(chalk.red('[SCHEDULER] Error processing web reports:'), e.message);
+    }
+}
+
 // --- CORE SCHEDULER LOGIC ---
 
 function scheduleTask(task, timezone) {
@@ -285,11 +334,18 @@ function reloadScheduler() {
     const schedules = loadSchedules();
 
     timezones.forEach(tz => {
+        // 1. Schedule standard tasks from config
         schedules.forEach(task => {
             if (task.enabled) {
                 scheduleTask(task, tz);
             }
         });
+
+        // 2. Schedule Web App Reports (Always at 16:00)
+        const webJob = cron.schedule('0 16 * * 1-5', () => {
+            if (botSocket) runScheduledWebReports(botSocket, tz);
+        }, { timezone: tz });
+        activeCrons.set(`web_reports_${tz}`, webJob);
     });
     console.log(chalk.green(`[SCHEDULER] Reload complete. ${activeCrons.size} jobs active.`));
 }

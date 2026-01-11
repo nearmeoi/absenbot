@@ -13,6 +13,8 @@ const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
     ? process.env.ADMIN_NUMBERS.split(',').map(n => n.trim())
     : [];
 
+const APP_URL = process.env.APP_URL || 'https://app.monev-absenbot.my.id';
+
 // Bot Command Prefix (Default: !)
 const BOT_PREFIX = process.env.BOT_PREFIX || '!';
 
@@ -306,6 +308,7 @@ module.exports = {
     SESSION_TIMEOUT_MS,
 
     // New addition
+    APP_URL,
     ADMIN_NUMBERS,
     BOT_PREFIX
 };
