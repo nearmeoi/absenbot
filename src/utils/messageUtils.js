@@ -59,6 +59,37 @@ function parseDraftFromMessage(text) {
 }
 
 /**
+ * Parse report from hashtag format (#aktivitas ... #pembelajaran ...)
+ * @param {string} text - Message text
+ * @returns {Object|null} Parsed report object or null
+ */
+function parseTagBasedReport(text) {
+    if (!text) return null;
+    
+    // Check if at least one tag exists
+    if (!text.includes('#aktivitas') && !text.includes('#pembelajaran')) {
+        return null;
+    }
+
+    const parseTag = (tag) => {
+        const regex = new RegExp(`#${tag}\\s*([\\s\\S]*?)(?=#|$)`, 'i');
+        const match = text.match(regex);
+        return match ? match[1].trim() : '';
+    };
+
+    const aktivitas = parseTag('aktivitas');
+    const pembelajaran = parseTag('pembelajaran');
+    const kendala = parseTag('kendala');
+
+    return {
+        aktivitas,
+        pembelajaran,
+        kendala: kendala || "Tidak ada kendala.",
+        type: 'manual'
+    };
+}
+
+/**
  * Normalize phone number to standard format
  * @param {string} phone 
  * @returns {string} Normalized phone number
@@ -71,5 +102,6 @@ function normalizeToStandard(phone) {
 
 module.exports = {
     parseDraftFromMessage,
+    parseTagBasedReport,
     normalizeToStandard
 };

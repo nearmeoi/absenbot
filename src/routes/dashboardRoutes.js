@@ -19,6 +19,7 @@ const { processFreeTextToReport } = require('../services/aiService');
 const { 
     loadSchedules, addSchedule, updateSchedule, deleteSchedule, runTestScheduler 
 } = require('../services/scheduler');
+const { generateWaveform } = require('../utils/generateWaveform');
 
 // Dashboard client path
 const clientDistPath = path.join(__dirname, '../../client/dist/index.html');
@@ -212,6 +213,171 @@ router.get('/api/users/:phone/history', requireAuth, async (req, res) => {
     try {
         const history = await getRiwayat(user.email, user.password, days);
         res.json(history);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+const multer = require('multer');
+const ffmpeg = require('fluent-ffmpeg');
+
+// Configure Multer for VN Uploads (Temp storage)
+const mediaDir = path.join(__dirname, '../../data/media/morning');
+if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
+
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, mediaDir);
+    },
+    filename: function (req, file, cb) {
+        // Save as temp file first
+        cb(null, `temp_${Date.now()}_${file.originalname}`);
+    }
+});
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // Limit 10MB
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('audio/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only audio files are allowed!'));
+        }
+    }
+});
+
+// --- SCHEDULER VN ROUTES ---
+
+// 1. Get VN Playlist Status
+router.get('/api/scheduler/vn/status', requireAuth, (req, res) => {
+    try {
+        const files = fs.readdirSync(mediaDir)
+            .filter(f => f.endsWith('.opus') || f.endsWith('.mp3')) // Support both for now
+            .map(f => {
+                const stat = fs.statSync(path.join(mediaDir, f));
+                return {
+                    name: f,
+                    created: stat.mtime,
+                    size: stat.size
+                };
+            })
+            .sort((a, b) => new Date(b.created) - new Date(a.created));
+
+        res.json({ files });
+    } catch (e) {
+        console.error('[API] Error listing VN files:', e);
+        res.json({ files: [] });
+    }
+});
+
+// 2. Upload VN (Auto Convert to OPUS)
+router.post('/api/scheduler/upload-vn', requireAuth, upload.single('audio'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No audio file uploaded' });
+    }
+
+    const inputPath = req.file.path;
+    const outputFilename = `vn_${Date.now()}.opus`;
+    const outputPath = path.join(mediaDir, outputFilename);
+
+    // Convert to OPUS for WhatsApp compatibility (Strict Settings)
+    ffmpeg(inputPath)
+        .audioCodec('libopus')
+        .format('ogg')
+        .audioChannels(1) // WhatsApp PTT must be Mono
+        .audioBitrate('32k') // Standard bitrate for WA Voice Notes
+        .outputOptions(['-map_metadata -1', '-application voip']) // Strip metadata and optimize for voice
+        .on('error', (err) => {
+            console.error('[FFMPEG] Conversion Error:', err);
+            // Cleanup temp file
+            if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+            res.status(500).json({ error: 'Conversion failed: ' + err.message });
+        })
+        .on('end', () => {
+            console.log('[FFMPEG] Conversion finished:', outputFilename);
+            // Cleanup temp file
+            if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+            
+            log(LOG_TYPES.SCHEDULER, `New VN added (Converted to OPUS): ${outputFilename}`);
+            res.json({ success: true, message: 'Voice Note added!', filename: outputFilename });
+        })
+        .save(outputPath);
+});
+
+// 3. Delete VN
+router.delete('/api/scheduler/vn/:filename', requireAuth, (req, res) => {
+    const filename = req.params.filename;
+    if (filename.includes('..') || (!filename.endsWith('.mp3') && !filename.endsWith('.opus'))) {
+        return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    const vnPath = path.join(mediaDir, filename);
+    if (fs.existsSync(vnPath)) {
+        fs.unlinkSync(vnPath);
+        log(LOG_TYPES.SCHEDULER, `VN deleted: ${filename}`);
+        res.json({ success: true, message: 'Voice Note removed.' });
+    } else {
+        res.status(404).json({ error: 'File not found.' });
+    }
+});
+
+// 4. Play/Stream VN
+router.get('/api/scheduler/vn/play/:filename', requireAuth, (req, res) => {
+    const filename = req.params.filename;
+    if (filename.includes('..')) {
+        return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    const vnPath = path.join(mediaDir, filename);
+    if (fs.existsSync(vnPath)) {
+        res.sendFile(vnPath);
+    } else {
+        res.status(404).json({ error: 'File not found' });
+    }
+});
+
+// 5. Test Send VN
+router.post('/api/scheduler/vn/test-send', requireAuth, express.json(), async (req, res) => {
+    const { filename, phone } = req.body;
+
+    if (!filename || !phone) return res.status(400).json({ error: 'Data required' });
+    if (!botSocket) return res.status(503).json({ error: 'Bot not connected' });
+
+    const vnPath = path.join(mediaDir, filename);
+    if (!fs.existsSync(vnPath)) return res.status(404).json({ error: 'File not found' });
+
+    try {
+        let jid = phone;
+        if (!jid.includes('@')) jid = jid.replace(/\D/g, '') + '@s.whatsapp.net';
+
+        // Detect mimetype based on extension
+        const isOpus = filename.endsWith('.opus');
+        const mimetype = isOpus ? 'audio/ogg; codecs=opus' : 'audio/mpeg';
+
+        // Read file as buffer for reliability
+        const fileBuffer = fs.readFileSync(vnPath);
+        
+        // Generate waveform for visual effect
+        let waveform = new Uint8Array(64); // Fallback empty
+        try {
+            const wfBuffer = await generateWaveform(vnPath);
+            // Use pure Uint8Array (Standard for Baileys)
+            waveform = new Uint8Array(wfBuffer.buffer, wfBuffer.byteOffset, wfBuffer.length);
+            console.log(`[Waveform] Generated for ${filename}, Length: ${waveform.length}`);
+        } catch (wfErr) {
+            console.error('[Waveform] Failed to generate:', wfErr);
+        }
+
+        await botSocket.sendMessage(jid, { 
+            audio: fileBuffer, 
+            mimetype: mimetype, 
+            ptt: true,
+            fileName: filename,
+            waveform: waveform // Send Uint8Array
+        });
+
+        log(LOG_TYPES.SCHEDULER, `Test VN sent to ${phone}`);
+        res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

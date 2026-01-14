@@ -1,0 +1,6 @@
+{
+  "!absen_maintenance": "*MAINTENANCE RUTIN*\n\nFitur !absen sedang dalam maintenance. Mohon coba lagi beberapa saat lagi ya.\n\nSementara bisa absen manual via web: {app_url}",
+  "system_holiday": "🏖️ Sedang libur, selamat menikmati hari libur!",
+  "system_maintenance": "*Bot sedang dalam maintenance.*\nMohon coba lagi nanti. Terima kasih atas pengertiannya!",
+  "feature_disabled_vn": "Maaf, fitur Voice Note sedang dinonaktifkan sementara. Silakan ketik laporan Anda menggunakan perintah *!absen [aktivitas, pembelajaran, kendala hari ini]*\n_Contoh: !absen belajar react membuat komponen, pembelajaran hari ini mengetahui tentang react componen, kendala hari ini tidak ada_ \n\natau bisa langsung kesini {app_url}"
+}

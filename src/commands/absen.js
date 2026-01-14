@@ -10,6 +10,7 @@ const { setDraft, getDraft, deleteDraft } = require('../services/previewService'
 const { isHoliday } = require('../config/holidays');
 const { loadGroupSettings } = require('../services/groupSettings');
 const { getMessage } = require('../services/messageService');
+const { parseTagBasedReport } = require('../utils/messageUtils');
 
 module.exports = {
     name: 'absen',
@@ -17,19 +18,25 @@ module.exports = {
 
     async execute(sock, msgObj, context) {
         const { sender, senderNumber, args, isGroup, originalSenderId } = context;
-
-        // 1. Immediate check for empty input (FAST RESPONSE)
-        if (!args || args.trim() === '') {
-            const hint = getMessage('!absen_hint', senderNumber);
-            await sock.sendMessage(sender, { text: hint }, { quoted: msgObj });
-            return;
-        }
+        let contentToProcess = args ? args.trim() : '';
 
         // 2. Check if user is registered
         const user = getUserByPhone(senderNumber);
         if (!user) {
             await sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') }, { quoted: msgObj });
             return;
+        }
+
+        // 1. Logic: If empty args, check for template
+        if (!contentToProcess) {
+            if (user.template) {
+                contentToProcess = user.template;
+                // Silently proceed to use template
+            } else {
+                const hint = getMessage('!absen_hint', senderNumber);
+                await sock.sendMessage(sender, { text: hint }, { quoted: msgObj });
+                return;
+            }
         }
 
         // 3. Pre-check: Already submitted today? (NETWORK CALL)
@@ -51,21 +58,11 @@ module.exports = {
         // With args: Process report
         let reportData = { aktivitas: '', pembelajaran: '', kendala: '', type: '' };
 
-        // Manual tag mode
-        if (args.includes('#aktivitas') || args.includes('#pembelajaran')) {
-            const parseTag = (tag) => {
-                const regex = new RegExp(`#${tag}\\s*([\\s\\S]*?)(?=#|$)`, 'i');
-                const match = args.match(regex);
-                return match ? match[1].trim() : '';
-            };
+        // Try parsing tags first (Manual Mode)
+        const parsedTags = parseTagBasedReport(contentToProcess);
 
-            reportData = {
-                aktivitas: parseTag('aktivitas'),
-                pembelajaran: parseTag('pembelajaran'),
-                kendala: parseTag('kendala') || "Tidak ada kendala.",
-                type: 'manual'
-            };
-
+        if (parsedTags) {
+            reportData = parsedTags;
             const MIN_CHARS = 100;
             const errors = [];
 
@@ -87,7 +84,7 @@ module.exports = {
         } else {
             // AI mode
             const history = await getRiwayat(user.email, user.password, 3);
-            const aiResult = await processFreeTextToReport(args, history.success ? history.logs : []);
+            const aiResult = await processFreeTextToReport(contentToProcess, history.success ? history.logs : []);
 
             if (!aiResult.success) {
                 await sock.sendMessage(sender, { text: getMessage('!absen_failed_ai', senderNumber).replace('{error}', aiResult.error) }, { quoted: msgObj });
@@ -104,13 +101,18 @@ module.exports = {
 
         setDraft(senderNumber, reportData);
 
-        const previewText = getMessage('draft_preview')
+        let previewText = getMessage('draft_preview')
             .replace('{aktivitas_len}', reportData.aktivitas.length)
             .replace('{aktivitas}', reportData.aktivitas)
             .replace('{pembelajaran_len}', reportData.pembelajaran.length)
             .replace('{pembelajaran}', reportData.pembelajaran)
             .replace('{kendala_len}', reportData.kendala.length)
             .replace('{kendala}', reportData.kendala);
+
+        // Add info footer if template was used
+        if (!args || args.trim() === '') {
+            previewText += `\n\n_💡 Menggunakan template tersimpan. Ketik *!absen [teks]* jika ingin laporan berbeda._`;
+        }
 
         if (isGroup) {
             await sock.sendMessage(sender, { text: getMessage('draft_redirect_pc') }, { quoted: msgObj });

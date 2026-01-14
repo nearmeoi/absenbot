@@ -4,7 +4,7 @@
   "ai_reset_success": "🗑️ Ingatan percakapan untuk chat ini telah dihapus. Kita mulai dari nol ya!",
   "ai_reset_empty": "Ingatan sudah kosong.",
   "ai_cooldown": "⏳ *Sabar...* Tunggu {seconds} detik lagi.",
-  "ai_hint": "Silakan berikan pertanyaan.\n\n_Contoh: !ai apa itu database?_\n_Ketik *!ai reset* untuk menghapus ingatan._",
+  "ai_hint": "Silakan berikan pertanyaan.\n\n_Contoh: !ai apa itu database?_",
   "ai_error_system": "Terjadi kesalahan sistem.",
-  "ai_footer": "\n\n_Powered by AI Neardev_"
+  "ai_footer": "\n\n_AI Neardev_"
 }

@@ -5,13 +5,15 @@ const cron = require('node-cron');
 const { GROUP_ID_FILE } = require('../config/constants');
 const { getAllUsers } = require('./database');
 const { cekStatusHarian, getRiwayat, prosesLoginDanAbsen } = require('./magang');
-const { generateAttendanceReport } = require('./aiService');
+const { generateAttendanceReport, processFreeTextToReport } = require('./aiService');
 const { setDraft } = require('./previewService');
 const { getAllowedGroups, isHoliday } = require('../config/holidays');
+const { parseTagBasedReport } = require('../utils/messageUtils');
 
 const { loadGroupSettings } = require('./groupSettings');
 const { getMessage, updateMessage } = require('./messageService');
 const { isSchedulerEnabled } = require('./botState');
+const { generateWaveform } = require('../utils/generateWaveform');
 
 // Config path
 const SCHEDULE_CONFIG_FILE = path.join(__dirname, '../../data/scheduler_config.json');
@@ -123,12 +125,10 @@ function shouldSkipGroup(config, timezone) {
 
 async function broadcastSimpleWithHidetag(sock, groupId, msgKey) {
     try {
-        const groupMetadata = await sock.groupMetadata(groupId);
-        const allParticipants = groupMetadata.participants.map(p => p.id);
         const msgText = getMessage(msgKey);
-        await sock.sendMessage(groupId, { text: msgText, mentions: allParticipants });
+        await sock.sendMessage(groupId, { text: msgText });
     } catch (e) {
-        console.error(chalk.red(`[SCHEDULER] Failed simple hidetag to ${groupId}:`), e.message);
+        console.error(chalk.red(`[SCHEDULER] Failed simple broadcast to ${groupId}:`), e.message);
     }
 }
 
@@ -145,26 +145,148 @@ async function runGroupHidetag(sock, task, timezone) {
         return c.schedulerEnabled && groupTz === timezone && !shouldSkipGroup(c, timezone);
     });
 
+    // CHECK FOR MORNING VN (SMART PLAYLIST)
+    let vnPath = null;
+    let mimetype = 'audio/mpeg';
+
+    if (task.id === 'morning_reminder') {
+        const mediaDir = path.join(__dirname, '../../data/media/morning');
+        const stateFile = path.join(__dirname, '../../data/media/morning_state.json');
+
+        if (fs.existsSync(mediaDir)) {
+            try {
+                // 1. Get all audio files (opus preferred, mp3 fallback)
+                const files = fs.readdirSync(mediaDir).filter(f => f.endsWith('.opus') || f.endsWith('.mp3'));
+                
+                if (files.length > 0) {
+                    // 2. Get last played
+                    let lastPlayed = null;
+                    if (fs.existsSync(stateFile)) {
+                        try {
+                            lastPlayed = JSON.parse(fs.readFileSync(stateFile, 'utf8')).last;
+                        } catch (e) {}
+                    }
+
+                    // 3. Filter candidates (Anti-Repeat)
+                    let candidates = files;
+                    if (files.length > 1 && lastPlayed) {
+                        candidates = files.filter(f => f !== lastPlayed);
+                        if (candidates.length === 0) candidates = files;
+                    }
+
+                    // 4. Pick Random
+                    const chosenFile = candidates[Math.floor(Math.random() * candidates.length)];
+                    vnPath = path.join(mediaDir, chosenFile);
+                    
+                    // Set correct mimetype
+                    if (chosenFile.endsWith('.opus')) mimetype = 'audio/ogg; codecs=opus';
+
+                    console.log(chalk.green(`[SCHEDULER] Morning Playlist: Playing ${chosenFile}`));
+
+                    // 5. Update State
+                    fs.writeFileSync(stateFile, JSON.stringify({ last: chosenFile }));
+                }
+            } catch (e) {
+                console.error(chalk.red('[SCHEDULER] Error processing playlist:'), e.message);
+            }
+        }
+    }
+
     for (const [groupId, _] of enabledGroups) {
-        await broadcastSimpleWithHidetag(sock, groupId, task.messageKey);
+        if (vnPath) {
+            // Send VN
+            try {
+                const fileBuffer = fs.readFileSync(vnPath);
+                
+                // Generate waveform for visual effect
+                let waveform = new Uint8Array(0); 
+                try {
+                    const wfBuffer = await generateWaveform(vnPath);
+                    waveform = new Uint8Array(wfBuffer.buffer, wfBuffer.byteOffset, wfBuffer.length);
+                } catch (wfErr) {
+                    console.error('[Waveform] Failed to generate:', wfErr);
+                }
+
+                await sock.sendMessage(groupId, { 
+                    audio: fileBuffer, 
+                    mimetype: mimetype, 
+                    ptt: true,
+                    fileName: chosenFile || 'audio.opus',
+                    waveform: waveform // Send Uint8Array
+                });
+            } catch (e) {
+                console.error(chalk.red(`[SCHEDULER] Failed to send VN to ${groupId}:`), e.message);
+                await broadcastSimpleWithHidetag(sock, groupId, task.messageKey);
+            }
+        } else {
+            await broadcastSimpleWithHidetag(sock, groupId, task.messageKey);
+        }
         await new Promise(r => setTimeout(r, 2000));
     }
 }
 
 async function runGroupHidetagJapri(sock, task, timezone) {
-    await runGroupHidetag(sock, task, timezone);
+    console.log(chalk.magenta(`[SCHEDULER] Running Group Hidetag + Japri: ${task.id} (${timezone})`));
+    if (!isSchedulerEnabled()) return;
+    if (isWeekendOrHoliday(timezone)) return;
 
-    // Japri logic (Only for default timezone 'Asia/Makassar' to avoid spamming user multiple times if they are in multiple timezone groups - simplified for now)
+    // 1. Identify Missing Users FIRST
+    const allUsers = getAllUsers();
+    const pendingUsers = [];
+
+    // Check status for all users to determine who to tag
+    for (const user of allUsers) {
+        try {
+            const status = await cekStatusHarian(user.email, user.password);
+            if (!status.success || !status.sudahAbsen) {
+                pendingUsers.push(user);
+            }
+        } catch (e) {
+            console.error(`[SCHEDULER] Error checking status for ${user.email}:`, e.message);
+        }
+    }
+
+    // 2. Logic: Send Group Message ONLY if there are pending users
+    if (pendingUsers.length > 0) {
+        const settings = loadGroupSettings();
+        const enabledGroups = Object.entries(settings).filter(([_, c]) => {
+            const groupTz = c.timezone || 'Asia/Makassar';
+            return c.schedulerEnabled && groupTz === timezone && !shouldSkipGroup(c, timezone);
+        });
+
+        if (enabledGroups.length > 0) {
+            const mentions = pendingUsers.map(u => u.phone);
+            // Format: @user @user
+            const mentionedText = pendingUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+            let messageText = getMessage('REMINDER_GROUP_TARGETED');
+            // Manual replacement because getMessage only handles {app_url} automatically
+            messageText = messageText.replace('{users}', mentionedText);
+
+            for (const [groupId, _] of enabledGroups) {
+                try {
+                    console.log(chalk.cyan(`[SCHEDULER] Sending targeted reminder to group ${groupId}`));
+                    await sock.sendMessage(groupId, {
+                        text: messageText,
+                        mentions: mentions
+                    });
+                    await new Promise(r => setTimeout(r, 2000));
+                } catch (e) {
+                    console.error(chalk.red(`[SCHEDULER] Failed simple broadcast to ${groupId}:`), e.message);
+                }
+            }
+        }
+    } else {
+        console.log(chalk.green(`[SCHEDULER] All users have attended! Skipping group reminder.`));
+    }
+
+    // 3. Japri Logic (Only for default timezone 'Asia/Makassar' to avoid spamming user multiple times)
     if (timezone === 'Asia/Makassar') {
         console.log(chalk.cyan('[SCHEDULER] Sending Private Reminders (Japri)...'));
-        const allUsers = getAllUsers();
-        for (const user of allUsers) {
+        for (const user of pendingUsers) {
             try {
-                const status = await cekStatusHarian(user.email, user.password);
-                if (!status.success || !status.sudahAbsen) {
-                    await sock.sendMessage(user.phone, { text: getMessage(task.messageKey, user.phone) });
-                    await new Promise(r => setTimeout(r, 1000));
-                }
+                // Use the list we already filtered above
+                await sock.sendMessage(user.phone, { text: getMessage(task.messageKey, user.phone) });
+                await new Promise(r => setTimeout(r, 1000));
             } catch (e) {
                 console.error(`[SCHEDULER] Failed japri to ${user.email}:`, e.message);
             }
@@ -194,11 +316,7 @@ async function runDraftPush(sock, task, timezone) {
                     type: 'ai'
                 };
                 setDraft(user.phone, reportData);
-                const msg = `*DARURAT: DRAF ABSENSI OTOMATIS* ⚠️\n\n` + 
-                    `Hampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan AI untukmu:\n\n` + 
-                    `🏢 *Aktivitas:* ${aiResult.aktivitas}\n\n` + 
-                    `Ketik *ya* sekarang untuk mengirim laporan ini!\n` + 
-                    `_Jika tidak dibalas, sistem akan otomatis mengirim draf ini pada jam 23:59._`;
+                const msg = getMessage('DRAFT_PUSH_ALERT').replace('{activity}', aiResult.aktivitas);
                 await sock.sendMessage(user.phone, { text: msg });
             }
         } catch (e) {
@@ -218,20 +336,55 @@ async function runEmergencySubmit(sock, task, timezone) {
             const status = await cekStatusHarian(user.email, user.password);
             if (status.success && status.sudahAbsen) continue;
 
-            const riwayatResult = await getRiwayat(user.email, user.password, 3);
-            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+            let finalReport = null;
 
-            if (aiResult.success) {
+            // 1. Try User Template
+            if (user.template) {
+                console.log(chalk.cyan(`[AUTO-SUBMIT] Using template for ${user.email}`));
+                
+                // Check if it's a manual tag format
+                const manualParsed = parseTagBasedReport(user.template);
+                if (manualParsed) {
+                    finalReport = manualParsed;
+                } else {
+                    // It's a story/text -> Process with AI
+                    const history = await getRiwayat(user.email, user.password, 3);
+                    const aiResult = await processFreeTextToReport(user.template, history.success ? history.logs : []);
+                    if (aiResult.success) {
+                        finalReport = {
+                            aktivitas: aiResult.aktivitas,
+                            pembelajaran: aiResult.pembelajaran,
+                            kendala: aiResult.kendala
+                        };
+                    }
+                }
+            }
+
+            // 2. Fallback: Generate from History (Original Logic)
+            if (!finalReport) {
+                const riwayatResult = await getRiwayat(user.email, user.password, 3);
+                const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+                if (aiResult.success) {
+                    finalReport = {
+                        aktivitas: aiResult.aktivitas,
+                        pembelajaran: aiResult.pembelajaran,
+                        kendala: aiResult.kendala
+                    };
+                }
+            }
+
+            if (finalReport) {
                 const submitResult = await prosesLoginDanAbsen({
                     email: user.email,
                     password: user.password,
-                    aktivitas: aiResult.aktivitas,
-                    pembelajaran: aiResult.pembelajaran,
-                    kendala: aiResult.kendala
+                    aktivitas: finalReport.aktivitas,
+                    pembelajaran: finalReport.pembelajaran,
+                    kendala: finalReport.kendala
                 });
                 if (submitResult.success) {
+                    const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";
                     await sock.sendMessage(user.phone, {
-                        text: `*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh sistem agar absensi Anda aman.`
+                        text: getMessage('AUTO_SUBMIT_SUCCESS').replace('{source}', sourceMsg)
                     });
                 }
             }
@@ -273,13 +426,13 @@ async function runScheduledWebReports(sock, timezone) {
             if (result.success) {
                 report.status = 'success';
                 await sock.sendMessage(report.phone, { 
-                    text: `✅ *ABSENSI OTOMATIS BERHASIL*\n\nLaporan yang Anda jadwalkan melalui web telah berhasil dikirim ke MagangHub.` 
+                    text: getMessage('WEB_SCHEDULE_SUCCESS') 
                 });
             } else {
                 report.status = 'failed';
                 report.error = result.pesan;
                 await sock.sendMessage(report.phone, { 
-                    text: `❌ *ABSENSI OTOMATIS GAGAL*\n\nLaporan web gagal dikirim: ${result.pesan}` 
+                    text: getMessage('WEB_SCHEDULE_FAILED').replace('{error}', result.pesan) 
                 });
             }
         }

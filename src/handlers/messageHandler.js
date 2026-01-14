@@ -134,6 +134,16 @@ const messageHandler = async (sock, msg) => {
                 }
 
                 await cmdModule.execute(sock, msgObj, context);
+                
+                // Clear loading reaction (success) UNLESS command manages it manually
+                const manualReactionCmds = ['cek', 'riwayat', 'broadcast'];
+                if (!manualReactionCmds.includes(cmdName)) {
+                    try {
+                        await sock.sendMessage(sender, { react: { text: "", key: msgObj.key } });
+                    } catch (e) {
+                        console.error('[HANDLER] Failed to clear reaction:', e.message);
+                    }
+                }
                 return;
             }
         }

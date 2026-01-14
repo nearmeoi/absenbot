@@ -76,13 +76,13 @@ export default function Development() {
 
     // Group keys logic
     const categories = {
-        'Scheduler': ['morning_', 'afternoon_', 'evening_'],
-        'Registration': ['registration_', 'not_registered', 'already_registered'],
-        'Absen Process': ['absen_'],
-        'Drafts & Submission': ['draft_', 'submit_', 'emergency_'],
-        'Status & History': ['cek_', 'riwayat_'],
-        'Admin & Group': ['setgroup_', 'hapus_', 'listuser_', 'siapa_'],
-        'General': ['menu', 'help', 'holiday', 'maintenance', 'voicenote']
+        'Scheduler & Reminders': ['REMINDER_', 'DRAFT_PUSH', 'AUTO_SUBMIT', 'WEB_SCHEDULE', 'morning_', 'afternoon_', 'evening_'],
+        'Drafts & Submission': ['!absen_', 'draft_', 'submit_'],
+        'Status & History': ['!cek_', '!riwayat_', 'cek_'],
+        'Registration & Auth': ['!daftar_', '!hapus_', 'registration_', 'not_registered', 'already_registered'],
+        'Admin & Group Control': ['group_', 'admin_', 'setgroup_', 'listuser_', 'siapa_'],
+        'System & Maintenance': ['system_', 'feature_disabled', 'maintenance', 'DEV_'],
+        'General': ['!menu', '!help', 'ai_']
     };
 
     const keys = Object.keys(messages).sort();

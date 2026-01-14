@@ -1,0 +1,10 @@
+{
+  "!absen_loading": "_Sedang menyiapkan laporan otomatis dari riwayat Anda..._",
+  "!absen_processing_ai": "_Sedang menyusun laporan Anda..._",
+  "!absen_hint": "Silakan berikan keterangan aktivitas Anda hari ini setelah *!absen*.\n\n_Contoh: !absen Hari ini saya belajar membuat API dan melakukan testing._\n\nAtau gunakan format manual dengan bantuan template:\nKetik *!template* untuk mendapatkan format isian manual.\n\n*TIP:* Malas ngetik di WA? Langsung aja ke sini {app_url}",
+  "!absen_too_short": "⚠️ *Laporan Terlalu Singkat*\n\n{errors}\n\nSilakan panjangkan lagi laporannya (minimal 100 karakter per bagian).",
+  "!absen_submit_success": "✅ *BERHASIL!*\nLaporan Anda telah terkirim ke web MagangHub.",
+  "!absen_submit_failed": "❌ *GAGAL:* {error}",
+  "!absen_failed_auto": "Gagal membuat laporan otomatis. Silakan coba manual:\n\n*!absen [aktivitas, pembelajaran, kendala hari ini]*\n_Contoh: !absen belajar react membuat komponen, pembelajaran hari ini mengetahui tentang react componen, kendala hari ini tidak ada_ \n\natau bisa menuju kesini {app_url}",
+  "!absen_failed_ai": "Maaf, gagal memproses laporan Otomatis dari AI \n\n{error}"
+}

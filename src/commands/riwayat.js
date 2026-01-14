@@ -51,6 +51,7 @@ module.exports = {
             if (isGroup) await sock.sendMessage(sender, { text: getMessage('!riwayat_sent_private') }, { quoted: msgObj });
             await sock.sendMessage(targetJid, { text: historyText });
         } else {
+            await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
             await sock.sendMessage(sender, { text: getMessage('!riwayat_failed') }, { quoted: msgObj });
         }
     }

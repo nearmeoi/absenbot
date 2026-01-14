@@ -185,4 +185,24 @@ const deleteUser = (phoneNumber) => {
     return false;
 };
 
-module.exports = { getUserByPhone, getUserByEmail, saveUser, updateUserLid, getAllUsers, deleteUser };
+const saveUserTemplate = (phoneNumber, templateData) => {
+    const users = loadUsers();
+    const normalizedPhone = normalizePhone(phoneNumber);
+    const index = users.findIndex(u => {
+        if (normalizePhone(u.phone) === normalizedPhone) return true;
+        if (u.lid && normalizePhone(u.lid) === normalizedPhone) return true;
+        if (u.identifiers) {
+            return u.identifiers.some(id => normalizePhone(id) === normalizedPhone);
+        }
+        return false;
+    });
+
+    if (index !== -1) {
+        users[index].template = templateData;
+        safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
+        return true;
+    }
+    return false;
+};
+
+module.exports = { getUserByPhone, getUserByEmail, saveUser, updateUserLid, getAllUsers, deleteUser, saveUserTemplate };

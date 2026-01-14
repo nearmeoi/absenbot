@@ -1,0 +1,10 @@
+{
+  "!cek_done": "*SUDAH ABSEN*\nAnda telah absen hari ini.",
+  "!cek_pending": "*BELUM ABSEN*\nAnda belum mengirim laporan hari ini.",
+  "!cek_error": "Terjadi kesalahan saat mengecek status: {error}",
+  "cek_payout_info": "\n\n*Info Gajian:* \n- Batch 3: {days3} hari lagi\n- Batch 2: {days2} hari lagi \n\nJangan lupa absen biar gaji aman!",
+  "!riwayat_header": "*RIWAYAT ABSENSI*",
+  "!riwayat_empty": "_(Tidak ada data absen)_",
+  "!riwayat_failed": "Gagal mengambil riwayat atau data kosong.",
+  "!riwayat_sent_private": "Riwayat dikirim ke Chat Pribadi."
+}
