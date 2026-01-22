@@ -70,6 +70,12 @@ const getUserByEmail = (email) => {
     return users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
 };
 
+// Cari user berdasarkan slug
+const getUserBySlug = (slug) => {
+    const users = loadUsers();
+    return users.find(u => u.slug === slug);
+};
+
 // Ambil semua user (dengan deduplicate)
 const getAllUsers = () => {
     const users = loadUsers();
@@ -205,4 +211,4 @@ const saveUserTemplate = (phoneNumber, templateData) => {
     return false;
 };
 
-module.exports = { getUserByPhone, getUserByEmail, saveUser, updateUserLid, getAllUsers, deleteUser, saveUserTemplate };
+module.exports = { getUserByPhone, getUserByEmail, getUserBySlug, saveUser, updateUserLid, getAllUsers, deleteUser, saveUserTemplate };

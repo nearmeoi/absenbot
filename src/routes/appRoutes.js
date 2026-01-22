@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { processFreeTextToReport } = require('../services/aiService');
-const { getUserByPhone } = require('../services/database');
+const { getUserByPhone, getUserBySlug } = require('../services/database');
 const { getRiwayat, prosesLoginDanAbsen } = require('../services/magang');
 const fs = require('fs');
 const path = require('path');
@@ -41,10 +41,62 @@ const sendNotification = async (phone, title, body) => {
             return true;
         }
     } catch (error) {
-        console.error('Error sending push notification:', error);
+        // Handle 410 Gone (Subscription expired)
+        if (error.statusCode === 410) {
+            console.log(`[PUSH] Subscription expired for ${phone}, removing...`);
+            try {
+                const subsData = JSON.parse(fs.readFileSync(SUBSCRIPTIONS_FILE, 'utf8'));
+                if (subsData[phone]) {
+                    delete subsData[phone];
+                    fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subsData, null, 2));
+                }
+            } catch (e) {
+                console.error('[PUSH] Failed to remove expired subscription:', e.message);
+            }
+        } else {
+            console.error('Error sending push notification:', error);
+        }
     }
     return false;
 };
+
+/**
+ * API: Get User Profile by Phone/LID or Slug
+ */
+router.get('/api/user-profile', (req, res) => {
+    try {
+        const { phone, slug } = req.query;
+        if (!phone && !slug) return res.status(400).json({ error: 'Phone or Slug parameter required' });
+
+        let user = null;
+        if (slug) {
+            user = getUserBySlug(slug);
+        } else {
+            user = getUserByPhone(phone);
+        }
+
+        if (user) {
+            // Use the stored name if available, otherwise format from email
+            let displayName = user.name;
+            if (!displayName) {
+                displayName = user.email.split('@')[0];
+                displayName = displayName.replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            }
+
+            res.json({
+                success: true,
+                name: displayName,
+                email: user.email,
+                phone: user.phone, // Return main phone for logic
+                slug: user.slug
+            });
+        } else {
+            res.status(404).json({ error: 'User not found' });
+        }
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 /**
  * API: Generate AI Report from Story

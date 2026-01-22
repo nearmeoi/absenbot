@@ -17,10 +17,19 @@ module.exports = {
             return;
         }
 
-        // Check if admin (optional, maybe allow everyone for now or strict check)
-        // ...
+        // --- NEW LOGIC: Support Reply/Quoted Message ---
+        const quotedMsg = msgObj.message.extendedTextMessage?.contextInfo?.quotedMessage;
+        let broadcastText = args;
 
-        if (!args) {
+        if (quotedMsg) {
+            // Extract text from quoted message (supports conversation, extendedText, or image caption)
+            broadcastText = quotedMsg.conversation || 
+                            quotedMsg.extendedTextMessage?.text || 
+                            quotedMsg.imageMessage?.caption || 
+                            args; // Fallback to args if quoted msg has no text
+        }
+
+        if (!broadcastText) {
             await sock.sendMessage(sender, { text: getMessage('admin_hidetag_format') }, { quoted: msgObj });
             return;
         }
@@ -30,11 +39,9 @@ module.exports = {
             const participants = groupMetadata.participants.map(p => p.id);
 
             await sock.sendMessage(msgObj.key.remoteJid, { 
-                text: args, 
+                text: broadcastText, 
                 mentions: participants 
             });
-            
-            // await sock.sendMessage(sender, { text: getMessage('admin_hidetag_done') }, { quoted: msgObj });
 
         } catch (e) {
             console.error(e);

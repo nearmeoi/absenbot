@@ -15,8 +15,10 @@ const pendingPreviews = new Map();
  * @param {Object} draft { aktivitas, pembelajaran, kendala, type }
  */
 function setDraft(sender, draft) {
-    console.log(chalk.cyan(`[PREVIEW] Saving draft for ${sender} (Type: ${draft.type || 'ai'})`));
-    pendingPreviews.set(sender, {
+    // Normalization for LID/standard consistency
+    const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
+    console.log(chalk.cyan(`[PREVIEW] Saving draft for ${cleanSender} (Type: ${draft.type || 'ai'})`));
+    pendingPreviews.set(cleanSender, {
         ...draft,
         timestamp: Date.now()
     });
@@ -28,11 +30,12 @@ function setDraft(sender, draft) {
  * @returns {Object|null}
  */
 function getDraft(sender) {
-    const draft = pendingPreviews.get(sender);
+    const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
+    const draft = pendingPreviews.get(cleanSender);
     if (!draft) return null;
 
-    // 5-minute timeout (updated from 15)
-    const expiry = 5 * 60 * 1000;
+    // 30-minute timeout (updated from 5)
+    const expiry = 30 * 60 * 1000;
     if (Date.now() - draft.timestamp > expiry) {
         pendingPreviews.delete(sender);
         return null;
@@ -46,7 +49,8 @@ function getDraft(sender) {
  * @param {string} sender 
  */
 function deleteDraft(sender) {
-    pendingPreviews.delete(sender);
+    const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
+    pendingPreviews.delete(cleanSender);
 }
 
 /**
@@ -54,7 +58,7 @@ function deleteDraft(sender) {
  */
 function cleanup() {
     const now = Date.now();
-    const expiry = 5 * 60 * 1000; // 5 minutes
+    const expiry = 30 * 60 * 1000; // 30 minutes
 
     let count = 0;
     for (const [sender, data] of pendingPreviews.entries()) {

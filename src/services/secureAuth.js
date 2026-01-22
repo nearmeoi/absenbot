@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const chalk = require('chalk');
 const os = require('os');
 const { SESSION_DIR, USERS_FILE } = require('../config/constants');
+const { scrapeAndSaveUser } = require('./nameScraper');
 
 // In-memory storage for temporary tokens (would use Redis in production)
 const tempTokens = new Map();
@@ -228,6 +229,11 @@ function initAuthServer() {
                 // Save user using database module (handles multi-identifier auto-linking)
                 saveUser(authRequest.phone, email, password);
 
+                // TRIGGER NAME SYNC (Background Process)
+                console.log(chalk.blue(`[AUTH] Triggering background name sync for ${email}...`));
+                scrapeAndSaveUser({ email, password }).catch(err => {
+                    console.error(chalk.red('[AUTH] Background sync failed:'), err.message);
+                });
 
                 // Call the WhatsApp notification callback (wrapped in try-catch to prevent crash)
                 if (authRequest.callback) {

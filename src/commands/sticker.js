@@ -27,7 +27,7 @@ async function renderTextToImage(text) {
         // Wrap ONLY non-emoji text in a span with outline
         const processedText = text.split(emojiRegex).map(part => {
             if (!part) return '';
-            if (part.match(emojiRegex)) return part; // Keep emoji plain
+            if (part.match(emojiRegex)) return `<span class="emoji">${part}</span>`; // Wrap emoji
             return `<span class="outline">${part}</span>`; // Add outline to text
         }).join('');
 
@@ -37,7 +37,7 @@ async function renderTextToImage(text) {
             <style>
                 @font-face {
                     font-family: 'Apple Color Emoji';
-                    src: local('Apple Color Emoji');
+                    src: url('file:///home/ubuntu/.local/share/fonts/AppleColorEmoji.ttf');
                 }
                 body {
                     margin: 0;
@@ -50,15 +50,19 @@ async function renderTextToImage(text) {
                     overflow: hidden;
                 }
                 .text {
-                    font-family: "Apple Color Emoji", sans-serif !important;
                     font-size: 60px;
                     font-weight: bold;
                     color: white;
                     text-align: center;
                     padding-bottom: 20px;
                     -webkit-font-smoothing: antialiased;
+                    line-height: 1.2;
+                }
+                .emoji {
+                    font-family: 'Apple Color Emoji';
                 }
                 .outline {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                     /* Inherit font but keep outline for text */
                     text-shadow: 
                         -1.5px -1.5px 0 #000,  

@@ -91,10 +91,10 @@ export default function Users() {
                                 </div>
                                 <div>
                                     <h3 className="font-black text-lg leading-tight">
-                                        {formatName(user.email)}
+                                        {user.name || formatName(user.email)}
                                     </h3>
-                                    <div className="inline-block bg-black text-white text-xs font-bold px-2 py-0.5 mt-1 transform -skew-x-12">
-                                        {user.phone.split('@')[0]}
+                                    <div className="inline-block bg-green-400 text-black text-[10px] font-bold px-2 py-0.5 mt-1 border border-black uppercase">
+                                        Aktif
                                     </div>
                                 </div>
                             </div>
@@ -108,9 +108,9 @@ export default function Users() {
                             </button>
                         </div>
                         
-                        <div className="mt-4 pt-3 border-t-4 border-black">
-                            <span className="text-sm font-bold uppercase tracking-wide text-gray-500">EMAIL ACCESS</span>
-                            <div className="font-bold text-md truncate">{user.email}</div>
+                        <div className="mt-4 pt-3 border-t-2 border-black border-dashed">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Status Akun</span>
+                            <div className="font-bold text-xs text-green-600">SINKRONISASI BERHASIL</div>
                         </div>
                     </div>
                 ))}

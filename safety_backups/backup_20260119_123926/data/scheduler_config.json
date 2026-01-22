@@ -9,13 +9,14 @@
     "enabled": true
   },
   {
-    "id": "sched_1768889405899",
-    "time": "14:30",
+    "id": "sched_1768021172104",
+    "time": "11:30",
     "days": "1-5",
-    "type": "group_hidetag",
-    "messageKey": "SCHED_CUSTOM_1768889405899",
-    "description": "Pengingat absen",
-    "enabled": true
+    "type": "group_hidetag_japri",
+    "messageKey": "REMINDER_EVENING",
+    "description": "Istirahat",
+    "enabled": true,
+    "useCustom": false
   },
   {
     "id": "afternoon_reminder",

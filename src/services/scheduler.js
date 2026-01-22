@@ -6,7 +6,7 @@ const { GROUP_ID_FILE } = require('../config/constants');
 const { getAllUsers } = require('./database');
 const { cekStatusHarian, getRiwayat, prosesLoginDanAbsen } = require('./magang');
 const { generateAttendanceReport, processFreeTextToReport } = require('./aiService');
-const { setDraft } = require('./previewService');
+const { getDraft, setDraft, deleteDraft } = require('./previewService');
 const { getAllowedGroups, isHoliday } = require('../config/holidays');
 const { parseTagBasedReport } = require('../utils/messageUtils');
 
@@ -14,6 +14,8 @@ const { loadGroupSettings } = require('./groupSettings');
 const { getMessage, updateMessage } = require('./messageService');
 const { isSchedulerEnabled } = require('./botState');
 const { generateWaveform } = require('../utils/generateWaveform');
+
+const { safeRefresh } = require('../../scripts/safe_refresh');
 
 // Config path
 const SCHEDULE_CONFIG_FILE = path.join(__dirname, '../../data/scheduler_config.json');
@@ -148,6 +150,7 @@ async function runGroupHidetag(sock, task, timezone) {
     // CHECK FOR MORNING VN (SMART PLAYLIST)
     let vnPath = null;
     let mimetype = 'audio/mpeg';
+    let chosenFile = null;
 
     if (task.id === 'morning_reminder') {
         const mediaDir = path.join(__dirname, '../../data/media/morning');
@@ -175,7 +178,7 @@ async function runGroupHidetag(sock, task, timezone) {
                     }
 
                     // 4. Pick Random
-                    const chosenFile = candidates[Math.floor(Math.random() * candidates.length)];
+                    chosenFile = candidates[Math.floor(Math.random() * candidates.length)];
                     vnPath = path.join(mediaDir, chosenFile);
                     
                     // Set correct mimetype
@@ -192,41 +195,52 @@ async function runGroupHidetag(sock, task, timezone) {
         }
     }
 
+    // PRE-CALCULATE WAVEFORM ONCE (Optimization)
+    let globalWaveform = new Uint8Array(0);
+    if (vnPath) {
+        try {
+            const wfBuffer = await generateWaveform(vnPath);
+            globalWaveform = new Uint8Array(wfBuffer.buffer, wfBuffer.byteOffset, wfBuffer.length);
+        } catch (wfErr) {
+            console.error('[Waveform] Failed to generate:', wfErr);
+        }
+    }
+
     for (const [groupId, _] of enabledGroups) {
+        // 1. Always send text message first (Priority)
+        await broadcastSimpleWithHidetag(sock, groupId, task.messageKey);
+
+        // 2. If VN is available, send it too
         if (vnPath) {
-            // Send VN
+            // Send VN Intro Text
+            const introMsg = getMessage('REMINDER_MORNING_VN_INTRO');
+            if (introMsg) {
+                await sock.sendMessage(groupId, { text: introMsg });
+                await new Promise(r => setTimeout(r, 1000));
+            }
+
             try {
                 const fileBuffer = fs.readFileSync(vnPath);
                 
-                // Generate waveform for visual effect
-                let waveform = new Uint8Array(0); 
-                try {
-                    const wfBuffer = await generateWaveform(vnPath);
-                    waveform = new Uint8Array(wfBuffer.buffer, wfBuffer.byteOffset, wfBuffer.length);
-                } catch (wfErr) {
-                    console.error('[Waveform] Failed to generate:', wfErr);
-                }
-
                 await sock.sendMessage(groupId, { 
                     audio: fileBuffer, 
                     mimetype: mimetype, 
                     ptt: true,
                     fileName: chosenFile || 'audio.opus',
-                    waveform: waveform // Send Uint8Array
+                    waveform: globalWaveform // Send Pre-calculated Uint8Array
                 });
             } catch (e) {
                 console.error(chalk.red(`[SCHEDULER] Failed to send VN to ${groupId}:`), e.message);
-                await broadcastSimpleWithHidetag(sock, groupId, task.messageKey);
+                // Text already sent, no fallback needed
             }
-        } else {
-            await broadcastSimpleWithHidetag(sock, groupId, task.messageKey);
         }
+        
         await new Promise(r => setTimeout(r, 2000));
     }
 }
 
 async function runGroupHidetagJapri(sock, task, timezone) {
-    console.log(chalk.magenta(`[SCHEDULER] Running Group Hidetag + Japri: ${task.id} (${timezone})`));
+    console.log(chalk.magenta(`[SCHEDULER] Running Group Hidetag Japri: ${task.id} (${timezone})`));
     if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday(timezone)) return;
 
@@ -294,6 +308,36 @@ async function runGroupHidetagJapri(sock, task, timezone) {
     }
 }
 
+async function runGroupTagAll(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Group Tag All: ${task.id} (${timezone})`));
+    if (!isSchedulerEnabled()) return;
+    if (isWeekendOrHoliday(timezone)) return;
+
+    const settings = loadGroupSettings();
+    const enabledGroups = Object.entries(settings).filter(([_, c]) => {
+        const groupTz = c.timezone || 'Asia/Makassar';
+        return c.schedulerEnabled && groupTz === timezone && !shouldSkipGroup(c, timezone);
+    });
+
+    const msgText = getMessage(task.messageKey || 'REMINDER_TAG_ALL');
+
+    for (const [groupId, _] of enabledGroups) {
+        try {
+            console.log(chalk.cyan(`[SCHEDULER] Tagging all in group ${groupId}`));
+            const groupMetadata = await sock.groupMetadata(groupId);
+            const participants = groupMetadata.participants.map(p => p.id);
+            
+            await sock.sendMessage(groupId, { 
+                text: msgText, 
+                mentions: participants 
+            });
+            await new Promise(r => setTimeout(r, 2000));
+        } catch (e) {
+            console.error(chalk.red(`[SCHEDULER] Failed tag all broadcast to ${groupId}:`), e.message);
+        }
+    }
+}
+
 async function runDraftPush(sock, task, timezone) {
     console.log(chalk.magenta(`[SCHEDULER] Running Draft Push (${timezone})`));
     if (timezone !== 'Asia/Makassar') return; // Global logic, run only once
@@ -316,7 +360,10 @@ async function runDraftPush(sock, task, timezone) {
                     type: 'ai'
                 };
                 setDraft(user.phone, reportData);
-                const msg = getMessage('DRAFT_PUSH_ALERT').replace('{activity}', aiResult.aktivitas);
+                let msg = getMessage('DRAFT_PUSH_ALERT');
+                msg = msg.replace('{activity}', aiResult.aktivitas)
+                         .replace('{pembelajaran}', aiResult.pembelajaran)
+                         .replace('{kendala}', aiResult.kendala);
                 await sock.sendMessage(user.phone, { text: msg });
             }
         } catch (e) {
@@ -338,8 +385,19 @@ async function runEmergencySubmit(sock, task, timezone) {
 
             let finalReport = null;
 
+            // 0. Priority: Check for Pending Draft in Memory (User's manual edit)
+            const memoryDraft = getDraft(user.phone);
+            if (memoryDraft) {
+                console.log(chalk.cyan(`[AUTO-SUBMIT] Using memory draft for ${user.email} (Phone: ${user.phone})`));
+                finalReport = {
+                    aktivitas: memoryDraft.aktivitas,
+                    pembelajaran: memoryDraft.pembelajaran,
+                    kendala: memoryDraft.kendala
+                };
+            }
+
             // 1. Try User Template
-            if (user.template) {
+            if (!finalReport && user.template) {
                 console.log(chalk.cyan(`[AUTO-SUBMIT] Using template for ${user.email}`));
                 
                 // Check if it's a manual tag format
@@ -381,17 +439,54 @@ async function runEmergencySubmit(sock, task, timezone) {
                     pembelajaran: finalReport.pembelajaran,
                     kendala: finalReport.kendala
                 });
-                if (submitResult.success) {
-                    const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";
-                    await sock.sendMessage(user.phone, {
-                        text: getMessage('AUTO_SUBMIT_SUCCESS').replace('{source}', sourceMsg)
-                    });
-                }
-            }
+                                            if (submitResult.success) {
+                                                deleteDraft(user.phone);
+                                                const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";                                let successMsg = getMessage('AUTO_SUBMIT_SUCCESS');
+                                
+                                successMsg = successMsg.replace('{source}', sourceMsg)
+                                                       .replace('{activity}', finalReport.aktivitas)
+                                                       .replace('{pembelajaran}', finalReport.pembelajaran)
+                                                       .replace('{kendala}', finalReport.kendala);
+                
+                                await sock.sendMessage(user.phone, { text: successMsg });
+                            }            }
         } catch (e) {
             console.error(chalk.red(`[AUTO-SUBMIT] Error for ${user.email}:`), e.message);
         }
     }
+}
+
+async function runPreemptiveRefresh(sock) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Preemptive Session Refresh (15:30)`));
+    const allUsers = getAllUsers();
+    
+    // Process in chunks to avoid overloading CPU/Network if using Puppeteer
+    // But cekStatusHarian tries Direct Login first which is fast.
+    
+    for (const user of allUsers) {
+        try {
+            console.log(chalk.cyan(`[PREEMPTIVE] Checking/Refreshing session for ${user.email}...`));
+            
+            // This function automatically attempts login if session is invalid/expired
+            // We pass a flag or just rely on its internal logic.
+            // Note: cekStatusHarian returns { success, alreadyAbsen, ... }
+            // It internally calls apiService.checkAttendanceStatus -> directLogin/puppeteerLogin if needed.
+            const status = await cekStatusHarian(user.email, user.password);
+            
+            if (status.success) {
+                console.log(chalk.green(`[PREEMPTIVE] ✅ Session valid for ${user.email}`));
+            } else {
+                console.log(chalk.red(`[PREEMPTIVE] ⚠️ Failed to refresh session for ${user.email}: ${status.pesan}`));
+            }
+            
+            // Small delay to be polite to the server
+            await new Promise(r => setTimeout(r, 2000));
+            
+        } catch (e) {
+            console.error(chalk.red(`[PREEMPTIVE] Error for ${user.email}:`), e.message);
+        }
+    }
+    console.log(chalk.magenta(`[SCHEDULER] Preemptive Refresh Complete.`));
 }
 
 async function runScheduledWebReports(sock, timezone) {
@@ -425,13 +520,13 @@ async function runScheduledWebReports(sock, timezone) {
 
             if (result.success) {
                 report.status = 'success';
-                await sock.sendMessage(report.phone, { 
+                await sock.sendMessage(user.phone, { 
                     text: getMessage('WEB_SCHEDULE_SUCCESS') 
                 });
             } else {
                 report.status = 'failed';
                 report.error = result.pesan;
-                await sock.sendMessage(report.phone, { 
+                await sock.sendMessage(user.phone, { 
                     text: getMessage('WEB_SCHEDULE_FAILED').replace('{error}', result.pesan) 
                 });
             }
@@ -458,8 +553,10 @@ function scheduleTask(task, timezone) {
 
         if (task.type === 'group_hidetag') runGroupHidetag(sock, task, timezone);
         else if (task.type === 'group_hidetag_japri') runGroupHidetagJapri(sock, task, timezone);
+        else if (task.type === 'group_tag_all') runGroupTagAll(sock, task, timezone);
         else if (task.type === 'draft_push') runDraftPush(sock, task, timezone);
         else if (task.type === 'emergency_submit') runEmergencySubmit(sock, task, timezone);
+        else if (task.type === 'preemptive_refresh') runPreemptiveRefresh(sock);
         else console.warn(chalk.yellow(`[SCHEDULER] Unknown task type: ${task.type}`));
 
     }, { timezone: timezone });
@@ -500,25 +597,47 @@ function reloadScheduler() {
         }, { timezone: tz });
         activeCrons.set(`web_reports_${tz}`, webJob);
     });
+
+    // 3. Schedule Preemptive Session Refresh (15:30 WITA / 14:30 WIB)
+    // Runs globally once per day at 15:30 Makassar time
+    const refreshJob = cron.schedule('30 15 * * 1-5', () => {
+        if (botSocket) runPreemptiveRefresh(botSocket);
+    }, { timezone: 'Asia/Makassar' });
+    activeCrons.set('global_preemptive_refresh', refreshJob);
+
+    // 4. Safe Token Refresh (Every 2 Hours) - Requested by User
+    // Runs globally every 2 hours between 07:00 and 00:00
+    const safeRefreshJob = cron.schedule('0 7,9,11,13,15,17,19,21,23,0 * * *', () => {
+        console.log(chalk.magenta('[SCHEDULER] Triggering 2-hour Safe Refresh...'));
+        safeRefresh();
+    }, { timezone: 'Asia/Makassar' });
+    activeCrons.set('global_safe_refresh_2h', safeRefreshJob);
+
     console.log(chalk.green(`[SCHEDULER] Reload complete. ${activeCrons.size} jobs active.`));
 }
 
 function initScheduler(sock) {
     setBotSocket(sock);
     reloadScheduler();
+    
+    // Auto-retry pending web reports on startup
+    const timezones = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'];
+    timezones.forEach(tz => runScheduledWebReports(sock, tz));
 }
 
 // Test runner for Dashboard
 async function runTestScheduler(sock, taskId) {
     const schedules = loadSchedules();
     const task = schedules.find(s => s.id === taskId);
-    if (!task) return { success: false, message: 'Task not found' };
+    if (!task && taskId !== 'preemptive_refresh') return { success: false, message: 'Task not found' };
 
     // For test, force run on 'Asia/Makassar'
     const tz = 'Asia/Makassar';
     
-    if (task.type === 'group_hidetag') await runGroupHidetag(sock, task, tz);
+    if (taskId === 'preemptive_refresh') await runPreemptiveRefresh(sock);
+    else if (task.type === 'group_hidetag') await runGroupHidetag(sock, task, tz);
     else if (task.type === 'group_hidetag_japri') await runGroupHidetagJapri(sock, task, tz);
+    else if (task.type === 'group_tag_all') await runGroupTagAll(sock, task, tz);
     else if (task.type === 'draft_push') await runDraftPush(sock, task, tz);
     else if (task.type === 'emergency_submit') await runEmergencySubmit(sock, task, tz);
     

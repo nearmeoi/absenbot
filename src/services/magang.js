@@ -100,6 +100,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
     let page = null;
     let cookies = [];
     let csrfToken = null;
+    let accessToken = null;
     let screenshotPath = null;
 
     try {
@@ -244,18 +245,36 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
 
         try {
             await page.goto('https://monev.maganghub.kemnaker.go.id/dashboard', {
-                waitUntil: 'networkidle2',
+                waitUntil: 'domcontentloaded',
                 timeout: 60000
             });
+            await new Promise(r => setTimeout(r, 10000)); // Give it 10s to redirect
         } catch (e) {
             console.log(chalk.yellow(`[BROWSER] Navigation timeout (continuing anyway)...`));
+            
+            // Check if stuck on the /naco/auth page with token in hash
+            const currentUrl = page.url();
+            if (currentUrl.includes('/naco/auth') && currentUrl.includes('access_token=')) {
+                console.log(chalk.green(`[BROWSER] Found access_token in URL hash! Extracting...`));
+                const hash = currentUrl.split('#')[1];
+                const params = new URLSearchParams(hash);
+                accessToken = params.get('access_token');
+                
+                if (accessToken) {
+                    console.log(chalk.green(`[BROWSER] ✅ Token recovered from hash. Saving session...`));
+                    const cookies = await page.cookies();
+                    apiService.saveSession(email, cookies, csrfToken, accessToken);
+                    await browser.close();
+                    return { success: true };
+                }
+            }
         }
 
         await new Promise(r => setTimeout(r, 3000));
 
         // Check if we're logged in
         const currentUrl = page.url();
-        const loggedInToSiapkerja = currentUrl.includes('monev.maganghub') || currentUrl.includes('dashboard');
+        const loggedInToSiapkerja = currentUrl.includes('monev.maganghub') || currentUrl.includes('dashboard') || accessToken;
 
         if (!loggedInToSiapkerja) {
             // Check for login error
@@ -286,19 +305,36 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         }
 
         // Wait for page to fully load and session to establish
-        await new Promise(r => setTimeout(r, 2000));
-
-        // Trigger an API call in-browser to ensure session is activated
-        // This helps the server establish the session properly
-        try {
-            await page.evaluate(async () => {
-                await fetch('/api/daily-logs', {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-                }).catch(() => { });
+        console.log(chalk.yellow(`[BROWSER] Waiting for session tokens to appear...`));
+        
+        let tokenFound = false;
+        for (let i = 0; i < 15; i++) {
+            const tokens = await page.evaluate(() => {
+                return {
+                    csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+                    accessToken: localStorage.getItem('token') ||
+                        localStorage.getItem('access_token') ||
+                        localStorage.getItem('accessToken') ||
+                        sessionStorage.getItem('token') ||
+                        sessionStorage.getItem('access_token'),
+                    cookieToken: document.cookie.match(/accessToken=([^;]+)/)?.[1]
+                };
             });
+            
+            csrfToken = tokens.csrf || csrfToken;
+            accessToken = tokens.accessToken || tokens.cookieToken;
+            
+            if (accessToken) {
+                console.log(chalk.green(`[BROWSER] ✅ Token found in ${i+1}s!`));
+                tokenFound = true;
+                break;
+            }
             await new Promise(r => setTimeout(r, 1000));
-        } catch (e) { }
+        }
+
+        if (!tokenFound) {
+            console.log(chalk.yellow(`[BROWSER] ⚠️ No accessToken found after 15s polling.`));
+        }
 
         // Extract all cookies from all relevant domains
         const [currentCookies, monevCookies, siapkerjaDomainCookies, accountCookies] = await Promise.all([
@@ -315,33 +351,26 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
 
         console.log(chalk.cyan(`[BROWSER] ✅ Got ${cookies.length} cookies from all domains`));
 
-        // Get CSRF Token and Access Token from localStorage
-        let accessToken = null;
+        // Get additional tokens if possible
+        let refreshToken = null;
         try {
-            const tokens = await page.evaluate(() => {
-                const csrf = document.querySelector('meta[name="csrf-token"]');
+            const extraTokens = await page.evaluate(() => {
                 return {
-                    csrf: csrf ? csrf.getAttribute('content') : null,
-                    accessToken: localStorage.getItem('token') ||
-                        localStorage.getItem('access_token') ||
-                        localStorage.getItem('accessToken') ||
-                        sessionStorage.getItem('token') ||
-                        sessionStorage.getItem('access_token'),
-                    // Also check for token in cookies
-                    cookieToken: document.cookie.match(/accessToken=([^;]+)/)?.[1] || null
+                    refreshToken: localStorage.getItem('refresh_token') ||
+                        localStorage.getItem('refreshToken') ||
+                        sessionStorage.getItem('refresh_token') ||
+                        sessionStorage.getItem('refreshToken')
                 };
             });
-            csrfToken = tokens.csrf;
-            accessToken = tokens.accessToken || tokens.cookieToken;
-
-            if (accessToken) {
-                console.log(chalk.green(`[BROWSER] ✅ Found accessToken!`));
+            refreshToken = extraTokens.refreshToken;
+            if (refreshToken) {
+                console.log(chalk.green(`[BROWSER] ✅ Found refreshToken!`));
             }
         } catch (e) { }
 
         // Save session with token
         if (cookies.length > 0) {
-            apiService.saveSession(email, cookies, csrfToken, accessToken);
+            apiService.saveSession(email, cookies, csrfToken, accessToken, refreshToken);
         }
 
         // Screenshot if requested
@@ -363,7 +392,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         console.log(chalk.red(`[DEBUG] ❌ LOGIN ERROR: ${error.message}`));
         console.log(chalk.red(`[DEBUG] Stack: ${error.stack}`));
         if (cookies.length > 0) {
-            try { apiService.saveSession(email, cookies, csrfToken); } catch (e) { }
+            try { apiService.saveSession(email, cookies, csrfToken, accessToken); } catch (e) { }
         }
         if (browser) await browser.close();
         return { success: false, pesan: error.message };
@@ -510,9 +539,23 @@ async function cekStatusHarian(email, password) {
     }
 
     if (apiResult.needsLogin) {
-        const loginResult = await puppeteerLogin(email, password, false);
-        if (!loginResult.success) {
-            return { success: false, pesan: loginResult.pesan };
+        // Try Direct API Login first (FAST & LIGHT)
+        console.log(chalk.cyan("[MONEV] Session expired, attempting Fast Direct Login..."));
+        const directResult = await apiService.directLogin(email, password);
+        
+        let loginSuccess = directResult.success;
+        let loginMsg = directResult.pesan;
+
+        // Fallback to Puppeteer if direct login fails
+        if (!loginSuccess) {
+            console.log(chalk.yellow(`[MONEV] Direct login failed (${loginMsg}), falling back to Puppeteer...`));
+            const loginResult = await puppeteerLogin(email, password, false);
+            loginSuccess = loginResult.success;
+            loginMsg = loginResult.pesan;
+        }
+
+        if (!loginSuccess) {
+            return { success: false, pesan: loginMsg };
         }
 
         await new Promise(r => setTimeout(r, 1000));
@@ -568,9 +611,22 @@ async function getRiwayat(email, password, days = 1) {
 
     // If session expired, try to login and retry
     if (apiResult.needsLogin) {
-        const loginResult = await puppeteerLogin(email, password, false);
-        if (!loginResult.success) {
-            return { success: false, logs: [], pesan: loginResult.pesan };
+        // Try Direct API Login first
+        console.log(chalk.cyan("[MONEV] History check: Session expired, attempting Fast Direct Login..."));
+        const directResult = await apiService.directLogin(email, password);
+        
+        let loginSuccess = directResult.success;
+        let loginMsg = directResult.pesan;
+
+        if (!loginSuccess) {
+            console.log(chalk.yellow("[MONEV] Direct login failed, falling back to Puppeteer..."));
+            const loginResult = await puppeteerLogin(email, password, false);
+            loginSuccess = loginResult.success;
+            loginMsg = loginResult.pesan;
+        }
+
+        if (!loginSuccess) {
+            return { success: false, logs: [], pesan: loginMsg };
         }
 
         await new Promise(r => setTimeout(r, 1000));

@@ -384,43 +384,73 @@ export default function Scheduler() {
             </Box>
 
             {!isMobile && (
-                <Card>
-                    <TableContainer>
-                        <Table>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Time</TableCell>
-                                    <TableCell>Description</TableCell>
-                                    <TableCell>Type</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {schedules.map((s) => (
-                                    <TableRow key={s.id} hover>
-                                        <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                <Box sx={{ p: 0.75, borderRadius: 1.5, bgcolor: 'primary.soft', color: 'primary.main', display: 'flex' }}>
-                                                    <Clock size={16} />
-                                                </Box>
-                                                <Typography fontWeight={600}>{formatTime(s.time)}</Typography>
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell>{s.description || '-'}</TableCell>
-                                        <TableCell><Chip label={getTypeLabel(s.type)} size="small" variant="outlined" /></TableCell>
-                                        <TableCell><Chip label={s.enabled ? "Active" : "Disabled"} color={s.enabled ? "success" : "default"} size="small" /></TableCell>
-                                        <TableCell align="right">
-                                            <IconButton size="small" onClick={() => handleTrigger(s.id)} title="Test Trigger"><Play size={16} /></IconButton>
-                                            <IconButton size="small" onClick={() => handleOpenDialog(s)} color="primary"><Edit2 size={16} /></IconButton>
-                                            <IconButton size="small" onClick={() => handleDelete(s.id)} color="error"><Trash2 size={16} /></IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                </Card>
+                <div className="border-[3px] border-black rounded-xl overflow-hidden shadow-[8px_8px_0_#000]">
+                    <table className="w-full bg-white text-left border-collapse">
+                        <thead>
+                            <tr className="bg-black text-white">
+                                <th className="p-4 font-black uppercase tracking-wider text-sm border-r border-gray-700">Time</th>
+                                <th className="p-4 font-black uppercase tracking-wider text-sm border-r border-gray-700">Description</th>
+                                <th className="p-4 font-black uppercase tracking-wider text-sm border-r border-gray-700">Type</th>
+                                <th className="p-4 font-black uppercase tracking-wider text-sm border-r border-gray-700">Status</th>
+                                <th className="p-4 font-black uppercase tracking-wider text-sm text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {schedules.map((s) => (
+                                <tr key={s.id} className="border-b-[3px] border-black hover:bg-[#fff9c4] transition-colors last:border-b-0 group">
+                                    <td className="p-4 border-r-[3px] border-black font-black text-xl font-mono">
+                                        {formatTime(s.time)} <span className="text-xs text-gray-500 font-sans">WITA</span>
+                                    </td>
+                                    <td className="p-4 border-r-[3px] border-black font-bold">
+                                        {s.description || <span className="text-gray-400 italic">No description</span>}
+                                    </td>
+                                    <td className="p-4 border-r-[3px] border-black">
+                                        <span className="inline-block px-3 py-1 border-[2px] border-black bg-white rounded-lg text-xs font-bold uppercase shadow-[2px_2px_0_#000]">
+                                            {getTypeLabel(s.type)}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 border-r-[3px] border-black">
+                                        <span className={`inline-block px-3 py-1 border-[2px] border-black rounded-lg text-xs font-bold uppercase shadow-[2px_2px_0_#000] ${s.enabled ? 'bg-[#0df259]' : 'bg-gray-200 text-gray-500'}`}>
+                                            {s.enabled ? "ACTIVE" : "DISABLED"}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-right">
+                                        <div className="flex items-center justify-end gap-2 opacity-100">
+                                            <button 
+                                                onClick={() => handleTrigger(s.id)} 
+                                                className="p-2 bg-[#3b82f6] text-white border-[2px] border-black rounded-lg hover:bg-[#2563eb] shadow-[2px_2px_0_#000] active:translate-y-[2px] active:shadow-none transition-all"
+                                                title="Test Run"
+                                            >
+                                                <Play size={16} strokeWidth={3} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleOpenDialog(s)} 
+                                                className="p-2 bg-[#facc15] text-black border-[2px] border-black rounded-lg hover:bg-[#eab308] shadow-[2px_2px_0_#000] active:translate-y-[2px] active:shadow-none transition-all"
+                                                title="Edit"
+                                            >
+                                                <Edit2 size={16} strokeWidth={3} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDelete(s.id)} 
+                                                className="p-2 bg-[#ff6b6b] text-black border-[2px] border-black rounded-lg hover:bg-[#fa5252] shadow-[2px_2px_0_#000] active:translate-y-[2px] active:shadow-none transition-all"
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={16} strokeWidth={3} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {schedules.length === 0 && (
+                                <tr>
+                                    <td colSpan="5" className="p-8 text-center bg-gray-50 border-t-[3px] border-black">
+                                        <p className="font-bold text-gray-400 uppercase">No schedules found</p>
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             )}
 
             {isMobile && <Box>{schedules.map((s) => <MobileScheduleCard key={s.id} schedule={s} />)}</Box>}

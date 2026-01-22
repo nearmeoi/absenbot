@@ -19,6 +19,7 @@ function parseDraftFromMessage(text) {
     // Remove headers
     cleanText = cleanText.replace(/\*DRAF LAPORAN ANDA\*/i, '');
     cleanText = cleanText.replace(/\*DRAF LAPORAN OTOMATIS\*/i, '');
+    cleanText = cleanText.replace(/Draf absen darurat/i, '');
     cleanText = cleanText.replace(/\*DRAF DIPERBARUI\*[^\n]*/i, '');
 
     // Remove footer instructions

@@ -74,6 +74,7 @@ const messageHandler = async (sock, msg) => {
 
         const isDraftContent = textMessage.includes("*DRAF LAPORAN ANDA*") ||
             textMessage.includes("*DRAF LAPORAN OTOMATIS*") ||
+            textMessage.includes("Draf absen darurat") ||
             textMessage.includes("*DRAF DIPERBARUI*");
 
         // Ignore own messages (except commands from scheduler or draft interactions)
@@ -199,6 +200,7 @@ const messageHandler = async (sock, msg) => {
 
             const hasDraftHeader = lowerText.includes('draf laporan otomatis') ||
                 lowerText.includes('draf laporan anda') ||
+                lowerText.includes('draf absen darurat') ||
                 lowerText.includes('draf diperbarui');
 
             const contextInfo = msgObj.message.extendedTextMessage?.contextInfo;

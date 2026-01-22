@@ -51,33 +51,24 @@ function getAppUrl(phone = '') {
     const { APP_URL } = require('../config/constants');
     if (!phone) return APP_URL;
 
-    console.log(`[DEBUG] getAppUrl input: ${phone}`);
-
-    // Try to resolve real phone number from DB (in case of LID)
+    // Try to find user to get slug
     try {
         const user = getUserByPhone(phone);
+        if (user && user.slug) {
+            return `${APP_URL}?u=${user.slug}`;
+        }
+        
+        // Fallback to phone logic if no slug
         if (user) {
-            console.log(`[DEBUG] User found: ${user.email} | Phone: ${user.phone} | LID: ${user.lid}`);
-            if (user.phone) {
-                // Prefer the main phone number if available and it's not a LID (unless only LID exists)
-                // Ideally user.phone is the real number.
-                // Check if user.phone is better than input 'phone'
-                if (!user.phone.includes('@lid') && user.phone.includes('@s.whatsapp.net')) {
-                    phone = user.phone;
-                } else if (!user.phone.includes('@lid') && !user.phone.includes('@')) {
-                     phone = user.phone;
-                }
-            }
-        } else {
-            console.log(`[DEBUG] User NOT found for ${phone}`);
+             if (user.phone && !user.phone.includes('@lid') && user.phone.includes('@s.whatsapp.net')) {
+                phone = user.phone;
+             }
         }
     } catch (e) {
-        // Ignore DB errors, fallback to input phone
-        console.error(`[DEBUG] DB Error: ${e.message}`);
+        console.error(`[DEBUG] DB Error in getAppUrl: ${e.message}`);
     }
 
     const cleanPhone = phone.split('@')[0].split(':')[0];
-    console.log(`[DEBUG] Final phone: ${cleanPhone}`);
     return `${APP_URL}?phone=${cleanPhone}`;
 }
 

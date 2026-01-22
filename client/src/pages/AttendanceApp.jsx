@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import InstallPrompt from '../components/InstallPrompt';
 import NotificationPrompt from '../components/NotificationPrompt';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -56,16 +57,18 @@ const safeLocalStorage = {
 
 const AttendanceAppContent = () => {
     const [phone, setPhone] = useState(() => {
-        // 1. Check URL parameters first (?phone=628...)
+        // 1. Check URL parameters first (?phone=... or ?u=...)
         try {
             const params = new URLSearchParams(window.location.search);
             const urlPhone = params.get('phone');
             if (urlPhone) return urlPhone.replace(/\D/g, '');
+            // Note: If ?u=slug is present, phone will be fetched async, so start empty or from storage
         } catch(e) {}
         
         // 2. Fallback to localStorage
         return safeLocalStorage.getItem('absenbot_phone') || '';
     });
+    const [userName, setUserName] = useState('');
     const [topik, setTopik] = useState('');
     const [aktivitas, setAktivitas] = useState('');
     const [pembelajaran, setPembelajaran] = useState('');
@@ -73,6 +76,47 @@ const AttendanceAppContent = () => {
     const [loading, setLoading] = useState(false);
     const [isScheduled, setIsScheduled] = useState(false);
     const [notifEnabled, setNotifEnabled] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
+
+    // Fetch User Profile on Mount (Handle ?u=slug or ?phone=...)
+    useEffect(() => {
+        const initUser = async () => {
+            const params = new URLSearchParams(window.location.search);
+            const slug = params.get('u');
+            const urlPhone = params.get('phone');
+            
+            // If slug is present, fetch profile by slug
+            if (slug) {
+                try {
+                    const res = await axios.get(`/app-api/api/user-profile?slug=${slug}`);
+                    if (res.data.success) {
+                        setUserName(res.data.name);
+                        // Clean phone number from DB (remove @s.whatsapp.net etc)
+                        let dbPhone = res.data.phone.split('@')[0].replace(/\D/g, '');
+                        if (dbPhone.startsWith('08')) dbPhone = '628' + dbPhone.substring(2);
+                        setPhone(dbPhone);
+                        
+                        // Clean URL to look nice (optional, maybe keep it so refresh works)
+                    }
+                } catch (e) {
+                    console.log('User lookup by slug failed:', e.message);
+                }
+            } 
+            // Else if phone is present (manual or link), fetch profile by phone
+            else if (phone && phone.length > 5) {
+                try {
+                    const res = await axios.get(`/app-api/api/user-profile?phone=${phone}`);
+                    if (res.data.success) {
+                        setUserName(res.data.name);
+                    }
+                } catch (e) {
+                    setUserName('');
+                }
+            }
+        };
+
+        initUser();
+    }, [phone]); // Re-run if phone changes manually, but main logic is on mount/URL change
 
     // Check notification permission on mount
     useEffect(() => {
@@ -139,7 +183,7 @@ const AttendanceAppContent = () => {
         }
     };
 
-    const handleDirectSubmit = async () => {
+    const handleDirectSubmit = () => {
         if (!phone) return toast.error('Nomor WA wajib diisi');
         
         // Validation: All fields must be >= 100 chars
@@ -147,6 +191,11 @@ const AttendanceAppContent = () => {
             return toast.error('Semua kolom (Aktivitas, Pembelajaran, Kendala) minimal 100 karakter!');
         }
 
+        setShowConfirm(true);
+    };
+
+    const confirmSubmit = async () => {
+        setShowConfirm(false);
         setLoading(true);
         try {
             const res = await axios.post('/app-api/api/submit', {
@@ -232,8 +281,8 @@ const AttendanceAppContent = () => {
         <div className="min-h-screen bg-[#F4F4F5] grid-bg p-4 md:p-8 font-sans text-black">
             <InstallPrompt />
             <NotificationPrompt phone={phone} />
-            <div className="max-w-xl mx-auto space-y-6">
-                
+            
+            <div className="max-w-3xl mx-auto space-y-6">
                 {/* 1. HEADER */}
                 <header className="text-center mb-8">
                     <h1 className="text-5xl font-black uppercase tracking-tighter italic transform -rotate-2">
@@ -246,7 +295,7 @@ const AttendanceAppContent = () => {
 
                 {/* 2. IDENTITAS (WHO) */}
                 <div className="neo-box bg-cyan-200 p-4 border-black border-4 shadow-[6px_6px_0_#000]">
-                    <div className="flex justify-between items-center mb-2">
+                    <div className="flex justify-between items-center mb-4">
                         <label className="block text-sm font-black uppercase flex items-center gap-2">
                             <span>Identitas (Nomor/ID)</span>
                             <button 
@@ -267,15 +316,27 @@ const AttendanceAppContent = () => {
                             </button>
                         </div>
                     </div>
+                    
+                    {userName && (
+                        <div className="mb-2 text-center">
+                            <p className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-1">
+                                TERDETEKSI SEBAGAI
+                            </p>
+                            <h2 className="text-2xl font-black uppercase leading-none border-b-4 border-black inline-block pb-1">
+                                {userName}
+                            </h2>
+                        </div>
+                    )}
+
                     <input 
                         type="text" 
                         placeholder="Nomor WA (628xxx)" 
-                        className="w-full p-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-white transition-colors placeholder-gray-500"
+                        className="w-full p-3 border-2 border-black font-bold text-lg focus:outline-none focus:bg-white transition-colors placeholder-gray-500 text-center"
                         value={phone}
                         onChange={handlePhoneChange}
                     />
-                    <p className="text-[10px] mt-1 font-bold opacity-60">
-                        *Jika muncul angka panjang (ID), biarkan saja. Itu ID akun Anda.
+                    <p className="text-[10px] mt-2 font-bold opacity-60 text-center">
+                        *Sistem otomatis mengenali akun Anda dari link.
                     </p>
                 </div>
 
@@ -283,7 +344,7 @@ const AttendanceAppContent = () => {
                 <div className="neo-box bg-[#FACC15] p-4 border-black border-4 shadow-[6px_6px_0_#000]">
                     <label className="block text-sm font-black uppercase mb-2">Cerita Hari Ini</label>
                     <textarea 
-                        rows="3"
+                        rows="4"
                         placeholder="Contoh: Hari ini saya meeting client dan fix bug login..." 
                         className="w-full p-3 border-2 border-black font-medium focus:outline-none focus:bg-white transition-colors"
                         value={topik}
@@ -311,7 +372,7 @@ const AttendanceAppContent = () => {
                             </span>
                         </div>
                         <textarea 
-                            rows="4"
+                            rows="5"
                             className="w-full p-2 border-2 border-gray-200 focus:border-black font-medium text-sm focus:outline-none"
                             placeholder="Hasil generate akan muncul di sini..."
                             value={aktivitas}
@@ -320,7 +381,7 @@ const AttendanceAppContent = () => {
                     </div>
 
                     {/* Pembelajaran & Kendala Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4">
                         <div className="bg-white p-4 border-black border-4 shadow-[4px_4px_0_#000]">
                             <div className="flex justify-between items-center mb-2">
                                 <label className="font-black uppercase text-sm">Pembelajaran</label>
@@ -329,7 +390,7 @@ const AttendanceAppContent = () => {
                                 </span>
                             </div>
                             <textarea 
-                                rows="4"
+                                rows="5"
                                 className="w-full p-2 border-2 border-gray-200 focus:border-black font-medium text-sm focus:outline-none"
                                 value={pembelajaran}
                                 onChange={(e) => setPembelajaran(e.target.value)}
@@ -344,7 +405,7 @@ const AttendanceAppContent = () => {
                                 </span>
                             </div>
                             <textarea 
-                                rows="4"
+                                rows="5"
                                 className="w-full p-2 border-2 border-gray-200 focus:border-black font-medium text-sm focus:outline-none"
                                 value={kendala}
                                 onChange={(e) => setKendala(e.target.value)}
@@ -359,7 +420,7 @@ const AttendanceAppContent = () => {
                     <button 
                         onClick={toggleSchedule}
                         disabled={loading}
-                        className={`p-3 border-4 border-black font-bold text-sm uppercase shadow-[4px_4px_0_#000] active:translate-y-1 transition-all ${isScheduled ? 'bg-green-400' : 'bg-gray-200 text-gray-500'}`}
+                        className={`p-4 border-4 border-black font-bold text-sm uppercase shadow-[4px_4px_0_#000] active:translate-y-1 transition-all ${isScheduled ? 'bg-green-400' : 'bg-gray-200 text-gray-500'}`}
                     >
                         {isScheduled ? 'Jadwal Aktif' : 'Set Jadwal'}
                         <div className="text-[10px] font-normal normal-case mt-1">Kirim jam 16:00</div>
@@ -369,7 +430,7 @@ const AttendanceAppContent = () => {
                     <button 
                         onClick={handleDirectSubmit}
                         disabled={loading}
-                        className="p-3 bg-[#FF6B6B] border-4 border-black font-black text-white uppercase shadow-[4px_4px_0_#000] hover:bg-[#ff5252] active:translate-y-1 transition-all disabled:opacity-50"
+                        className="p-4 bg-[#FF6B6B] border-4 border-black font-black text-white uppercase shadow-[4px_4px_0_#000] hover:bg-[#ff5252] active:translate-y-1 transition-all disabled:opacity-50"
                     >
                         Kirim Sekarang
                     </button>
@@ -380,6 +441,13 @@ const AttendanceAppContent = () => {
                     <p>POWERED BY ABSENBOT AI</p>
                 </div>
             </div>
+
+            <ConfirmationModal 
+                isOpen={showConfirm}
+                onClose={() => setShowConfirm(false)}
+                onConfirm={confirmSubmit}
+                data={{ aktivitas, pembelajaran, kendala }}
+            />
         </div>
     );
 };

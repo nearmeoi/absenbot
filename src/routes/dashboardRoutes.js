@@ -592,7 +592,7 @@ router.get('/api/groups', requireAuth, (req, res) => {
 
 // Add/Update group
 router.post('/api/groups', requireAuth, express.json(), (req, res) => {
-    const { groupId, name, schedulerEnabled, isTesting, holidays, skipWeekends } = req.body;
+    const { groupId, name, schedulerEnabled, isTesting, holidays, skipWeekends, timezone } = req.body;
     if (!groupId) {
         return res.status(400).json({ error: 'Group ID required' });
     }
@@ -603,6 +603,7 @@ router.post('/api/groups', requireAuth, express.json(), (req, res) => {
     if (isTesting !== undefined) updates.isTesting = isTesting;
     if (holidays !== undefined) updates.holidays = holidays;
     if (skipWeekends !== undefined) updates.skipWeekends = skipWeekends;
+    if (timezone !== undefined) updates.timezone = timezone;
 
     const group = updateGroup(groupId, updates);
     log(LOG_TYPES.INFO, `Group ${groupId} updated via dashboard`);

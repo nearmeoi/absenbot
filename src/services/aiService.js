@@ -99,7 +99,9 @@ async function callGimitaDolphin(prompt) {
  */
 async function improveWithGimitaGemini(originalContent, context = '') {
     try {
-        const improvementPrompt = `Berikut adalah konten yang dihasilkan oleh AI:\n\n"${originalContent}"\n\n${context}\n\nTugas Anda: Perbaiki dan tingkatkan konten di atas agar lebih masuk akal, koheren, dan profesional. Jaga panjang karakter antara 100-170 per bagian. Hanya kembalikan konten yang sudah diperbaiki, tanpa komentar tambahan, penjelasan, atau opsi. Hanya hasil akhir yang diperbaiki.`;
+        const improvementPrompt = getMessage('AI_IMPROVE_GENERIC')
+            .replace('{content}', originalContent)
+            .replace('{context}', context);
 
         const encodedMessage = encodeURIComponent(improvementPrompt);
         const url = `${GIMITA_API_URL}?message=${encodedMessage}`;
@@ -182,7 +184,12 @@ async function improveDolphinResult(dolphinContent, systemPrompt, userPrompt) {
         }
 
         // Create improvement prompt for each section
-        const improvementPrompt = `Berikut adalah hasil dari AI Dolphin:\n\nAKTIVITAS: ${aktivitas}\nPEMBELAJARAN: ${pembelajaran}\nKENDALA: ${kendala}\n\n${systemPrompt}\n\n${userPrompt}\n\nTugas Anda: Perbaiki dan tingkatkan ketiga bagian di atas agar lebih koheren, profesional, dan sesuai konteks magang. Pastikan masing-masing bagian panjangnya antara 100-170 karakter. Hanya kembalikan dalam format:\nAKTIVITAS: [isi]\nPEMBELAJARAN: [isi]\nKENDALA: [isi]\n\nTanpa komentar tambahan.`;
+        const improvementPrompt = getMessage('AI_IMPROVE_DOLPHIN_PARSED')
+            .replace('{aktivitas}', aktivitas)
+            .replace('{pembelajaran}', pembelajaran)
+            .replace('{kendala}', kendala)
+            .replace('{system_prompt}', systemPrompt)
+            .replace('{user_prompt}', userPrompt);
 
         const encodedMessage = encodeURIComponent(improvementPrompt);
         const url = `${GIMITA_API_URL}?message=${encodedMessage}`;
@@ -292,53 +299,9 @@ async function generateAttendanceReport(previousLogs = []) {
         });
     }
 
-    const systemPrompt = `Kamu adalah asisten yang membantu menulis laporan magang harian dengan gaya PROFESIONAL namun NATURAL.
+    const systemPrompt = getMessage('AI_SYSTEM_PROMPT');
 
-TUGAS UTAMA:
-1. ANALISIS MENDALAM riwayat laporan user:
-   - Identifikasi kata-kata dan frasa yang SERING MUNCUL
-   - Perhatikan istilah teknis yang konsisten digunakan
-   - Catat pola kalimat dan struktur penulisan user
-   - Temukan kata kunci yang berulang dari hari ke hari
-
-2. TIRU GAYA PENULISAN user:
-   - Gunakan KATA-KATA YANG SAMA yang sering user pakai
-   - Ikuti struktur kalimat user
-   - Pertahankan tingkat formalitas yang sama
-   - Jika user pakai istilah tertentu (misal: "koordinasi", "evaluasi", "implementasi"), GUNAKAN LAGI
-
-128. ATURAN PENULISAN:
-    - Tetap profesional dan sopan
-    - Tulis natural tapi tetap formal
-    - PANJANG: 100-200 karakter per bagian (WAJIB!)
-    - HANYA KELUARKAN LAPORAN. Dilarang menyertakan analisis, kata pengantar, atau komentar apa pun!
-
-129. PENGECEKAN LOGIKA (COHERENCE):
-    - Pastikan Aktivitas, Pembelajaran, dan Kendala saling "nyambung" secara logis sebagai satu hari kerja.
-    - Hindari pengulangan kalimat yang sama di bagian yang berbeda.
-
-CONTOH ANALISIS KONSISTENSI (Internal saja, jangan ditulis di output!):
-Jika user sering pakai: "melakukan", "bersama tim", "sistem", "database"
-Maka gunakan kata-kata tersebut dalam laporan baru.
-
-Ingat: Tiru gaya user, jangan buat gaya sendiri! HANYA OUTPUT FORMAT DI BAWAH!`;
-
-    const userPrompt = `${context}
-
-Tugas: Buatkan laporan hari ini dengan GAYA YANG SAMA PERSIS dengan riwayat di atas.
-Gunakan KATA-KATA YANG SAMA yang user sering pakai!
-
-PENTING:
-- Pastikan isi Aktivitas, Pembelajaran, dan Kendala SALING NYAMBUNG dan logis.
-- HANYA KELUARKAN ISI LAPORAN.
-- DILARANG menyertakan analisis, daftar kata kunci, atau penjelasan gaya bahasa di dalam output.
-- JANGAN ADA TEKS LAIN selain format AKTIVITAS, PEMBELAJARAN, dan KENDALA di bawah.
-- Panjang 100-200 karakter per bagian.
-
-Format:
-AKTIVITAS: [isi]
-PEMBELAJARAN: [isi]
-KENDALA: [isi]`;
+    const userPrompt = getMessage('AI_USER_PROMPT').replace('{context}', context);
 
     // --- EXECUTION STRATEGY ---
     let content = null;
@@ -350,19 +313,10 @@ KENDALA: [isi]`;
     if (dolphinResult.success) {
         // Now try to improve the Dolphin result with Gimita Gemini
         console.log(chalk.cyan('[AI] Improving Dolphin result with Gimita Gemini...'));
-        const improvementPrompt = `Berikut adalah hasil dari AI Dolphin:\n\n${dolphinResult.content}\n\n${systemPrompt}\n\n${userPrompt}\n\nTugas Anda: Perbaiki dan "manusiawikan" konten di atas agar lebih luwes, enak dibaca, namun tetap profesional.
-        
-PENTING:
-- Perbaiki kalimat yang kaku atau "robot banget".
-- Pastikan Aktivitas, Pembelajaran, dan Kendala NYAMBUNG satu sama lain (koheren).
-- Panjang karakter WAJIB antara 100-200 karakter per bagian.
-
-Hanya kembalikan dalam format:
-AKTIVITAS: [isi]
-PEMBELAJARAN: [isi]
-KENDALA: [isi]
-
-Tanpa komentar tambahan.`;
+        const improvementPrompt = getMessage('AI_IMPROVEMENT_PROMPT')
+            .replace('{content}', dolphinResult.content)
+            .replace('{system_prompt}', systemPrompt)
+            .replace('{user_prompt}', userPrompt);
 
         const improvedResult = await callGimitaGemini(improvementPrompt);
         if (improvedResult.success) {
@@ -404,6 +358,39 @@ Tanpa komentar tambahan.`;
                 timeout: 30000
             });
             content = response.data.choices[0]?.message?.content;
+
+            // --- DOUBLE CHECK (GROQ REFINEMENT) ---
+            if (content) {
+                const refinementPrompt = getMessage('AI_REFINEMENT_PROMPT').replace('{content}', content);
+
+                try {
+                    const refineResponse = await axios.post(GROQ_API_URL, {
+                        model: GROQ_MODEL,
+                        messages: [
+                            { role: 'system', content: "Kamu adalah editor senior yang ahli memperbaiki naskah agar logis, mengalir, dan manusiawi." },
+                            { role: 'user', content: refinementPrompt }
+                        ],
+                        temperature: 0.6,
+                        max_tokens: 1000
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${GROQ_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 30000
+                    });
+                    
+                    const refinedContent = refineResponse.data.choices[0]?.message?.content;
+                    if (refinedContent) {
+                        content = refinedContent;
+                        console.log(chalk.green('[AI] Groq Refinement Successful.'));
+                    }
+                } catch (refineError) {
+                    console.warn(chalk.yellow('[AI] Groq Refinement failed, using original draft:'), refineError.message);
+                }
+            }
+            // --- END DOUBLE CHECK ---
+
         } catch (error) {
             console.error(chalk.red('[GROQ] Error:'), error.message);
         }
@@ -532,27 +519,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
         contextMessages.push(historyText);
     }
 
-    const systemPrompt = `Kamu adalah asisten pribadi yang tugasnya MEMBUAT LAPORAN MAGANG berdasarkan cerita user.
-
-INSTRUKSI UTAMA: "TIRU GAYA BAHASA USER"
-1. Lihat "RIWAYAT LAPORAN TERAKHIR USER" di atas.
-2. Analisis gaya penulisannya:
-   - Apakah formal ("Uraian aktivitas...") atau santai?
-   - Apakah pakai bullet points atau paragraf?
-   - Kosa kata apa yang sering dipakai?
-3. Buat laporan baru berdasarkan cerita user dengan GAYA YANG SAMA PERSIS dengan riwayat tersebut.
-
-ATURAN LAIN:
-- HANYA KELUARKAN LAPORAN. DILARANG menyertakan analisis, kata pengantar, atau penjelasan apa pun.
-- PASTIKAN isi Aktivitas, Pembelajaran, dan Kendala SALING NYAMBUNG secara logis.
-- JANGAN pakai gaya robot/default jika ada riwayat. Ikuti riwayat!
-- Tetap sopan dan profesional (kecuali riwayat user sangat santai).
-- PANJANG: 100-170 karakter per bagian (WAJIB!).
-
-Format Output (Hanya teks di bawah, tanpa tambahan lain!):
-AKTIVITAS: [isi]
-PEMBELAJARAN: [isi]
-KENDALA: [isi]`;
+    const systemPrompt = getMessage('AI_SYSTEM_PROMPT_STORY');
 
     const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: "${userText}"\n\nBuatkan laporan dengan gaya saya!`;
 
@@ -563,41 +530,12 @@ KENDALA: [isi]`;
     if (dolphinResult.success) {
         // Now try to improve the Dolphin result with Gimita ChatAI
         console.log(chalk.cyan('[AI] Improving Dolphin result with Gimita ChatAI for Story Mode...'));
-        const systemPromptForStory = `Kamu adalah asisten pribadi yang tugasnya MEMBUAT LAPORAN MAGANG berdasarkan cerita user.
+        const systemPromptForStory = getMessage('AI_SYSTEM_PROMPT_STORY');
 
-INSTRUKSI UTAMA: "TIRU GAYA BAHASA USER"
-1. Lihat "RIWAYAT LAPORAN TERAKHIR USER" di atas.
-2. Analisis gaya penulisannya:
-   - Apakah formal ("Uraian aktivitas...") atau santai?
-   - Apakah pakai bullet points atau paragraf?
-   - Kosa kata apa yang sering dipakai?
-3. Buat laporan baru berdasarkan cerita user dengan GAYA YANG SAMA PERSIS dengan riwayat tersebut.
-
-ATURAN LAIN:
-- HANYA KELUARKAN LAPORAN. DILARANG menyertakan analisis, kata pengantar, atau penjelasan apa pun.
-- PASTIKAN isi Aktivitas, Pembelajaran, dan Kendala SALING NYAMBUNG secara logis.
-- JANGAN pakai gaya robot/default jika ada riwayat. Ikuti riwayat!
-- Tetap sopan dan profesional (kecuali riwayat user sangat santai).
-- PANJANG: 100-200 karakter per bagian (WAJIB!).
-
-Format Output (Hanya teks di bawah, tanpa tambahan lain!):
-AKTIVITAS: [isi]
-PEMBELAJARAN: [isi]
-KENDALA: [isi]`;
-
-        const improvementPrompt = `Berikut adalah hasil dari AI Dolphin:\n\n${dolphinResult.content}\n\n${systemPromptForStory}\n\nCerita User: "${userText}"\n\nTugas Anda: Perbaiki dan "manusiawikan" konten di atas agar lebih luwes, enak dibaca, namun tetap profesional.
-        
-PENTING:
-- Perbaiki kalimat yang kaku atau "robot banget".
-- Pastikan Aktivitas, Pembelajaran, dan Kendala NYAMBUNG satu sama lain (koheren).
-- Panjang karakter WAJIB antara 100-200 karakter per bagian.
-
-Hanya kembalikan dalam format:
-AKTIVITAS: [isi]
-PEMBELAJARAN: [isi]
-KENDALA: [isi]
-
-Tanpa komentar tambahan.`;
+        const improvementPrompt = getMessage('AI_IMPROVEMENT_PROMPT')
+            .replace('{content}', dolphinResult.content)
+            .replace('{system_prompt}', systemPromptForStory)
+            .replace('{user_prompt}', `Cerita User: "${userText}"`);
 
         const improvedResult = await callGimitaGemini(improvementPrompt);
         if (improvedResult.success) {
@@ -641,7 +579,52 @@ Tanpa komentar tambahan.`;
             }
         };
         const res = await callGroq(fullPrompt);
-        if (res.success) content = res.content;
+        if (res.success) {
+            content = res.content;
+            
+            // --- DOUBLE CHECK (GROQ REFINEMENT) FOR STORY MODE ---
+            if (content) {
+                console.log(chalk.cyan('[AI] Groq Refinement (Double Check: Context, Clarity, History)...'));
+                
+                // Prepare history summary for context
+                let historySummary = "-";
+                if (previousLogs && previousLogs.length > 0) {
+                     historySummary = previousLogs.map(l => `[${l.date}] ${l.activity_log.substring(0, 50)}...`).join('; ');
+                }
+
+                const refinementPrompt = getMessage('AI_REFINEMENT_WITH_CONTEXT_PROMPT')
+                    .replace('{content}', content)
+                    .replace('{user_story}', userText)
+                    .replace('{history_summary}', historySummary);
+
+                try {
+                    const refineResponse = await axios.post(GROQ_API_URL, {
+                        model: GROQ_MODEL,
+                        messages: [
+                            { role: 'system', content: "Kamu adalah Supervisor Editor yang teliti. Jangan biarkan kesalahan lolos." },
+                            { role: 'user', content: refinementPrompt }
+                        ],
+                        temperature: 0.6,
+                        max_tokens: 1000
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${GROQ_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 30000
+                    });
+                    
+                    const refinedContent = refineResponse.data.choices[0]?.message?.content;
+                    if (refinedContent) {
+                        content = refinedContent;
+                        console.log(chalk.green('[AI] Groq Refinement Successful (Context & Clarity Checked).'));
+                    }
+                } catch (refineError) {
+                    console.warn(chalk.yellow('[AI] Groq Refinement failed, using original draft:'), refineError.message);
+                }
+            }
+            // --- END DOUBLE CHECK ---
+        }
     }
 
     // --- ENGINE 3: GIMITA CHATAI (Fallback 3 - as primary improvement) ---
