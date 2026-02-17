@@ -1,18 +1,20 @@
 /**
- * AI Service - Generate attendance reports using Gimita API (Primary), Groq, or Gemini
+ * AI Service - Generate attendance reports using Groq (Primary), Gimita, or Gemini
  */
 
 const axios = require('axios');
 const chalk = require('chalk');
 const { getMessage } = require('./messageService');
+const { AI_CONFIG } = require('../config/constants');
 
 const FormData = require('form-data');
 const fs = require('fs');
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_AUDIO_URL = 'https://api.groq.com/openai/v1/audio/transcriptions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
-const GIMITA_API_URL = 'https://api.gimita.id/api/ai/gemini';
+// Use constants from config
+const GROQ_API_URL = AI_CONFIG.GROQ.API_URL;
+const GROQ_AUDIO_URL = AI_CONFIG.GROQ.AUDIO_URL;
+const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
+const GIMITA_API_URL = AI_CONFIG.GIMITA.GEMINI_API_URL;
 
 // Validate API keys on startup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -27,22 +29,19 @@ if (!GEMINI_API_KEY) {
 
 /**
  * Call Gimita API (Gemini Model)
- * Note: Uses GET request with query param, so length is limited.
  */
 async function callGimitaGemini(prompt) {
     try {
-        // Encode properly for URL
         const encodedMessage = encodeURIComponent(prompt);
         const url = `${GIMITA_API_URL}?message=${encodedMessage}`;
 
-        // Check for URL length limit (approx safe limit for many servers/proxies is ~2000-8000)
-        if (url.length > 6000) {
+        if (url.length > AI_CONFIG.GIMITA.URL_LENGTH_LIMIT) {
             console.warn(chalk.yellow(`[GIMITA] Prompt too long (${url.length} chars), skipping to fallback.`));
             return { success: false, error: 'Prompt too long for GET request' };
         }
 
         console.log(chalk.cyan('[GIMITA] Sending request...'));
-        const response = await axios.get(url, { timeout: 45000 });
+        const response = await axios.get(url, { timeout: AI_CONFIG.GIMITA.TIMEOUT });
 
         if (response.data && response.data.text) {
             return { success: true, content: response.data.text };
@@ -61,22 +60,19 @@ async function callGimitaGemini(prompt) {
 
 /**
  * Call Gimita API (Dolphin Model)
- * Note: Uses different endpoint and parameters
  */
 async function callGimitaDolphin(prompt) {
     try {
-        // Encode properly for URL
         const encodedQuestion = encodeURIComponent(prompt);
-        const url = `https://api.gimita.id/api/ai/dolphin?question=${encodedQuestion}&template=logical`;
+        const url = `${AI_CONFIG.GIMITA.DOLPHIN_API_URL}?question=${encodedQuestion}&template=logical`;
 
-        // Check for URL length limit (approx safe limit for many servers/proxies is ~2000-8000)
-        if (url.length > 6000) {
+        if (url.length > AI_CONFIG.GIMITA.URL_LENGTH_LIMIT) {
             console.warn(chalk.yellow(`[DOLPHIN] Prompt too long (${url.length} chars), skipping to fallback.`));
             return { success: false, error: 'Prompt too long for GET request' };
         }
 
         console.log(chalk.cyan('[DOLPHIN] Sending request...'));
-        const response = await axios.get(url, { timeout: 45000 });
+        const response = await axios.get(url, { timeout: AI_CONFIG.GIMITA.TIMEOUT });
 
         if (response.data && response.data.success && response.data.data && response.data.data.answer) {
             return { success: true, content: response.data.data.answer };
@@ -93,57 +89,18 @@ async function callGimitaDolphin(prompt) {
     }
 }
 
-/**
- * Improve content using Gimita Gemini
- * Takes content from one AI and improves it with another
- */
-async function improveWithGimitaGemini(originalContent, context = '') {
-    try {
-        const improvementPrompt = getMessage('AI_IMPROVE_GENERIC')
-            .replace('{content}', originalContent)
-            .replace('{context}', context);
-
-        const encodedMessage = encodeURIComponent(improvementPrompt);
-        const url = `${GIMITA_API_URL}?message=${encodedMessage}`;
-
-        // Check for URL length limit
-        if (url.length > 6000) {
-            console.warn(chalk.yellow(`[GIMITA-IMPROVE] Prompt too long (${url.length} chars).`));
-            return { success: false, error: 'Prompt too long for GET request' };
-        }
-
-        console.log(chalk.cyan('[GIMITA-IMPROVE] Sending improvement request...'));
-        const response = await axios.get(url, { timeout: 45000 });
-
-        if (response.data && response.data.text) {
-            return { success: true, content: response.data.text };
-        }
-        return { success: false, error: 'Empty response from Gimita improvement' };
-
-    } catch (error) {
-        console.error(chalk.red('[GIMITA-IMPROVE] Error:'), error.message);
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * Call Gimita ChatAI API with various models
- * Note: Uses different endpoint and supports multiple models
- */
 async function callGimitaChatAI(prompt, model = 'deepseek-v3') {
     try {
-        // Encode properly for URL
         const encodedQuery = encodeURIComponent(prompt);
-        const url = `https://api.gimita.id/api/ai/chatai?model=${model}&query=${encodedQuery}`;
+        const url = `${AI_CONFIG.GIMITA.CHATAI_API_URL}?model=${model}&query=${encodedQuery}`;
 
-        // Check for URL length limit (approx safe limit for many servers/proxies is ~2000-8000)
-        if (url.length > 6000) {
+        if (url.length > AI_CONFIG.GIMITA.URL_LENGTH_LIMIT) {
             console.warn(chalk.yellow(`[CHATAI] Prompt too long (${url.length} chars), skipping to fallback.`));
             return { success: false, error: 'Prompt too long for GET request' };
         }
 
         console.log(chalk.cyan(`[CHATAI-${model.toUpperCase()}] Sending request...`));
-        const response = await axios.get(url, { timeout: 45000 });
+        const response = await axios.get(url, { timeout: AI_CONFIG.GIMITA.TIMEOUT });
 
         if (response.data && response.data.success && response.data.data && response.data.data.answer) {
             return { success: true, content: response.data.data.answer };
@@ -160,69 +117,6 @@ async function callGimitaChatAI(prompt, model = 'deepseek-v3') {
     }
 }
 
-/**
- * Improve Dolphin-generated content using Gimita Gemini
- * Specifically designed to fix Dolphin's output while preserving structure
- */
-async function improveDolphinResult(dolphinContent, systemPrompt, userPrompt) {
-    try {
-        // Parse the Dolphin result first
-        const parseSection = (label, text) => {
-            const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
-            const match = text.match(regex);
-            return match ? match[1].trim() : '';
-        };
-
-        let aktivitas = parseSection('AKTIVITAS', dolphinContent);
-        let pembelajaran = parseSection('PEMBELAJARAN', dolphinContent);
-        let kendala = parseSection('KENDALA', dolphinContent);
-
-        // If parsing failed, return original
-        if (!aktivitas && !pembelajaran && !kendala) {
-            console.log(chalk.yellow('[GIMITA-IMPROVE-DOLPHIN] Parsing failed, using original'));
-            return { success: false, error: 'Could not parse dolphin content' };
-        }
-
-        // Create improvement prompt for each section
-        const improvementPrompt = getMessage('AI_IMPROVE_DOLPHIN_PARSED')
-            .replace('{aktivitas}', aktivitas)
-            .replace('{pembelajaran}', pembelajaran)
-            .replace('{kendala}', kendala)
-            .replace('{system_prompt}', systemPrompt)
-            .replace('{user_prompt}', userPrompt);
-
-        const encodedMessage = encodeURIComponent(improvementPrompt);
-        const url = `${GIMITA_API_URL}?message=${encodedMessage}`;
-
-        // Check for URL length limit
-        if (url.length > 6000) {
-            console.warn(chalk.yellow(`[GIMITA-IMPROVE-DOLPHIN] Prompt too long (${url.length} chars).`));
-            return { success: false, error: 'Prompt too long for GET request' };
-        }
-
-        console.log(chalk.cyan('[GIMITA-IMPROVE-DOLPHIN] Sending improvement request...'));
-        const response = await axios.get(url, { timeout: 45000 });
-
-        if (response.data && response.data.text) {
-            return { success: true, content: response.data.text };
-        }
-        return { success: false, error: 'Empty response from Gimita improvement' };
-
-    } catch (error) {
-        if (error.response && error.response.status === 429) {
-            console.warn(chalk.yellow('[GIMITA-IMPROVE-DOLPHIN] Rate limit exceeded, using fallback'));
-            return { success: false, error: 'Rate limit exceeded' };
-        }
-        console.error(chalk.red('[GIMITA-IMPROVE-DOLPHIN] Error:'), error.message);
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * Transcribe audio file to text using Groq Whisper
- * @param {string} filePath - Path to the audio file
- * @returns {Object} { success: boolean, text: string }
- */
 async function transcribeAudio(filePath) {
     try {
         const formData = new FormData();
@@ -249,501 +143,301 @@ async function transcribeAudio(filePath) {
     }
 }
 
-/**
- * Detect team preference from user's history
- * Default: null (no team mention - optional)
- * Only use "teman" or "tim" if user explicitly mentioned it
- */
-function detectTeamPreference(previousLogs = []) {
-    if (!previousLogs || previousLogs.length === 0) {
-        return null; // No history = no team mention
+// --- SHARED LOGIC ---
+
+async function runGroqGeneration(systemPrompt, userPrompt) {
+    if (!GROQ_API_KEY) return { success: false };
+    try {
+        console.log(chalk.cyan('[AI] Trying Groq (Primary)...'));
+        const response = await axios.post(GROQ_API_URL, {
+            model: GROQ_MODEL,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: AI_CONFIG.GROQ.MAX_TOKENS
+        }, {
+            headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+            timeout: AI_CONFIG.GROQ.TIMEOUT
+        });
+        return { success: true, content: response.data.choices[0]?.message?.content };
+    } catch (err) {
+        console.warn(chalk.yellow(`[GROQ] Primary engine failed: ${err.message}`));
+        return { success: false };
     }
-
-    // Check if user ever mentioned "teman" or "tim" in their reports
-    const allText = previousLogs.map(log => {
-        return [log.activity_log, log.lesson_learned, log.obstacles].filter(Boolean).join(' ').toLowerCase();
-    }).join(' ');
-
-    // Check for "teman" first (more common in 2-person internship)
-    if (allText.includes(' teman ') || allText.includes('teman ') || allText.includes(' teman')) {
-        return 'teman';
-    }
-
-    // Check for "tim" (only if explicitly mentioned)
-    if (allText.includes(' tim ') || allText.includes('tim ') || allText.includes(' tim')) {
-        return 'tim';
-    }
-
-    // Default: no team mention (user works alone or doesn't mention collaboration)
-    return null;
 }
 
+async function runFallbackChain(systemPrompt, userPrompt) {
+    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
+    
+    // 1. Dolphin
+    console.log(chalk.cyan('[AI] Fallback: Trying Gimita Dolphin...'));
+    let result = await callGimitaDolphin(combinedPrompt);
+    if (result.success) return { success: true, content: result.content };
+
+    // 2. ChatAI (DeepSeek)
+    console.log(chalk.cyan('[AI] Fallback: Trying Gimita ChatAI (DeepSeek)...'));
+    result = await callGimitaChatAI(combinedPrompt, 'deepseek-v3');
+    if (result.success) return { success: true, content: result.content };
+
+    // 3. Gemini
+    console.log(chalk.cyan('[AI] Fallback: Trying Gimita Gemini...'));
+    result = await callGimitaGemini(combinedPrompt);
+    if (result.success) return { success: true, content: result.content };
+
+    return { success: false };
+}
+
+async function runGroqRefinement(content, userStory, previousLogs) {
+    if (!GROQ_API_KEY) return content;
+    
+    console.log(chalk.cyan('[AI] Groq Refinement (Double Check)...'));
+    let historySummary = "-";
+    if (previousLogs && previousLogs.length > 0) {
+            historySummary = previousLogs.map(l => `[${l.date}] ${l.activity_log.substring(0, 50)}...`).join('; ');
+    }
+
+    const refinementPrompt = getMessage('AI_REFINEMENT_WITH_CONTEXT_PROMPT')
+        .replace('{content}', content)
+        .replace('{user_story}', userStory)
+        .replace('{history_summary}', historySummary);
+
+    try {
+        const refineResponse = await axios.post(GROQ_API_URL, {
+            model: GROQ_MODEL,
+            messages: [
+                { role: 'system', content: "Kamu adalah Supervisor Editor. Pastikan konten akurat, logis, dan TIDAK HALUSINASI." },
+                { role: 'user', content: refinementPrompt }
+            ],
+            temperature: 0.5, // Lower temperature for accuracy
+            max_tokens: AI_CONFIG.GROQ.MAX_TOKENS
+        }, {
+            headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+            timeout: AI_CONFIG.GROQ.TIMEOUT
+        });
+        
+        const refined = refineResponse.data.choices[0]?.message?.content;
+        if (refined) {
+            console.log(chalk.green('[AI] Groq Refinement Successful.'));
+            return refined;
+        }
+    } catch (e) {
+        console.warn(chalk.yellow('[AI] Groq Refinement failed:'), e.message);
+    }
+    return content;
+}
+
+const parseAndClamp = (content) => {
+    const parseSection = (label, text) => {
+        try {
+            // BACKSLASH-SAFE REGEX STRATEGY:
+            // Avoid \s because of backslash hell. Use [ \t] instead.
+            // Avoid [\s\S] because of backslash hell. Use [^] (any char).
+            
+            // Regex logic:
+            // (?:^|[\n\r])  -> Start of line or string
+            // [ \t]*        -> Optional spaces/tabs
+            // [*#\-.0-9]*   -> Optional markdown/list markers
+            // [ \t]*        -> Optional spaces/tabs
+            // ${label}      -> "AKTIVITAS", etc
+            // [*: ]*        -> Optional suffix (colon, star, space)
+            // [ \t]*        -> Optional spaces/tabs
+            // ([^]*?)       -> Capture EVERYTHING until...
+            // (?=...)       -> Lookahead for next section header or end of string
+            
+            const regexStr = `(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*${label}[*: ]*[ \t]*([^]*?)(?=(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*(?:AKTIVITAS|PEMBELAJARAN|KENDALA)|$)`;
+            
+            const regex = new RegExp(regexStr, 'i');
+            const match = text.match(regex);
+            
+            if (match && match[1] && match[1].trim().length > 0) {
+                return match[1].trim();
+            }
+        } catch (e) {
+            console.error(`[AI-PARSE] Error parsing ${label}:`, e.message);
+        }
+        return '';
+    };
+
+    let aktivitas = parseSection('AKTIVITAS', content);
+    let pembelajaran = parseSection('PEMBELAJARAN', content);
+    let kendala = parseSection('KENDALA', content);
+
+    // FINAL FALLBACK: Manual line-by-line check if everything is empty
+    if (!aktivitas && !pembelajaran && !kendala) {
+        console.log(chalk.cyan('[AI-PARSE] Regex failed, using manual line split fallback...'));
+        const lines = content.split('\n');
+        let currentSection = null;
+        
+        // Reset variables for fallback
+        let a_temp = '', p_temp = '', k_temp = '';
+        
+        lines.forEach(line => {
+            const l = line.trim().toUpperCase();
+            // Check headers with flexible matching
+            if (l.match(/[*#\-.0-9]*\s*AKTIVITAS[*: ]*/)) { 
+                currentSection = 'A'; 
+                // Remove header and keep content
+                a_temp = line.replace(/.*AKTIVITAS[*: ]*/i, '').trim(); 
+            }
+            else if (l.match(/[*#\-.0-9]*\s*PEMBELAJARAN[*: ]*/)) { 
+                currentSection = 'P'; 
+                p_temp = line.replace(/.*PEMBELAJARAN[*: ]*/i, '').trim(); 
+            }
+            else if (l.match(/[*#\-.0-9]*\s*KENDALA[*: ]*/)) { 
+                currentSection = 'K'; 
+                k_temp = line.replace(/.*KENDALA[*: ]*/i, '').trim(); 
+            }
+            else if (currentSection && line.trim()) {
+                // Append continuation lines
+                if (currentSection === 'A') a_temp += ' ' + line.trim();
+                else if (currentSection === 'P') p_temp += ' ' + line.trim();
+                else if (currentSection === 'K') k_temp += ' ' + line.trim();
+            }
+        });
+        
+        if (a_temp) aktivitas = a_temp;
+        if (p_temp) pembelajaran = p_temp;
+        if (k_temp) kendala = k_temp;
+    }
+
+    const MAX_CHARS = AI_CONFIG.REPORT.MAX_CHARS;
+    const clamp = (text) => {
+        let result = (text || '').trim();
+        if (result.length > MAX_CHARS) {
+            result = result.substring(0, MAX_CHARS).trim();
+            const lastSpace = result.lastIndexOf(' ');
+            if (lastSpace > MAX_CHARS - AI_CONFIG.REPORT.TRUNCATE_BUFFER) result = result.substring(0, lastSpace);
+        }
+        return result;
+    };
+
+    return {
+        success: true,
+        aktivitas: clamp(aktivitas),
+        pembelajaran: clamp(pembelajaran),
+        kendala: clamp(kendala)
+    };
+};
+
 /**
- * Generate attendance report using AI (Gimita -> Groq -> Gemini)
- * @param {Array} previousLogs - Array of previous attendance logs for context
- * @returns {Object} { success: boolean, aktivitas: string, pembelajaran: string, kendala: string }
+ * Generate attendance report (Manual Points)
  */
 async function generateAttendanceReport(previousLogs = []) {
-    // Build context from previous logs
+    // Build context
     let context = '';
     if (previousLogs.length > 0) {
         context = 'Berikut adalah riwayat laporan sebelumnya:\n\n';
         previousLogs.forEach((log, i) => {
             if (log && log.activity_log) {
-                context += `--- ${log.date} ---\n`;
-                context += `Aktivitas: ${log.activity_log}\n`;
-                if (log.lesson_learned) context += `Pembelajaran: ${log.lesson_learned}\n`;
-                if (log.obstacles) context += `Kendala: ${log.obstacles}\n`;
-                context += '\n';
+                context += `--- ${log.date} ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
             }
         });
     }
 
     const systemPrompt = getMessage('AI_SYSTEM_PROMPT');
-
     const userPrompt = getMessage('AI_USER_PROMPT').replace('{context}', context);
 
-    // --- EXECUTION STRATEGY ---
-    let content = null;
+    // 1. Try Groq
+    let res = await runGroqGeneration(systemPrompt, userPrompt);
+    let content = res.content;
 
-    // 1. Try Gimita Dolphin (Primary - faster)
-    console.log(chalk.cyan('[AI] Trying Gimita Dolphin (Primary)...'));
-    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
-    const dolphinResult = await callGimitaDolphin(combinedPrompt);
-    if (dolphinResult.success) {
-        // Now try to improve the Dolphin result with Gimita Gemini
-        console.log(chalk.cyan('[AI] Improving Dolphin result with Gimita Gemini...'));
-        const improvementPrompt = getMessage('AI_IMPROVEMENT_PROMPT')
-            .replace('{content}', dolphinResult.content)
-            .replace('{system_prompt}', systemPrompt)
-            .replace('{user_prompt}', userPrompt);
-
-        const improvedResult = await callGimitaGemini(improvementPrompt);
-        if (improvedResult.success) {
-            content = improvedResult.content;
-            console.log(chalk.green('[AI] Dolphin result successfully improved by Gimita Gemini'));
-        } else {
-            // If improvement fails, use original Dolphin result
-            console.warn(chalk.yellow(`[AI] Improvement failed, using original Dolphin result: ${improvedResult.error}`));
-            content = dolphinResult.content;
-        }
-    } else {
-        console.warn(chalk.yellow(`[AI] Gimita Dolphin failed, switching to Gimita Gemini... (${dolphinResult.error})`));
-        // If Dolphin fails, try Gemini directly
-        const gimitaResult = await callGimitaGemini(combinedPrompt);
-        if (gimitaResult.success) {
-            content = gimitaResult.content;
-        } else {
-            console.warn(chalk.yellow(`[AI] Gimita Gemini failed, switching to Groq... (${gimitaResult.error})`));
-        }
-    }
-
-    // 2. Try Groq (Fallback 2)
-    if (!content && GROQ_API_KEY) {
-        try {
-            console.log(chalk.cyan('[AI] Trying Groq...'));
-            const response = await axios.post(GROQ_API_URL, {
-                model: GROQ_MODEL,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                temperature: 0.7,
-                max_tokens: 1000
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${GROQ_API_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 30000
-            });
-            content = response.data.choices[0]?.message?.content;
-
-            // --- DOUBLE CHECK (GROQ REFINEMENT) ---
-            if (content) {
-                const refinementPrompt = getMessage('AI_REFINEMENT_PROMPT').replace('{content}', content);
-
-                try {
-                    const refineResponse = await axios.post(GROQ_API_URL, {
-                        model: GROQ_MODEL,
-                        messages: [
-                            { role: 'system', content: "Kamu adalah editor senior yang ahli memperbaiki naskah agar logis, mengalir, dan manusiawi." },
-                            { role: 'user', content: refinementPrompt }
-                        ],
-                        temperature: 0.6,
-                        max_tokens: 1000
-                    }, {
-                        headers: {
-                            'Authorization': `Bearer ${GROQ_API_KEY}`,
-                            'Content-Type': 'application/json'
-                        },
-                        timeout: 30000
-                    });
-                    
-                    const refinedContent = refineResponse.data.choices[0]?.message?.content;
-                    if (refinedContent) {
-                        content = refinedContent;
-                        console.log(chalk.green('[AI] Groq Refinement Successful.'));
-                    }
-                } catch (refineError) {
-                    console.warn(chalk.yellow('[AI] Groq Refinement failed, using original draft:'), refineError.message);
-                }
-            }
-            // --- END DOUBLE CHECK ---
-
-        } catch (error) {
-            console.error(chalk.red('[GROQ] Error:'), error.message);
-        }
-    }
-
-    // 3. Try Gimita ChatAI (Fallback 3 - as primary improvement)
+    // 2. Fallback
     if (!content) {
-        console.log(chalk.cyan('[AI] Trying Gimita ChatAI (deepseek-v3)...'));
-        const chataiResult = await callGimitaChatAI(`${systemPrompt}\n\n${userPrompt}`, 'deepseek-v3');
-        if (chataiResult.success) {
-            content = chataiResult.content;
-        } else {
-            console.warn(chalk.yellow(`[AI] Gimita ChatAI failed, switching to Gemini... (${chataiResult.error})`));
-        }
+        res = await runFallbackChain(systemPrompt, userPrompt);
+        content = res.content;
     }
 
-    // 4. Try Gemini Google (Fallback 4)
-    if (!content && GEMINI_API_KEY) {
-        console.log(chalk.cyan('[AI] Trying Gemini Google (Fallback)...'));
-        try {
-            const response = await axios.post(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-                { contents: [{ parts: [{ text: combinedPrompt }] }] },
-                { timeout: 60000 }
-            );
-            if (response.data.candidates && response.data.candidates.length > 0) {
-                 content = response.data.candidates[0].content.parts[0].text;
-            }
-        } catch (err) {
-            console.error(chalk.red('[GEMINI-FALLBACK] Error:'), err.message);
-        }
-    }
+    if (!content) return { success: false, error: 'Semua layanan AI sibuk/gagal.' };
 
-    if (!content) {
-        return { success: false, error: 'Semua layanan AI sibuk/gagal.' };
-    }
+    // 3. Double Check
+    content = await runGroqRefinement(content, "(Manual Input Context)", previousLogs);
 
-    // --- PARSING LOGIC (Shared) ---
-    // Parse response with more flexible regex
-    const parseSection = (label, text) => {
-        const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
-        const match = text.match(regex);
-        return match ? match[1].trim() : '';
-    };
-
-    let aktivitas = parseSection('AKTIVITAS', content);
-    let pembelajaran = parseSection('PEMBELAJARAN', content);
-    let kendala = parseSection('KENDALA', content);
-
-    console.log(chalk.gray(`[AI] Raw Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
-
-    // Padding and Truncation Logic
-    const MIN_CHARS = 110; // Buffer to ensure > 100
-    const MAX_CHARS = 200;
-
-    // Clamping Logic: Pad if too short, Truncate if too long
-    const clamp = (text, type) => {
-        let result = text;
-
-        // Pad if too short
-        if (result.length < MIN_CHARS) {
-            const suffixes = {
-                A: [
-                    " serta melakukan pendokumentasian hasil pengerjaan secara sistematis",
-                    " dan melakukan review berkala terhadap kemajuan tugas harian",
-                    " serta berkoordinasi dengan tim terkait untuk langkah selanjutnya"
-                ],
-                P: [
-                    " yang memberikan wawasan mendalam mengenai implementasi di lapangan",
-                    " serta menambah pemahaman praktis mengenai alur kerja profesional",
-                    " dan memperluas pengetahuan mengenai standar industri yang berlaku"
-                ],
-                K: [
-                    " dan seluruh proses pekerjaan dapat terlaksana dengan sangat lancar",
-                    " sehingga seluruh target yang direncanakan dapat tercapai tepat waktu",
-                    " dan tidak ditemui hambatan berarti yang mengganggu jalannya aktivitas"
-                ]
-            };
-
-            let suffixIndex = 0;
-            while (result.length < MIN_CHARS && suffixIndex < suffixes[type].length) {
-                result += (result.endsWith('.') ? '' : '.') + suffixes[type][suffixIndex];
-                suffixIndex++;
-            }
-        }
-
-        // Truncate if too long (final guard)
-        if (result.length > MAX_CHARS) {
-            result = result.substring(0, MAX_CHARS).trim();
-            // Ensure we don't end in the middle of a word if possible
-            const lastSpace = result.lastIndexOf(' ');
-            if (lastSpace > MAX_CHARS - 20) {
-                result = result.substring(0, lastSpace);
-            }
-        }
-
-        return result;
-    };
-
-    aktivitas = clamp(aktivitas, 'A');
-    pembelajaran = clamp(pembelajaran, 'P');
-    kendala = clamp(kendala, 'K');
-
-    console.log(chalk.gray(`[AI] Final Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
-
-    return {
-        success: true,
-        aktivitas,
-        pembelajaran,
-        kendala
-    };
+    return parseAndClamp(content);
 }
 
 /**
- * Process free text input into a structured attendance report
- * @param {string} userText - Raw text from user
- * @param {Array} previousLogs - History for style context
+ * Process free text input into a structured attendance report (Story Mode)
  */
 async function processFreeTextToReport(userText, previousLogs = []) {
     const contextMessages = [];
     if (previousLogs.length > 0) {
-        let historyText = "RIWAYAT LAPORAN TERAKHIR USER (Pelajari Gaya Bahasanya):\n";
+        let historyText = "RIWAYAT LAPORAN TERAKHIR USER:\n";
         previousLogs.forEach((log, i) => {
             historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
         });
+        
+        // Truncate history to avoid URL length limits (approx 2000 chars safe for context)
+        if (historyText.length > 2000) {
+            historyText = historyText.substring(0, 2000) + "\n...(Riwayat dipotong)...";
+        }
         contextMessages.push(historyText);
     }
 
     const systemPrompt = getMessage('AI_SYSTEM_PROMPT_STORY');
+    const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: \"${userText}\"\n\nBuatkan laporan dengan gaya saya!`;
 
-    const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: "${userText}"\n\nBuatkan laporan dengan gaya saya!`;
+    // 1. Try Groq (Primary)
+    let res = await runGroqGeneration(systemPrompt, fullPrompt); // Use systemPrompt for role, fullPrompt for user
+    let content = res.content;
 
-    // --- ENGINE 1: GIMITA DOLPHIN (Primary - faster) ---
-    console.log(chalk.cyan('[AI] Trying Gimita Dolphin (Primary) for Story Mode...'));
-    let content = null;
-    const dolphinResult = await callGimitaDolphin(fullPrompt);
-    if (dolphinResult.success) {
-        // Now try to improve the Dolphin result with Gimita ChatAI
-        console.log(chalk.cyan('[AI] Improving Dolphin result with Gimita ChatAI for Story Mode...'));
-        const systemPromptForStory = getMessage('AI_SYSTEM_PROMPT_STORY');
-
-        const improvementPrompt = getMessage('AI_IMPROVEMENT_PROMPT')
-            .replace('{content}', dolphinResult.content)
-            .replace('{system_prompt}', systemPromptForStory)
-            .replace('{user_prompt}', `Cerita User: "${userText}"`);
-
-        const improvedResult = await callGimitaGemini(improvementPrompt);
-        if (improvedResult.success) {
-            content = improvedResult.content;
-            console.log(chalk.green('[AI] Dolphin result successfully improved by Gimita Gemini for Story Mode'));
-        } else {
-            // If improvement fails, use original Dolphin result
-            console.warn(chalk.yellow(`[AI] Improvement failed, using original Dolphin result: ${improvedResult.error}`));
-            content = dolphinResult.content;
-        }
-    } else {
-        console.warn(chalk.yellow(`[AI] Gimita Dolphin failed, switching to Gimita Gemini... (${dolphinResult.error})`));
-        // If Dolphin fails, try Gemini directly
-        const gimitaResult = await callGimitaGemini(fullPrompt);
-        if (gimitaResult.success) {
-            content = gimitaResult.content;
-        } else {
-            console.warn(chalk.yellow(`[AI] Gimita Gemini failed, switching to Groq... (${gimitaResult.error})`));
-        }
+    // 2. Fallback
+    if (!content) {
+        res = await runFallbackChain(systemPrompt, fullPrompt);
+        content = res.content;
     }
 
-    // --- ENGINE 2: GROQ (Fallback 2) ---
-    if (!content && GROQ_API_KEY) {
-        const callGroq = async (prompt) => {
-            try {
-                const response = await axios.post(GROQ_API_URL, {
-                    model: GROQ_MODEL,
-                    messages: [
-                        { role: 'system', content: 'Generate internship report in structured format.' },
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.7
-                }, {
-                    headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-                    timeout: 30000
-                });
-                return { success: true, content: response.data.choices[0]?.message?.content };
-            } catch (err) {
-                console.warn(chalk.yellow(`[GROQ-REVISI] Primary engine failed: ${err.message}`));
-                return { success: false };
-            }
-        };
-        const res = await callGroq(fullPrompt);
-        if (res.success) {
-            content = res.content;
+    if (!content) return { success: false, error: 'Gagal memproses laporan (Semua engine AI sibuk).' };
+
+    // 3. Double Check (Refinement)
+    content = await runGroqRefinement(content, userText, previousLogs);
+
+    console.log(chalk.yellow('[AI-DEBUG] RAW CONTENT BEFORE PARSE:\n', content));
+
+    let report = parseAndClamp(content);
+
+    // --- FORCE EXPANSION IF BELOW 100 CHARS ---
+    if (GROQ_API_KEY && (report.aktivitas.length < 100 || report.pembelajaran.length < 100 || report.kendala.length < 100)) {
+        console.log(chalk.cyan('[AI] Some sections too short, performing Expansion Pass...'));
+        
+        const expansionPrompt = `Laporan ini terlalu singkat. Perpanjang bagian yang kurang agar mencapai 110-140 karakter dengan menambahkan detail profesional/faktual berdasarkan cerita: "${userText}". 
+        PENTING: JANGAN LEBAY, jangan pakai kalimat klise (seperti "tetap semangat", "mencari solusi"). Cukup jelaskan prosesnya secara natural.
+        
+        Draft:
+        AKTIVITAS: ${report.aktivitas}
+        PEMBELAJARAN: ${report.pembelajaran}
+        KENDALA: ${report.kendala}
+        
+        Kembalikan dalam format AKTIVITAS, PEMBELAJARAN, KENDALA.`;
+
+        try {
+            const expandRes = await axios.post(GROQ_API_URL, {
+                model: GROQ_MODEL,
+                messages: [
+                    { role: 'system', content: "Kamu adalah Senior Editor. Tugasmu memperjelas tulisan agar mencapai minimal 110 karakter tanpa tambahan kata-kata dramatis." },
+                    { role: 'user', content: expansionPrompt }
+                ],
+                temperature: 0.5
+            }, {
+                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+                timeout: AI_CONFIG.GROQ.TIMEOUT
+            });
             
-            // --- DOUBLE CHECK (GROQ REFINEMENT) FOR STORY MODE ---
-            if (content) {
-                console.log(chalk.cyan('[AI] Groq Refinement (Double Check: Context, Clarity, History)...'));
-                
-                // Prepare history summary for context
-                let historySummary = "-";
-                if (previousLogs && previousLogs.length > 0) {
-                     historySummary = previousLogs.map(l => `[${l.date}] ${l.activity_log.substring(0, 50)}...`).join('; ');
-                }
-
-                const refinementPrompt = getMessage('AI_REFINEMENT_WITH_CONTEXT_PROMPT')
-                    .replace('{content}', content)
-                    .replace('{user_story}', userText)
-                    .replace('{history_summary}', historySummary);
-
-                try {
-                    const refineResponse = await axios.post(GROQ_API_URL, {
-                        model: GROQ_MODEL,
-                        messages: [
-                            { role: 'system', content: "Kamu adalah Supervisor Editor yang teliti. Jangan biarkan kesalahan lolos." },
-                            { role: 'user', content: refinementPrompt }
-                        ],
-                        temperature: 0.6,
-                        max_tokens: 1000
-                    }, {
-                        headers: {
-                            'Authorization': `Bearer ${GROQ_API_KEY}`,
-                            'Content-Type': 'application/json'
-                        },
-                        timeout: 30000
-                    });
-                    
-                    const refinedContent = refineResponse.data.choices[0]?.message?.content;
-                    if (refinedContent) {
-                        content = refinedContent;
-                        console.log(chalk.green('[AI] Groq Refinement Successful (Context & Clarity Checked).'));
-                    }
-                } catch (refineError) {
-                    console.warn(chalk.yellow('[AI] Groq Refinement failed, using original draft:'), refineError.message);
-                }
+            const expandedContent = expandRes.data.choices[0]?.message?.content;
+            if (expandedContent) {
+                console.log(chalk.green('[AI] Expansion Pass Successful.'));
+                report = parseAndClamp(expandedContent);
             }
-            // --- END DOUBLE CHECK ---
+        } catch (e) {
+            console.warn(chalk.yellow('[AI] Expansion Pass failed:'), e.message);
         }
     }
 
-    // --- ENGINE 3: GIMITA CHATAI (Fallback 3 - as primary improvement) ---
-    if (!content) {
-        console.log(chalk.cyan('[AI] Trying Gimita ChatAI (deepseek-v3) for Story Mode...'));
-        const chataiResult = await callGimitaChatAI(fullPrompt, 'deepseek-v3');
-        if (chataiResult.success) {
-            content = chataiResult.content;
-        } else {
-            console.warn(chalk.yellow(`[AI] Gimita ChatAI failed, switching to Gemini... (${chataiResult.error})`));
-        }
-    }
-
-    // --- ENGINE 4: GEMINI GOOGLE (Final Fallback) ---
-    if (!content && GEMINI_API_KEY) {
-        const callGeminiFallback = async (prompt, retries = 1) => {
-            for (let attempt = 0; attempt <= retries; attempt++) {
-                try {
-                    const response = await axios.post(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
-                        { contents: [{ parts: [{ text: prompt }] }] },
-                        { timeout: 60000 }
-                    );
-                    return { success: true, content: response.data.candidates?.[0]?.content?.parts?.[0]?.text };
-                } catch (err) {
-                    const statusCode = err.response?.status;
-                    console.warn(chalk.yellow(`[GEMINI-FALLBACK] Attempt ${attempt + 1} failed: ${statusCode || err.message}`));
-                    return { success: false };
-                }
-            }
-        };
-        const res = await callGeminiFallback(fullPrompt);
-        if (res.success) content = res.content;
-    }
-
-    if (!content) {
-        return { success: false, error: 'Gagal memproses laporan (Semua engine AI sibuk).' };
-    }
-
-    const parseSection = (label, text) => {
-        const regex = new RegExp(`${label}:?\\s*([\\s\\S]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA):|$)`, 'i');
-        const match = text.match(regex);
-        return match ? match[1].trim() : '';
-    };
-
-    let aktivitas = parseSection('AKTIVITAS', content);
-    let pembelajaran = parseSection('PEMBELAJARAN', content);
-    let kendala = parseSection('KENDALA', content);
-
-    const MIN_CHARS = 110;
-    const MAX_CHARS = 200;
-
-    const clamp = (text, type) => {
-        let result = text;
-        if (result.length < MIN_CHARS) {
-            const suffixes = {
-                A: [
-                    " serta melakukan pendokumentasian hasil pengerjaan secara sistematis",
-                    " dan melakukan review berkala terhadap kemajuan tugas harian",
-                    " serta berkoordinasi dengan tim terkait untuk langkah selanjutnya"
-                ],
-                P: [
-                    " yang memberikan wawasan mendalam mengenai implementasi di lapangan",
-                    " serta menambah pemahaman praktis mengenai alur kerja profesional",
-                    " dan memperluas pengetahuan mengenai standar industri yang berlaku"
-                ],
-                K: [
-                    " dan seluruh proses pekerjaan dapat terlaksana dengan sangat lancar",
-                    " sehingga seluruh target yang direncanakan dapat tercapai tepat waktu",
-                    " dan tidak ditemui hambatan berarti yang mengganggu jalannya aktivitas"
-                ]
-            };
-            let i = 0;
-            while (result.length < MIN_CHARS && i < suffixes[type].length) {
-                result += (result.endsWith('.') ? '' : '.') + suffixes[type][i++];
-            }
-        }
-        if (result.length > MAX_CHARS) {
-            result = result.substring(0, MAX_CHARS).trim();
-            const lastSpace = result.lastIndexOf(' ');
-            if (lastSpace > MAX_CHARS - 20) result = result.substring(0, lastSpace);
-        }
-        return result;
-    };
-
-    aktivitas = clamp(aktivitas, 'A');
-    pembelajaran = clamp(pembelajaran, 'P');
-    kendala = clamp(kendala, 'K');
-
-    console.log(chalk.magenta(`[AI-DEBUG] Final Lengths: A=${aktivitas.length}, P=${pembelajaran.length}, K=${kendala.length}`));
-
-    return { success: true, aktivitas, pembelajaran, kendala };
+    return report;
 }
 
-/**
- * Smart Chat with Fallback Strategy
- * Tries: Dolphin -> DeepSeek -> Gemini
- */
-async function smartChat(prompt, systemPrompt = '') {
-    const fullPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
-    
-    // 1. Primary: DOLPHIN (High Speed)
-    console.log(chalk.cyan('[SMART-CHAT] Trying Dolphin...'));
-    let result = await callGimitaDolphin(fullPrompt);
-    if (result.success) return { success: true, content: result.content, model: 'Dolphin' };
-
-    // 2. Fallback 1: DeepSeek-V3
-    console.log(chalk.yellow('[SMART-CHAT] Dolphin failed, switching to DeepSeek...'));
-    result = await callGimitaChatAI(fullPrompt, 'deepseek-v3');
-    if (result.success) return { success: true, content: result.content, model: 'DeepSeek' };
-
-    // 3. Fallback 2: Gemini
-    console.log(chalk.yellow('[SMART-CHAT] DeepSeek failed, switching to Gemini...'));
-    result = await callGimitaGemini(fullPrompt);
-    if (result.success) return { success: true, content: result.content, model: 'Gemini' };
-
-    return { success: false, error: 'All AI services are busy.' };
-}
-
+// Exports (Keep existing names)
 module.exports = { 
     generateAttendanceReport, 
     processFreeTextToReport, 
@@ -751,7 +445,21 @@ module.exports = {
     callGimitaGemini, 
     callGimitaDolphin, 
     callGimitaChatAI, 
-    improveWithGimitaGemini, 
-    improveDolphinResult,
-    smartChat 
+    improveWithGimitaGemini: async (originalContent, context = '') => {
+        console.warn('improveWithGimitaGemini is deprecated and not exported.');
+        return { success: false, error: 'Deprecated function' };
+    },
+    improveDolphinResult: async (dolphinContent, systemPrompt, userPrompt) => {
+        console.warn('improveDolphinResult is deprecated and not exported.');
+        return { success: false, error: 'Deprecated function' };
+    },
+    smartChat: async (prompt, systemPrompt = '') => {
+        const full = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+        // Try Dolphin first for speed in Chat
+        let r = await callGimitaDolphin(full);
+        if (r.success) return { success: true, content: r.content, model: 'Dolphin' };
+        r = await callGimitaChatAI(full, 'deepseek-v3');
+        if (r.success) return { success: true, content: r.content, model: 'DeepSeek' };
+        return { success: false, error: 'Busy' };
+    }
 };

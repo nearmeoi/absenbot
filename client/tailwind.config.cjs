@@ -7,7 +7,10 @@ module.exports = {
     theme: {
         extend: {
             colors: { primary: "#0df259" },
-            boxShadow: { neo: "4px 4px 0 #000" }
+            boxShadow: { neo: "4px 4px 0 #000" },
+            fontFamily: {
+              poppins: ['"Poppins"', 'sans-serif'],
+            }
         }
     },
     plugins: [],

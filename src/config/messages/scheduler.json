@@ -3,7 +3,7 @@
   "REMINDER_MORNING_VN_INTRO": "Sebelum memulai pagi alangkah baiknya kita mendengar ini dlu",
   "REMINDER_AFTERNOON": "*MARKIPUL!*\n\nBalik guys, jangan lupa ketik !absen spasi kegiatan mu, kirim ke nomor bot ya🤙🏻",
   "REMINDER_EVENING": "*Malam Teman-Teman*\n\nBagi yang belum absen hari ini, segera absen ya, sebelum jam *23:59*.\n\nLangsung saja ketik\n!absen kegiatan mu hari ini, kendala\nnanti bot buatkan draftnya\n\nAtau gunakan Web App Kami:\n{app_url}\n\nMakasih🤗",
-  "DRAFT_PUSH_ALERT": "Draf absen darurat!\n\n*Aktivitas:* \n{activity}\n\n*Pembelajaran:* \n{pembelajaran}\n\n*Kendala:*\n{kendala}\n\nBalas *ya* untuk kirim. (Otomatis dikirim 23:40 jika tidak ada respon)",
+  "DRAFT_PUSH_ALERT": "Draf absen darurat!\n\n*Aktivitas:* \n{activity}\n\n*Pembelajaran:* \n{pembelajaran}\n\n*Kendala:*\n{kendala}\n\nBalas *ya* untuk kirim. (Otomatis dikirim 23:50 jika tidak ada respon)",
   "AUTO_SUBMIT_SUCCESS": "*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh sistem{source}.\n\n*Aktivitas:*\n{activity}\n\n*Pembelajaran:* \n{pembelajaran}\n\n*Kendala:* \n{kendala}\n",
   "WEB_SCHEDULE_SUCCESS": "✅ *ABSENSI OTOMATIS BERHASIL*\n\nLaporan yang Anda jadwalkan melalui web telah berhasil dikirim ke MagangHub.",
   "WEB_SCHEDULE_FAILED": "❌ *ABSENSI OTOMATIS GAGAL*\n\nLaporan web gagal dikirim: {error}",

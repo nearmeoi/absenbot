@@ -85,30 +85,30 @@ const NotificationPrompt = ({ phone }) => {
     if (!showPrompt) return null;
 
     return (
-        <div className="fixed top-6 left-4 right-4 z-[9999] animate-bounce-in">
-            <div className="bg-white border-4 border-black p-4 shadow-[8px_8px_0_#000] flex flex-col gap-3">
-                <div className="flex justify-between items-start">
-                    <div className="flex gap-3">
-                        <div className="bg-cyan-300 border-2 border-black p-2 rounded-lg shadow-[2px_2px_0_#000]">
-                            <Bell size={20} strokeWidth={3} className="animate-ring" />
-                        </div>
-                        <div>
-                            <h3 className="font-black uppercase text-sm tracking-tight">Aktifkan Pengingat Absen?</h3>
-                            <p className="text-[11px] font-bold text-gray-500 leading-tight">Sistem akan mengecek otomatis status laporan Anda. Jika Anda lupa absen, bot akan mengirimkan notifikasi pengingat agar uang saku Anda aman. Aktifkan sekarang!</p>
-                        </div>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-3xl bg-cyan-100 border-2 border-black shadow-[4px_4px_0_rgba(0,0,0,0.1)] rounded-lg animate-slide-down">
+            <div className="p-2 md:p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="bg-white p-1.5 rounded border border-black hidden md:block">
+                        <Bell size={16} className="text-black" />
                     </div>
-                    <button onClick={() => setShowPrompt(false)} className="p-1"><X size={16}/></button>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[10px] md:text-xs leading-tight truncate md:whitespace-normal">
+                            <span className="uppercase font-black mr-1">Pengingat Absen:</span>
+                            Aktifkan agar tidak lupa laporan!
+                        </p>
+                    </div>
                 </div>
-                <div className="flex gap-2">
+                
+                <div className="flex items-center gap-2 flex-shrink-0">
                     <button 
                         onClick={() => setShowPrompt(false)}
-                        className="flex-1 bg-gray-100 border-2 border-black py-1.5 font-bold uppercase text-[10px] shadow-[2px_2px_0_#000]"
+                        className="text-[10px] font-bold underline decoration-black/30 text-gray-500 hover:text-black"
                     >
-                        Nanti Saja
+                        Nanti
                     </button>
                     <button 
                         onClick={handleEnable}
-                        className="flex-1 bg-cyan-400 border-2 border-black py-1.5 font-black uppercase text-[10px] shadow-[2px_2px_0_#000]"
+                        className="bg-black text-white px-3 py-1 text-[10px] font-bold uppercase rounded border border-black shadow-[2px_2px_0_rgba(0,0,0,0.2)] active:translate-y-0.5 active:shadow-none transition-all"
                     >
                         Aktifkan
                     </button>

@@ -31,7 +31,11 @@ module.exports = {
             await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
             let historyText = getMessage('!riwayat_header') + '\n';
 
-            result.logs.forEach(log => {
+            // Filter logs based on 'days' parameter
+            const limit = days;
+            const displayedLogs = result.logs.slice(0, limit);
+
+            displayedLogs.forEach(log => {
                 historyText += `\n━━━━━━━━━━━━━━━━━━\n`;
                 historyText += `*${log.date}*\n`;
                 if (log.missing || !log.activity_log) {

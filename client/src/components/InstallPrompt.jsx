@@ -50,40 +50,38 @@ const InstallPrompt = () => {
     if (!showPrompt) return null;
 
     return (
-        <div className="fixed bottom-6 left-4 right-4 z-[9999] animate-bounce-in">
-            <div className="bg-white border-4 border-black p-5 shadow-[8px_8px_0_#000] flex flex-col gap-4">
-                <div className="flex justify-between items-start">
-                    <div className="flex gap-4">
-                        <div className="bg-[#FACC15] border-2 border-black p-2.5 rounded-xl shadow-[3px_3px_0_#000]">
-                            <Download size={28} strokeWidth={3} />
-                        </div>
-                        <div>
-                            <h3 className="font-black uppercase text-base tracking-tight">Pasang Aplikasi</h3>
-                            <p className="text-xs font-bold text-gray-500 leading-snug">Jadikan aplikasi di layar utama untuk akses lebih cepat dan notifikasi stabil.</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={() => setShowPrompt(false)}
-                        className="p-1 hover:bg-gray-100 border border-transparent hover:border-black transition-all"
-                    >
-                        <X size={20} />
-                    </button>
+        <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-[9999] w-[calc(100%-2rem)] max-w-3xl bg-yellow-300 border-2 border-black shadow-[4px_4px_0_rgba(0,0,0,0.2)] rounded-lg animate-slide-up">
+            <div className="p-3 flex justify-between items-center gap-4">
+                <div className="flex-1">
+                    <h3 className="font-black uppercase text-xs md:text-sm tracking-tight flex items-center gap-2">
+                        <Download size={16} />
+                        Pasang Aplikasi
+                    </h3>
+                    <p className="text-[10px] md:text-xs font-bold text-gray-700 leading-tight mt-0.5">
+                        Akses lebih cepat & notifikasi lancar.
+                    </p>
                 </div>
                 
-                {isIOS ? (
-                    <div className="bg-blue-50 border-2 border-dashed border-blue-400 p-3 rounded-lg">
-                        <p className="text-[11px] font-bold text-blue-800 flex items-center gap-2 flex-wrap">
-                            Klik ikon <Share size={14} /> <span className="underline">Share</span> lalu pilih <span className="font-black">"Add to Home Screen"</span> untuk menginstal di iPhone Anda.
-                        </p>
-                    </div>
-                ) : (
+                <div className="flex gap-2 items-center">
                     <button 
-                        onClick={handleInstallClick}
-                        className="w-full bg-[#0df259] border-2 border-black py-3 font-black uppercase text-sm shadow-[4px_4px_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all active:bg-green-500 flex items-center justify-center gap-2"
+                        onClick={() => setShowPrompt(false)}
+                        className="p-2 hover:bg-black/5 rounded-full"
                     >
-                        Install Sekarang
+                        <X size={16} />
                     </button>
-                )}
+                    {isIOS ? (
+                        <div className="text-[10px] font-bold bg-white px-2 py-1 border border-black rounded">
+                            Share &rarr; Add to Home
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={handleInstallClick}
+                            className="bg-black text-white px-3 py-1.5 font-bold uppercase text-[10px] md:text-xs border border-black shadow-[2px_2px_0_#fff] active:translate-y-0.5 active:shadow-none transition-all"
+                        >
+                            Install
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

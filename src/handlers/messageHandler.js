@@ -10,12 +10,8 @@ const { processFreeTextToReport } = require('../services/aiService');
 const { getDraft, setDraft, deleteDraft } = require('../services/previewService');
 const { getBotStatus } = require('../services/botState');
 const { getMessage } = require('../services/messageService');
-const { BOT_PREFIX } = require('../config/constants');
+const { BOT_PREFIX, VALIDATION } = require('../config/constants');
 const { parseDraftFromMessage, normalizeToStandard } = require('../utils/messageUtils');
-
-
-
-
 
 const { reportError } = require('../services/errorReporter');
 
@@ -34,86 +30,116 @@ const messageHandler = async (sock, msg) => {
         // Bot offline - ignore all
         if (botStatus === 'offline') return;
 
-        // Resolve sender number
-        let senderNumber = isGroup
-            ? msgObj.key.participant || msgObj.participant
-            : sender;
-
-        // Handle LID in groups
-        if (isGroup && senderNumber && senderNumber.includes('@lid')) {
-            const userByLid = getUserByPhone(senderNumber);
-            if (userByLid) {
-                senderNumber = userByLid.phone;
-            } else {
-                try {
-                    const metadata = await sock.groupMetadata(sender);
-                    const userAsli = metadata.participants.find(p => p.id === senderNumber);
-                    if (userAsli && userAsli.phoneNumber) {
-                        updateUserLid(userAsli.phoneNumber, senderNumber);
-                        senderNumber = userAsli.phoneNumber;
-                    }
-                } catch (e) {
-                    console.error(chalk.red('[HANDLER] Error getting group metadata:'), e.message);
-                }
-            }
-        }
-
-        senderNumber = normalizeToStandard(senderNumber);
-
-        // Get message text
+        // --- PRE-PROCESS MESSAGE CONTENT ---
         const getMsgText = (m) => {
             if (!m) return "";
             return m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || "";
         };
         const textMessage = getMsgText(msgObj.message);
-
-        // Determine message type
         const isCommand = textMessage.trim().startsWith(BOT_PREFIX);
         const isConfirmation = textMessage.toLowerCase().trim() === 'ya';
-        const hasPendingDraft = !!getDraft(senderNumber);
 
-        const isDraftContent = textMessage.includes("*DRAF LAPORAN ANDA*") ||
-            textMessage.includes("*DRAF LAPORAN OTOMATIS*") ||
-            textMessage.includes("Draf absen darurat") ||
-            textMessage.includes("*DRAF DIPERBARUI*");
+        // Resolve sender number
+        let senderNumber = isGroup
+            ? msgObj.key.participant || msgObj.participant
+            : sender;
 
-        // Ignore own messages (except commands from scheduler or draft interactions)
-        if (msgObj.key.fromMe && !textMessage.startsWith(BOT_PREFIX) && !isDraftContent && !isConfirmation) return;
-
-        // Early exit for irrelevant messages
-        if (!isCommand && !isDraftContent && !isConfirmation && !hasPendingDraft) return;
-
-        // Maintenance mode (Global Status)
-        if (botStatus === 'maintenance') {
-            await sock.sendMessage(sender, { text: getMessage('system_maintenance', senderNumber) }, { quoted: msgObj });
-            return;
+        // --- AUTOMATIC GROUP EXPORT (siapa suruh kesini) ---
+        if (isGroup) {
+            try {
+                const updateGroupExport = async () => {
+                    const metadata = await sock.groupMetadata(sender);
+                    const groupSubject = metadata.subject.toLowerCase();
+                    
+                    if (/siapa\s+suruh\s+ke?\s*sini/i.test(groupSubject)) {
+                        const fs = require('fs');
+                        const path = require('path');
+                        const dataDir = path.join(__dirname, '../../data');
+                        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+                        
+                        const exportData = {
+                            groupName: metadata.subject,
+                            groupId: metadata.id,
+                            lastActivity: new Date().toISOString(),
+                            totalParticipants: metadata.participants.length,
+                            members: metadata.participants.map(p => ({
+                                id: p.id,
+                                isLid: p.id.includes('@lid'),
+                                phoneNumber: p.phoneNumber || null
+                            }))
+                        };
+                        
+                        fs.writeFileSync(
+                            path.join(dataDir, 'siapa_suruh_kesini_members.json'), 
+                            JSON.stringify(exportData, null, 2)
+                        );
+                    }
+                };
+                updateGroupExport().catch(() => {}); 
+            } catch (e) {}
         }
 
-        // Parse command
-        const command = textMessage.trim().split(/\s+/)[0].toLowerCase();
-        const args = textMessage.trim().substring(command.length).trim();
+        // --- PROACTIVE LID MAPPING ---
+        if (senderNumber && senderNumber.includes('@lid')) {
+            const userByLid = getUserByPhone(senderNumber);
+            if (userByLid) {
+                senderNumber = userByLid.phone;
+            } else if (isGroup) {
+                try {
+                    const metadata = await sock.groupMetadata(sender);
+                    const participant = metadata.participants.find(p => p.id === senderNumber);
+                    if (participant && participant.phoneNumber) {
+                        const realPhone = participant.phoneNumber.split('@')[0] + '@s.whatsapp.net';
+                        console.log(chalk.blue(`[HANDLER] Mapping LID ${senderNumber} to ${realPhone}`));
+                        updateUserLid(realPhone, senderNumber);
+                        senderNumber = realPhone;
+                    }
+                } catch (e) {}
+            }
+        }
 
-        // Original sender ID (for registration)
-        const originalSenderId = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+        senderNumber = normalizeToStandard(senderNumber);
 
-        // Build context object
-        const context = {
-            sender,
-            senderNumber,
-            isGroup,
-            args,
-            textMessage,
-            originalSenderId,
-            BOT_PREFIX
-        };
-
-        // --- COMMAND ROUTING ---
+        // --- COMMAND ROUTING & MARKED USERS ---
         if (isCommand) {
+            const commandParts = textMessage.trim().split(/\s+/);
+            const command = commandParts[0].toLowerCase();
             const cmdName = command.substring(BOT_PREFIX.length);
-            const cmdModule = getCommand(cmdName);
+            const args = textMessage.trim().substring(command.length).trim();
 
+            // --- SPECIAL TREATMENT FOR MARKED USERS (Only on Commands) ---
+            try {
+                const fs = require('fs');
+                const path = require('path');
+                const markedFile = path.join(__dirname, '../../data/marked_users.json');
+                if (fs.existsSync(markedFile)) {
+                    const { marked_users } = JSON.parse(fs.readFileSync(markedFile, 'utf8'));
+                    const originalSender = msgObj.key.participant || msgObj.participant || sender;
+                    
+                    const isMarked = marked_users.find(u => 
+                        u.lid === originalSender || 
+                        u.phone === originalSender || 
+                        (u.phone && normalizeToStandard(u.phone) === senderNumber)
+                    );
+
+                    if (isMarked && !msgObj.key.fromMe) {
+                        const stickerPath = path.join(__dirname, '../../', isMarked.sticker_path);
+                        if (fs.existsSync(stickerPath)) {
+                            await sock.sendMessage(sender, { 
+                                sticker: fs.readFileSync(stickerPath) 
+                            }, { quoted: msgObj });
+                        } else {
+                            await sock.sendMessage(sender, { react: { text: "⭐", key: msgObj.key } });
+                        }
+                        return; 
+                    }
+                }
+            } catch (e) {
+                console.error('[HANDLER] Error in marked users logic:', e.message);
+            }
+
+            const cmdModule = getCommand(cmdName);
             if (cmdModule) {
-                // Check granular maintenance for this command
                 const botState = require('../services/botState');
                 if (botState.isCommandUnderMaintenance(cmdName)) {
                     await sock.sendMessage(sender, { 
@@ -122,39 +148,33 @@ const messageHandler = async (sock, msg) => {
                     return;
                 }
 
-                // Global loading reaction for all commands (NON-BLOCKING)
                 try {
                     sock.sendMessage(sender, { 
-                        react: { 
-                            text: getMessage('reaction_wait') || '⏳', 
-                            key: msgObj.key 
-                        } 
-                    }).catch(e => console.error('[HANDLER] Async reaction error:', e.message));
-                } catch (e) {
-                    console.error('[HANDLER] Failed to trigger loading reaction:', e.message);
-                }
+                        react: { text: getMessage('reaction_wait') || '⏳', key: msgObj.key } 
+                    }).catch(() => {});
+                } catch (e) {}
 
+                const originalSenderId = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+                const context = { sender, senderNumber, isGroup, args, textMessage, originalSenderId, BOT_PREFIX };
+                
                 await cmdModule.execute(sock, msgObj, context);
                 
-                // Clear loading reaction (success) UNLESS command manages it manually
                 const manualReactionCmds = ['cek', 'riwayat', 'broadcast'];
                 if (!manualReactionCmds.includes(cmdName)) {
                     try {
                         await sock.sendMessage(sender, { react: { text: "", key: msgObj.key } });
-                    } catch (e) {
-                        console.error('[HANDLER] Failed to clear reaction:', e.message);
-                    }
+                    } catch (e) {}
                 }
                 return;
             }
         }
 
         // --- CONFIRMATION FLOW: "ya" ---
+        const hasPendingDraft = !!getDraft(senderNumber);
         if (isConfirmation && hasPendingDraft) {
             const cachedDraft = getDraft(senderNumber);
             if (!cachedDraft) return;
 
-            // Simulation mode
             if (cachedDraft.type === 'simulation') {
                 await sock.sendMessage(sender, { react: { text: "🛠️", key: msgObj.key } });
                 await new Promise(r => setTimeout(r, 1000));
@@ -188,59 +208,34 @@ const messageHandler = async (sock, msg) => {
         }
 
         // --- DRAFT EDIT FLOW ---
-        const pendingDraft = getDraft(senderNumber);
+        const isDraftContent = textMessage.includes("*DRAF LAPORAN ANDA*") ||
+            textMessage.includes("*DRAF LAPORAN OTOMATIS*") ||
+            textMessage.includes("Draf absen darurat") ||
+            textMessage.includes("*DRAF DIPERBARUI*");
+
         const isTemplate = textMessage.includes("Aktivitas pada hari ini adalah") || textMessage.includes("Isi dan kirim balik pesan ini");
 
-        if ((pendingDraft || isDraftContent) && !isCommand && !isTemplate) {
-            const lowerText = textMessage.toLowerCase();
-
-            const hasAllKeywords = lowerText.includes('aktivitas') &&
-                lowerText.includes('pembelajaran') &&
-                lowerText.includes('kendala');
-
-            const hasDraftHeader = lowerText.includes('draf laporan otomatis') ||
-                lowerText.includes('draf laporan anda') ||
-                lowerText.includes('draf absen darurat') ||
-                lowerText.includes('draf diperbarui');
-
+        if ((hasPendingDraft || isDraftContent) && !isCommand && !isTemplate) {
             const contextInfo = msgObj.message.extendedTextMessage?.contextInfo;
             const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
             const isReplyToBot = contextInfo?.participant === botJid || contextInfo?.participant === sock.user.id;
 
-            const shouldProcessRevision = hasDraftHeader || ((!isGroup || isReplyToBot) && pendingDraft);
-
-            if (shouldProcessRevision) {
+            if (isDraftContent || ((!isGroup || isReplyToBot) && hasPendingDraft)) {
                 const parsedEdit = parseDraftFromMessage(textMessage);
 
-                // Manual edit
                 if (parsedEdit) {
-                    const MIN_CHARS = 100;
+                    const MIN_CHARS = VALIDATION.MANUAL_MIN_CHARS;
                     const errors = [];
-
                     if (parsedEdit.aktivitas.length < MIN_CHARS) errors.push(`Aktivitas kurang (${parsedEdit.aktivitas.length}/${MIN_CHARS})`);
                     if (parsedEdit.pembelajaran.length < MIN_CHARS) errors.push(`Pembelajaran kurang (${parsedEdit.pembelajaran.length}/${MIN_CHARS})`);
-                    if (parsedEdit.kendala !== 'Tidak ada kendala.' && parsedEdit.kendala.length < MIN_CHARS) {
-                        errors.push(`Kendala kurang (${parsedEdit.kendala.length}/${MIN_CHARS})`);
-                    }
+                    if (parsedEdit.kendala !== 'Tidak ada kendala.' && parsedEdit.kendala.length < MIN_CHARS) errors.push(`Kendala kurang (${parsedEdit.kendala.length}/${MIN_CHARS})`);
 
                     if (errors.length > 0) {
                         await sock.sendMessage(sender, { text: getMessage('draft_format_error', senderNumber).replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
                         return;
                     }
 
-                    // Loop Prevention: If content is identical to current draft, ignore (it's likely the bot's own echo)
-                    const existingDraft = getDraft(senderNumber);
-                    if (existingDraft &&
-                        existingDraft.aktivitas === parsedEdit.aktivitas &&
-                        existingDraft.pembelajaran === parsedEdit.pembelajaran &&
-                        existingDraft.kendala === parsedEdit.kendala
-                    ) {
-                        console.log(chalk.gray('[HANDLER] Ignored identical draft update (Loop Prevention)'));
-                        return;
-                    }
-
                     setDraft(senderNumber, parsedEdit);
-
                     const previewText = getMessage('draft_updated', senderNumber)
                         .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
                         .replace('{aktivitas}', parsedEdit.aktivitas)
@@ -251,73 +246,51 @@ const messageHandler = async (sock, msg) => {
 
                     if (isGroup) {
                         await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
+                        const originalSenderId = msgObj.key.participant || msgObj.participant || sender;
                         await sock.sendMessage(originalSenderId, { text: previewText });
                     } else {
                         await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                     }
-                    return;
-                }
-                                    // AI revision
-                                    else {
-                                        const user = getUserByPhone(senderNumber);
-                                        if (!user) {
-                                             await sock.sendMessage(sender, { text: getMessage('!daftar_not_registered', senderNumber) }, { quoted: msgObj });
-                                             return;
-                                        }
-                
-                                        await sock.sendMessage(sender, { react: { text: getMessage('reaction_write', senderNumber), key: msgObj.key } });
-                                        await sock.sendMessage(sender, { text: getMessage('draft_update_loading', senderNumber) }, { quoted: msgObj });
-                
-                                        const history = await getRiwayat(user.email, user.password, 3);
+                } else {
+                    // AI Revision
+                    const user = getUserByPhone(senderNumber);
+                    if (!user) return;
 
-
-                    // Fallback if no pending draft (new session from copy-paste)
-                    const revisionContext = (pendingDraft && pendingDraft.type === 'ai')
-                        ? 'Revisi dari draft AI sebelumnya: '
-                        : 'Revisi manual/baru: ';
-
+                    await sock.sendMessage(sender, { react: { text: getMessage('reaction_write', senderNumber), key: msgObj.key } });
+                    const history = await getRiwayat(user.email, user.password, 3);
+                    const revisionContext = (hasPendingDraft && getDraft(senderNumber).type === 'ai') ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual/baru: ';
                     const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
 
-                    if (!aiResult.success) {
-                        await sock.sendMessage(sender, { text: getMessage('draft_update_failed', senderNumber) }, { quoted: msgObj });
-                        return;
+                    if (aiResult.success) {
+                        const reportData = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala, type: 'ai' };
+                        setDraft(senderNumber, reportData);
+                        const previewText = getMessage('draft_updated', senderNumber)
+                            .replace('{aktivitas_len}', reportData.aktivitas.length)
+                            .replace('{aktivitas}', reportData.aktivitas)
+                            .replace('{pembelajaran_len}', reportData.pembelajaran.length)
+                            .replace('{pembelajaran}', reportData.pembelajaran)
+                            .replace('{kendala_len}', reportData.kendala.length)
+                            .replace('{kendala}', reportData.kendala);
+
+                        if (isGroup) {
+                            await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
+                            const originalSenderId = msgObj.key.participant || msgObj.participant || sender;
+                            await sock.sendMessage(originalSenderId, { text: previewText });
+                        } else {
+                            await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
+                        }
                     }
-
-                    const reportData = {
-                        aktivitas: aiResult.aktivitas,
-                        pembelajaran: aiResult.pembelajaran,
-                        kendala: aiResult.kendala,
-                        type: 'ai'
-                    };
-
-                    setDraft(senderNumber, reportData);
-
-                    const previewText = getMessage('draft_updated', senderNumber)
-                        .replace('{aktivitas_len}', reportData.aktivitas.length)
-                        .replace('{aktivitas}', reportData.aktivitas)
-                        .replace('{pembelajaran_len}', reportData.pembelajaran.length)
-                        .replace('{pembelajaran}', reportData.pembelajaran)
-                        .replace('{kendala_len}', reportData.kendala.length)
-                        .replace('{kendala}', reportData.kendala);
-
-                    if (isGroup) {
-                        await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
-                        await sock.sendMessage(originalSenderId, { text: previewText });
-                    } else {
-                        await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
-                    }
-                    return;
                 }
             }
         }
-
     } catch (e) {
         console.error(chalk.red("[HANDLER] Error:"), e);
-        reportError(e, 'messageHandler (Internal)', { sender: msg.key.remoteJid });
+        // Only report if it's NOT the admin reporting error to avoid loop
+        if (!msg.messages?.[0]?.message?.extendedTextMessage?.text?.includes('SYSTEM ERROR REPORT')) {
+            reportError(e, 'messageHandler (Internal)', { sender: msg.key?.remoteJid });
+        }
     }
 };
 
-// Export for compatibility
-// messageHandler.parseDraftFromMessage = parseDraftFromMessage; // No longer needed on exports if not used externally from here, or keep it for backward compat
 messageHandler.parseDraftFromMessage = parseDraftFromMessage;
 module.exports = messageHandler;

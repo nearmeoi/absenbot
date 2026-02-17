@@ -4,7 +4,7 @@ const path = require('path');
 const cron = require('node-cron');
 const { GROUP_ID_FILE } = require('../config/constants');
 const { getAllUsers } = require('./database');
-const { cekStatusHarian, getRiwayat, prosesLoginDanAbsen } = require('./magang');
+const { cekStatusHarian, getRiwayat, prosesLoginDanAbsen, getDashboardStats, getAnnouncements } = require('./magang');
 const { generateAttendanceReport, processFreeTextToReport } = require('./aiService');
 const { getDraft, setDraft, deleteDraft } = require('./previewService');
 const { getAllowedGroups, isHoliday } = require('../config/holidays');
@@ -14,11 +14,13 @@ const { loadGroupSettings } = require('./groupSettings');
 const { getMessage, updateMessage } = require('./messageService');
 const { isSchedulerEnabled } = require('./botState');
 const { generateWaveform } = require('../utils/generateWaveform');
+const { ADMIN_NUMBERS } = require('../config/constants');
 
 const { safeRefresh } = require('../../scripts/safe_refresh');
 
 // Config path
 const SCHEDULE_CONFIG_FILE = path.join(__dirname, '../../data/scheduler_config.json');
+const LAST_INFO_FILE = path.join(__dirname, '../../data/last_info_id.txt');
 
 // Global state
 let botSocket = null;
@@ -27,6 +29,77 @@ const activeCrons = new Map(); // Store running cron tasks: 'id_timezone' -> tas
 function setBotSocket(sock) {
     botSocket = sock;
     console.log(chalk.cyan('[SCHEDULER] Socket updated'));
+}
+
+/**
+ * Notify all admins
+ */
+async function notifyAdmins(text) {
+    if (!botSocket || !ADMIN_NUMBERS || ADMIN_NUMBERS.length === 0) return;
+    for (const admin of ADMIN_NUMBERS) {
+        try {
+            await botSocket.sendMessage(admin, { text: `🔔 *NOTIFIKASI ADMIN*\n\n${text}` });
+        } catch (e) {
+            console.error(`[SCHEDULER] Failed to notify admin ${admin}:`, e.message);
+        }
+    }
+}
+
+function getGroupId() {
+    if (fs.existsSync(GROUP_ID_FILE)) {
+        return fs.readFileSync(GROUP_ID_FILE, 'utf8').trim();
+    }
+    return null;
+}
+
+/**
+ * Check for new Kemnaker Info (Announcements)
+ */
+async function runCheckInfo(sock) {
+    console.log(chalk.blue('[SCHEDULER] Checking for new Kemnaker Info...'));
+    try {
+        // Use Akmal's account for checking
+        const akmalEmail = 'akmaljie12355@gmail.com'; 
+        const result = await getAnnouncements(akmalEmail);
+
+        if (result.success && result.data && result.data.length > 0) {
+            // Sort by ID descending (newest first) just in case
+            // The API usually returns newest first, but sorting ensures it.
+            const announcements = result.data.sort((a, b) => b.id - a.id);
+            const latest = announcements[0];
+            const latestId = latest.id.toString();
+
+            let lastId = '';
+            if (fs.existsSync(LAST_INFO_FILE)) {
+                lastId = fs.readFileSync(LAST_INFO_FILE, 'utf8').trim();
+            }
+
+            if (latestId !== lastId) {
+                console.log(chalk.green(`[SCHEDULER] New info found! ID: ${latestId}`));
+                
+                // Save new ID
+                fs.writeFileSync(LAST_INFO_FILE, latestId);
+
+                // Broadcast to Group
+                const groupID = getGroupId();
+                if (groupID) {
+                    const date = new Date(latest.updated_at).toLocaleDateString('id-ID', {
+                        day: 'numeric', month: 'long', year: 'numeric'
+                    });
+                    
+                    const message = `📢 *Info Kemnaker terbaru:*\n\n${latest.content}\n\n📅 ${date}`;
+                    
+                    await sock.sendMessage(groupID, { text: message });
+                } else {
+                    console.log(chalk.yellow('[SCHEDULER] Group ID not found, cannot broadcast info.'));
+                }
+            } else {
+                console.log(chalk.gray('[SCHEDULER] No new info.'));
+            }
+        }
+    } catch (error) {
+        console.error(chalk.red('[SCHEDULER] Error checking info:'), error.message);
+    }
 }
 
 // --- CONFIG MANAGEMENT ---
@@ -269,16 +342,32 @@ async function runGroupHidetagJapri(sock, task, timezone) {
         });
 
         if (enabledGroups.length > 0) {
-            const mentions = pendingUsers.map(u => u.phone);
-            // Format: @user @user
-            const mentionedText = pendingUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
-            let messageText = getMessage('REMINDER_GROUP_TARGETED');
-            // Manual replacement because getMessage only handles {app_url} automatically
-            messageText = messageText.replace('{users}', mentionedText);
-
             for (const [groupId, _] of enabledGroups) {
                 try {
-                    console.log(chalk.cyan(`[SCHEDULER] Sending targeted reminder to group ${groupId}`));
+                    // Filter users: Only tag if they are in this group
+                    let groupPendingUsers = [];
+                    try {
+                        const metadata = await sock.groupMetadata(groupId);
+                        const participantIds = metadata.participants.map(p => p.id);
+                        groupPendingUsers = pendingUsers.filter(u => participantIds.includes(u.phone));
+                    } catch (metaErr) {
+                        console.warn(chalk.yellow(`[SCHEDULER] Failed to fetch metadata for ${groupId}: ${metaErr.message}`));
+                        // Fallback: If we can't check, we skip tagging to avoid spamming wrong groups
+                        continue;
+                    }
+
+                    if (groupPendingUsers.length === 0) {
+                        // console.log(chalk.gray(`[SCHEDULER] No target users in group ${groupId}, skipping.`));
+                        continue;
+                    }
+
+                    const mentions = groupPendingUsers.map(u => u.phone);
+                    const mentionedText = groupPendingUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+                    
+                    let messageText = getMessage('REMINDER_GROUP_TARGETED');
+                    messageText = messageText.replace('{users}', mentionedText);
+
+                    console.log(chalk.cyan(`[SCHEDULER] Sending targeted reminder to group ${groupId} (${groupPendingUsers.length} targets)`));
                     await sock.sendMessage(groupId, {
                         text: messageText,
                         mentions: mentions
@@ -407,12 +496,12 @@ async function runEmergencySubmit(sock, task, timezone) {
                 } else {
                     // It's a story/text -> Process with AI
                     const history = await getRiwayat(user.email, user.password, 3);
-                    const aiResult = await processFreeTextToReport(user.template, history.success ? history.logs : []);
-                    if (aiResult.success) {
+                    const processResult = await processFreeTextToReport(user.template, history.success ? history.logs : []);
+                    if (processResult.success) {
                         finalReport = {
-                            aktivitas: aiResult.aktivitas,
-                            pembelajaran: aiResult.pembelajaran,
-                            kendala: aiResult.kendala
+                            aktivitas: processResult.aktivitas,
+                            pembelajaran: processResult.pembelajaran,
+                            kendala: processResult.kendala
                         };
                     }
                 }
@@ -439,17 +528,23 @@ async function runEmergencySubmit(sock, task, timezone) {
                     pembelajaran: finalReport.pembelajaran,
                     kendala: finalReport.kendala
                 });
-                                            if (submitResult.success) {
-                                                deleteDraft(user.phone);
-                                                const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";                                let successMsg = getMessage('AUTO_SUBMIT_SUCCESS');
-                                
-                                successMsg = successMsg.replace('{source}', sourceMsg)
-                                                       .replace('{activity}', finalReport.aktivitas)
-                                                       .replace('{pembelajaran}', finalReport.pembelajaran)
-                                                       .replace('{kendala}', finalReport.kendala);
                 
-                                await sock.sendMessage(user.phone, { text: successMsg });
-                            }            }
+                if (submitResult.success) {
+                    deleteDraft(user.phone);
+                    const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";
+                    let successMsg = getMessage('AUTO_SUBMIT_SUCCESS');
+                    
+                    successMsg = successMsg.replace('{source}', sourceMsg)
+                                           .replace('{activity}', finalReport.aktivitas)
+                                           .replace('{pembelajaran}', finalReport.pembelajaran)
+                                           .replace('{kendala}', finalReport.kendala);
+    
+                    await sock.sendMessage(user.phone, { text: successMsg });
+
+                    // Notify Admin
+                    await notifyAdmins(`*Absen Otomatis Berhasil*\n\nUser: ${user.name} (${user.email})\nSource: ${sourceMsg}\n\n*Aktivitas:* ${finalReport.aktivitas}\n*Pembelajaran:* ${finalReport.pembelajaran}\n*Kendala:* ${finalReport.kendala}`);
+                }
+            }
         } catch (e) {
             console.error(chalk.red(`[AUTO-SUBMIT] Error for ${user.email}:`), e.message);
         }
@@ -489,6 +584,34 @@ async function runPreemptiveRefresh(sock) {
     console.log(chalk.magenta(`[SCHEDULER] Preemptive Refresh Complete.`));
 }
 
+/**
+ * Daily Dashboard Refresh (Cache Warm-up)
+ * Runs at 5:00 AM to ensure !cekapprove data is ready
+ */
+async function runDashboardRefresh() {
+    console.log(chalk.magenta('\n[CACHE-REFRESH] Starting daily dashboard refresh...'));
+    const users = getAllUsers();
+    
+    // Process users sequentially with delay
+    for (const [index, user] of users.entries()) {
+        console.log(chalk.blue(`[CACHE-REFRESH] Processing ${index + 1}/${users.length}: ${user.email}`));
+        
+        try {
+            // Force refresh (useCache = false)
+            // getDashboardStats automatically saves to cache on success
+            await getDashboardStats(user.email, user.password, false);
+        } catch (e) {
+            console.error(chalk.red(`[CACHE-REFRESH] Failed for ${user.email}:`), e.message);
+        }
+
+        // Wait 45s between users to avoid browser overload/detection
+        if (index < users.length - 1) {
+            await new Promise(r => setTimeout(r, 45000));
+        }
+    }
+    console.log(chalk.magenta('[CACHE-REFRESH] Completed.\n'));
+}
+
 async function runScheduledWebReports(sock, timezone) {
     console.log(chalk.magenta(`[SCHEDULER] Running Web Scheduled Reports (${timezone})`));
     const SCHEDULED_REPORTS_FILE = path.join(__dirname, '../../data/scheduled_reports.json');
@@ -523,6 +646,9 @@ async function runScheduledWebReports(sock, timezone) {
                 await sock.sendMessage(user.phone, { 
                     text: getMessage('WEB_SCHEDULE_SUCCESS') 
                 });
+
+                // Notify Admin
+                await notifyAdmins(`*Web Report Terjadwal Berhasil*\n\nUser: ${user.name} (${user.email})\n\n*Aktivitas:* ${report.aktivitas}\n*Pembelajaran:* ${report.pembelajaran}\n*Kendala:* ${report.kendala}`);
             } else {
                 report.status = 'failed';
                 report.error = result.pesan;
@@ -590,13 +716,13 @@ function reloadScheduler() {
                 scheduleTask(task, tz);
             }
         });
-
-        // 2. Schedule Web App Reports (Always at 16:00)
-        const webJob = cron.schedule('0 16 * * 1-5', () => {
-            if (botSocket) runScheduledWebReports(botSocket, tz);
-        }, { timezone: tz });
-        activeCrons.set(`web_reports_${tz}`, webJob);
     });
+
+    // 2. Schedule Web App Reports (Always at 16:00 WITA)
+    const webJob = cron.schedule('0 16 * * 1-5', () => {
+        if (botSocket) runScheduledWebReports(botSocket, 'Asia/Makassar');
+    }, { timezone: 'Asia/Makassar' });
+    activeCrons.set('global_web_reports', webJob);
 
     // 3. Schedule Preemptive Session Refresh (15:30 WITA / 14:30 WIB)
     // Runs globally once per day at 15:30 Makassar time
@@ -605,13 +731,18 @@ function reloadScheduler() {
     }, { timezone: 'Asia/Makassar' });
     activeCrons.set('global_preemptive_refresh', refreshJob);
 
-    // 4. Safe Token Refresh (Every 2 Hours) - Requested by User
-    // Runs globally every 2 hours between 07:00 and 00:00
-    const safeRefreshJob = cron.schedule('0 7,9,11,13,15,17,19,21,23,0 * * *', () => {
-        console.log(chalk.magenta('[SCHEDULER] Triggering 2-hour Safe Refresh...'));
-        safeRefresh();
+    // 4. Daily Dashboard & Cookie Refresh (Every 2 Hours)
+    // Runs from 07:00 to 00:00 to keep cache fresh and cookies alive
+    const dashboardRefreshJob = cron.schedule('0 7,9,11,13,15,17,19,21,23,0 * * *', () => {
+        runDashboardRefresh();
     }, { timezone: 'Asia/Makassar' });
-    activeCrons.set('global_safe_refresh_2h', safeRefreshJob);
+    activeCrons.set('global_dashboard_refresh', dashboardRefreshJob);
+
+    // 5. Daily Info Kemnaker Check (07:00)
+    const infoCheckJob = cron.schedule('0 7 * * *', () => {
+        if (botSocket) runCheckInfo(botSocket);
+    }, { timezone: 'Asia/Makassar' });
+    activeCrons.set('global_info_check', infoCheckJob);
 
     console.log(chalk.green(`[SCHEDULER] Reload complete. ${activeCrons.size} jobs active.`));
 }
@@ -621,20 +752,20 @@ function initScheduler(sock) {
     reloadScheduler();
     
     // Auto-retry pending web reports on startup
-    const timezones = ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'];
-    timezones.forEach(tz => runScheduledWebReports(sock, tz));
+    runScheduledWebReports(sock, 'Asia/Makassar');
 }
 
 // Test runner for Dashboard
 async function runTestScheduler(sock, taskId) {
     const schedules = loadSchedules();
     const task = schedules.find(s => s.id === taskId);
-    if (!task && taskId !== 'preemptive_refresh') return { success: false, message: 'Task not found' };
+    if (!task && taskId !== 'preemptive_refresh' && taskId !== 'dashboard_refresh') return { success: false, message: 'Task not found' };
 
     // For test, force run on 'Asia/Makassar'
     const tz = 'Asia/Makassar';
     
     if (taskId === 'preemptive_refresh') await runPreemptiveRefresh(sock);
+    else if (taskId === 'dashboard_refresh') await runDashboardRefresh();
     else if (task.type === 'group_hidetag') await runGroupHidetag(sock, task, tz);
     else if (task.type === 'group_hidetag_japri') await runGroupHidetagJapri(sock, task, tz);
     else if (task.type === 'group_tag_all') await runGroupTagAll(sock, task, tz);
@@ -656,5 +787,6 @@ module.exports = {
     runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'), 
     runAfternoonReminder: async (sock) => runTestScheduler(sock, 'afternoon_reminder'),
     runAutoReminder: async (sock, japri) => runTestScheduler(sock, japri ? 'evening_reminder_2' : 'evening_reminder_1'),
-    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit')
+    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit'),
+    runDashboardRefresh // Export for manual testing/dashboard trigger
 };

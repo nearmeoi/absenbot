@@ -250,7 +250,9 @@ const API_ENDPOINTS = {
     SUBMIT_ATTENDANCE: `${API_BASE_URL}/api/attendances/with-daily-log`,
     DASHBOARD: `${API_BASE_URL}/dashboard`,
     SIAPKERJA_HOME: `${SIAPKERJA_URL}/app/home`,
-    LOGIN_URL: `https://account.kemnaker.go.id/auth/login`
+    LOGIN_URL: `https://account.kemnaker.go.id/auth/login`,
+    MONTHLY_REPORTS: `${API_BASE_URL}/api/monthly-reports`,
+    ANNOUNCEMENTS: `${API_BASE_URL}/api/announcements/users`
 };
 
 // Session timeout (default 24 hours)
@@ -310,5 +312,37 @@ module.exports = {
     // New addition
     APP_URL,
     ADMIN_NUMBERS,
-    BOT_PREFIX
+    BOT_PREFIX,
+
+    // ========================================
+    // AI & VALIDATION CONFIGURATION
+    // ========================================
+    AI_CONFIG: {
+        GROQ: {
+            API_URL: 'https://api.groq.com/openai/v1/chat/completions',
+            AUDIO_URL: 'https://api.groq.com/openai/v1/audio/transcriptions',
+            MODEL: 'llama-3.3-70b-versatile',
+            MAX_TOKENS: 1000,
+            TIMEOUT: 30000
+        },
+        GIMITA: {
+            GEMINI_API_URL: 'https://api.gimita.id/api/ai/gemini',
+            DOLPHIN_API_URL: 'https://api.gimita.id/api/ai/dolphin',
+            CHATAI_API_URL: 'https://api.gimita.id/api/ai/chatai',
+            URL_LENGTH_LIMIT: 6000,
+            TIMEOUT: 45000
+        },
+        GEMINI: {
+            API_URL_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',
+            TIMEOUT: 60000
+        },
+        REPORT: {
+            MIN_CHARS: 110, // Buffer to ensure > 100
+            MAX_CHARS: 300,
+            TRUNCATE_BUFFER: 50 // Increase buffer to find a better cut-off point
+        }
+    },
+    VALIDATION: {
+        MANUAL_MIN_CHARS: 100
+    }
 };

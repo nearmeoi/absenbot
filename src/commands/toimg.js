@@ -1,81 +1,53 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
-const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
+const fs = require('fs');
+const sharp = require('sharp');
 
 module.exports = {
-    name: ['toimg', 'tovid', 'img', 'tovideo'],
-    description: 'Ubah sticker menjadi gambar atau video',
+    name: ['toimg', 'img'],
+    description: 'Ubah sticker menjadi gambar (PNG)',
     async execute(sock, msg, context) {
         const { sender } = context;
         const tempDir = path.join(process.cwd(), 'temp');
-
-        // Ensure temp directory exists
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
         try {
-            // 1. Identify Sticker
             const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-            
-            // Target must be a quoted message containing a sticker
             if (!quotedMsg || !quotedMsg.stickerMessage) {
-                return await sock.sendMessage(sender, { text: '⚠️ Silakan reply sticker yang ingin diubah menjadi gambar/video dengan caption *!toimg*.' }, { quoted: msg });
+                return await sock.sendMessage(sender, { text: '⚠️ Balas sticker yang ingin diubah menjadi gambar dengan perintah *!toimg*.' }, { quoted: msg });
             }
 
-            const isAnimated = quotedMsg.stickerMessage.isAnimated;
+            const sticker = quotedMsg.stickerMessage;
+            if (!sticker.mediaKey) {
+                return await sock.sendMessage(sender, { text: '⚠️ Media sticker tidak dapat diunduh.' }, { quoted: msg });
+            }
 
-            // Construct fake message for download
             const msgToDownload = {
-                key: { ...msg.key, id: msg.message.extendedTextMessage.contextInfo.stanzaId },
+                key: { 
+                    ...msg.key, 
+                    id: msg.message.extendedTextMessage.contextInfo.stanzaId,
+                    participant: msg.message.extendedTextMessage.contextInfo.participant || msg.key.participant
+                },
                 message: quotedMsg
             };
 
-            // 2. Download Sticker
-            const buffer = await downloadMediaMessage(
-                msgToDownload,
-                'buffer',
-                { },
-                { logger: console }
-            );
-
+            const buffer = await downloadMediaMessage(msgToDownload, 'buffer', {});
             if (!buffer) throw new Error('Gagal mengunduh sticker.');
 
-            const timestamp = Date.now();
-            const inputPath = path.join(tempDir, `sticker_${timestamp}.webp`);
-            const outputPath = path.join(tempDir, `output_${timestamp}.${isAnimated ? 'mp4' : 'png'}`);
+            const outputPath = path.join(tempDir, `output_${Date.now()}.png`);
 
-            fs.writeFileSync(inputPath, buffer);
+            // Always output as PNG (takes first frame if animated)
+            await sharp(buffer)
+                .png()
+                .toFile(outputPath);
 
-            // 3. Convert
-            if (isAnimated) {
-                // Convert WebP (Animated) to MP4
-                // -vf: scale to even numbers (required by some encoders), clean transparency with black background
-                await execPromise(`ffmpeg -i "${inputPath}" -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -c:v libx264 -pix_fmt yuv420p -movflags +faststart "${outputPath}"`);
-                
-                await sock.sendMessage(sender, { 
-                    video: fs.readFileSync(outputPath),
-                    caption: '✅ Konversi ke Video Berhasil (@Neardev)'
-                }, { quoted: msg });
-
-            } else {
-                // Convert WebP (Static) to PNG
-                await execPromise(`ffmpeg -i "${inputPath}" "${outputPath}"`);
-
-                await sock.sendMessage(sender, { 
-                    image: fs.readFileSync(outputPath),
-                    caption: '✅ Konversi ke Gambar Berhasil (@Neardev)'
-                }, { quoted: msg });
-            }
-
-            // 4. Cleanup
-            fs.unlinkSync(inputPath);
-            fs.unlinkSync(outputPath);
+            await sock.sendMessage(sender, { image: fs.readFileSync(outputPath) }, { quoted: msg });
+            
+            if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
 
         } catch (error) {
             console.error('[TOIMG] Error:', error);
-            await sock.sendMessage(sender, { text: '❌ Gagal mengonversi sticker.' }, { quoted: msg });
+            await sock.sendMessage(sender, { text: '❌ Gagal mengubah sticker ke gambar.' }, { quoted: msg });
         }
     }
 };

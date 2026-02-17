@@ -12,6 +12,7 @@ const {
     API_ENDPOINTS
 } = require("../config/constants");
 const apiService = require("./apiService");
+const { isHoliday } = require("../config/holidays");
 
 // Queue to ensure only ONE browser instance opens at a time
 class BrowserQueue {
@@ -62,18 +63,17 @@ async function launchBrowser() {
         "--mute-audio",
         "--no-first-run",
         "--safebrowsing-disable-auto-update",
-        "--disable-dev-shm-usage", // Fix for containerized envs
+        "--disable-dev-shm-usage",
         "--disable-accelerated-2d-canvas",
         "--disable-gpu",
     ];
 
-    // Production (Linux) Optimization
     if (process.platform === 'linux') {
         commonArgs.push(
-            "--single-process", // Save memory on VPS
-            "--no-zygote",      // Save memory
+            "--single-process",
+            "--no-zygote",
             "--renderer-process-limit=1",
-            "--js-flags=--max-old-space-size=512" // Limit heap to 512MB (safer than 128MB)
+            "--js-flags=--max-old-space-size=512"
         );
     }
 
@@ -83,7 +83,6 @@ async function launchBrowser() {
         headless: PUPPETEER_HEADLESS,
         executablePath: CHROMIUM_PATH,
         args: allArgs,
-        // Additional memory-saving options
         dumpio: false,
         pipe: true
     });
@@ -107,10 +106,8 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         browser = await launchBrowser();
         page = await browser.newPage();
         page.setDefaultTimeout(60000);
-
         await page.setUserAgent(USER_AGENT);
 
-        // Block permissions and resources for speed
         const context = browser.defaultBrowserContext();
         await context.overridePermissions("https://account.kemnaker.go.id", []);
         await context.overridePermissions("https://siapkerja.kemnaker.go.id", []);
@@ -119,7 +116,6 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         await page.setRequestInterception(true);
         page.on("request", req => {
             const type = req.resourceType();
-            // Block everything except document, script, xhr, fetch
             if (["image", "media", "font", "stylesheet", "manifest", "prefetch", "websocket", "eventsource", "texttrack", "other"].includes(type)) {
                 req.abort();
             } else {
@@ -127,11 +123,8 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
             }
         });
 
-        // Minimal viewport to save memory
         await page.setViewport({ width: 800, height: 600 });
 
-        // Login process
-        // Retry logic for navigation failure (Frame Detached fix - kept for stability)
         let navSuccess = false;
         for (let i = 0; i < 3; i++) {
             try {
@@ -147,48 +140,24 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
             }
         }
 
-
         const needsLogin = page.url().includes("account.kemnaker.go.id") || page.url().includes("auth/login");
 
-
         if (needsLogin) {
-            // Robust selector for username/identity
-            const identitySelectors = [
-                '#username',             // Priority 1: ID
-                '#identity',
-                'input[name="username"]', // Priority 3: Name
-                'input[name="identity"]',
-                'input[type="email"]',
-                'input[placeholder*="email"]'
-            ];
+            const identitySelectors = ['#username', '#identity', 'input[name="username"]', 'input[name="identity"]', 'input[type="email"]'];
             let identityInput = null;
 
-            // Wait for any of the selectors to appear
             for (const selector of identitySelectors) {
                 try {
-                    // Increased timeout to 30s for slow connections
                     await page.waitForSelector(selector, { visible: true, timeout: 30000 });
                     identityInput = selector;
                     break;
-                } catch (e) { /* try next */ }
+                } catch (e) { }
             }
 
-            if (!identityInput) {
-                // Match browser agent findings: #username or #identity
-                const debugPath = require('path').join(__dirname, '../../public/img/debug');
-                if (!require('fs').existsSync(debugPath)) require('fs').mkdirSync(debugPath, { recursive: true });
+            if (!identityInput) throw new Error(`Could not find login input. URL: ${page.url()}`);
 
-                try {
-                    await page.screenshot({ path: require('path').join(debugPath, `login_fail_${Date.now()}.png`) });
-                } catch (err) {
-                    console.error("[PUPPETEER] Failed to capture screenshot (Session closed?):", err.message);
-                }
-                throw new Error(`Could not find login input. URL: ${page.url()}`);
-            }
+            await new Promise(r => setTimeout(r, 3000));
 
-            await new Promise(r => setTimeout(r, 3000)); // Wait for page stability
-
-            // Direct form fill (no retries)
             await page.evaluate((sel, user, pass) => {
                 const userEl = document.querySelector(sel);
                 const passEl = document.querySelector('#password') || document.querySelector('input[type="password"]');
@@ -198,70 +167,44 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
 
             await new Promise(r => setTimeout(r, 1000));
 
-            // Submit with robust error handling for frame detachment
             try {
                 const submitted = await page.evaluate(() => {
                     const btn = document.querySelector('button[type="submit"]') || document.querySelector('button.btn-primary');
-                    if (btn) {
-                        btn.click();
-                        return true;
-                    }
+                    if (btn) { btn.click(); return true; }
                     return false;
                 });
+                if (!submitted) await page.keyboard.press('Enter');
+            } catch (e) { }
 
-                if (!submitted) {
-                    await page.keyboard.press('Enter');
-                }
-            } catch (e) {
-                if (!e.message.includes('detached') && !e.message.includes('Session closed')) {
-                    throw e;
-                }
-            }
-
-            // CHECK FOR LOGIN ERRORS IMMEDIATELY
             try {
-                // Wait briefly for any error alert to appear
                 await page.waitForSelector('.alert-danger, .alert-error, div[role="alert"], .text-danger', { visible: true, timeout: 5000 });
-                
                 const errorText = await page.evaluate(() => {
                     const el = document.querySelector('.alert-danger, .alert-error, div[role="alert"], .text-danger');
                     return el ? el.innerText.trim() : null;
                 });
-
-                if (errorText) {
-                    throw new Error(`Login Gagal: ${errorText}`);
-                }
+                if (errorText) throw new Error(`Login Gagal: ${errorText}`);
             } catch (e) {
-                // If timeout (no error found), proceed. If error found, rethrow.
                 if (e.message.includes('Login Gagal')) throw e;
             }
 
             await new Promise(r => setTimeout(r, 1500));
         }
 
-        // DIRECT NAVIGATION to Monev (bypass SSO redirect chain)
         console.log(chalk.yellow(`[BROWSER] Direct navigation to Monev dashboard...`));
-        await new Promise(r => setTimeout(r, 5000)); // Wait for login to process
+        await new Promise(r => setTimeout(r, 5000));
 
         try {
             await page.goto('https://monev.maganghub.kemnaker.go.id/dashboard', {
                 waitUntil: 'domcontentloaded',
                 timeout: 60000
             });
-            await new Promise(r => setTimeout(r, 10000)); // Give it 10s to redirect
+            await new Promise(r => setTimeout(r, 10000));
         } catch (e) {
-            console.log(chalk.yellow(`[BROWSER] Navigation timeout (continuing anyway)...`));
-            
-            // Check if stuck on the /naco/auth page with token in hash
             const currentUrl = page.url();
             if (currentUrl.includes('/naco/auth') && currentUrl.includes('access_token=')) {
-                console.log(chalk.green(`[BROWSER] Found access_token in URL hash! Extracting...`));
-                const hash = currentUrl.split('#')[1];
-                const params = new URLSearchParams(hash);
+                const params = new URLSearchParams(currentUrl.split('#')[1]);
                 accessToken = params.get('access_token');
-                
                 if (accessToken) {
-                    console.log(chalk.green(`[BROWSER] ✅ Token recovered from hash. Saving session...`));
                     const cookies = await page.cookies();
                     apiService.saveSession(email, cookies, csrfToken, accessToken);
                     await browser.close();
@@ -271,72 +214,30 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         }
 
         await new Promise(r => setTimeout(r, 3000));
-
-        // Check if we're logged in
         const currentUrl = page.url();
-        const loggedInToSiapkerja = currentUrl.includes('monev.maganghub') || currentUrl.includes('dashboard') || accessToken;
-
-        if (!loggedInToSiapkerja) {
-            // Check for login error
-            const errorText = await page.evaluate(() => {
-                const el = document.querySelector('.alert-error, .error-message, div[role="alert"]');
-                return el ? el.innerText : null;
-            }).catch(() => null);
-
-            if (errorText) {
-                throw new Error(`Login Gagal: ${errorText}`);
-            }
+        if (!currentUrl.includes('monev.maganghub') && !currentUrl.includes('dashboard') && !accessToken) {
             throw new Error(`Login Timeout - stuck at: ${currentUrl}`);
         }
 
-        console.log(chalk.green(`[BROWSER] ✅ Login successful! URL: ${currentUrl}`));
-
-        await new Promise(r => setTimeout(r, 2000)); // Wait for cookies to settle
-
-        // Get cookies
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 2000));
         let siapkerjaCookies = await page.cookies();
 
-        // Navigate to monev dashboard
-        try {
-            await page.goto(API_ENDPOINTS.DASHBOARD, { waitUntil: "networkidle0", timeout: 30000 });
-        } catch (e) {
-            // Continue even if navigation fails
-        }
-
-        // Wait for page to fully load and session to establish
         console.log(chalk.yellow(`[BROWSER] Waiting for session tokens to appear...`));
-        
         let tokenFound = false;
         for (let i = 0; i < 15; i++) {
             const tokens = await page.evaluate(() => {
                 return {
                     csrf: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
-                    accessToken: localStorage.getItem('token') ||
-                        localStorage.getItem('access_token') ||
-                        localStorage.getItem('accessToken') ||
-                        sessionStorage.getItem('token') ||
-                        sessionStorage.getItem('access_token'),
+                    accessToken: localStorage.getItem('token') || localStorage.getItem('access_token') || sessionStorage.getItem('token') || sessionStorage.getItem('access_token'),
                     cookieToken: document.cookie.match(/accessToken=([^;]+)/)?.[1]
                 };
             });
-            
             csrfToken = tokens.csrf || csrfToken;
             accessToken = tokens.accessToken || tokens.cookieToken;
-            
-            if (accessToken) {
-                console.log(chalk.green(`[BROWSER] ✅ Token found in ${i+1}s!`));
-                tokenFound = true;
-                break;
-            }
+            if (accessToken) { tokenFound = true; break; }
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        if (!tokenFound) {
-            console.log(chalk.yellow(`[BROWSER] ⚠️ No accessToken found after 15s polling.`));
-        }
-
-        // Extract all cookies from all relevant domains
         const [currentCookies, monevCookies, siapkerjaDomainCookies, accountCookies] = await Promise.all([
             page.cookies(),
             page.cookies("https://monev.maganghub.kemnaker.go.id"),
@@ -349,51 +250,25 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
             .forEach(c => cookieMap.set(`${c.name}@${c.domain}`, c));
         cookies = Array.from(cookieMap.values());
 
-        console.log(chalk.cyan(`[BROWSER] ✅ Got ${cookies.length} cookies from all domains`));
-
-        // Get additional tokens if possible
         let refreshToken = null;
         try {
-            const extraTokens = await page.evaluate(() => {
-                return {
-                    refreshToken: localStorage.getItem('refresh_token') ||
-                        localStorage.getItem('refreshToken') ||
-                        sessionStorage.getItem('refresh_token') ||
-                        sessionStorage.getItem('refreshToken')
-                };
-            });
-            refreshToken = extraTokens.refreshToken;
-            if (refreshToken) {
-                console.log(chalk.green(`[BROWSER] ✅ Found refreshToken!`));
-            }
+            refreshToken = await page.evaluate(() => localStorage.getItem('refresh_token') || localStorage.getItem('refreshToken'));
         } catch (e) { }
 
-        // Save session with token
         if (cookies.length > 0) {
             apiService.saveSession(email, cookies, csrfToken, accessToken, refreshToken);
         }
 
-        // Screenshot if requested
         if (takeScreenshot) {
             try {
                 screenshotPath = path.join(TEMP_DIR, `login_${Date.now()}.png`);
                 await page.screenshot({ path: screenshotPath });
-            } catch (e) {
-                screenshotPath = null;
-            }
+            } catch (e) { }
         }
 
         await browser.close();
-        browser = null;
-
         return { success: true, foto: screenshotPath };
-
     } catch (error) {
-        console.log(chalk.red(`[DEBUG] ❌ LOGIN ERROR: ${error.message}`));
-        console.log(chalk.red(`[DEBUG] Stack: ${error.stack}`));
-        if (cookies.length > 0) {
-            try { apiService.saveSession(email, cookies, csrfToken, accessToken); } catch (e) { }
-        }
         if (browser) await browser.close();
         return { success: false, pesan: error.message };
     }
@@ -412,50 +287,25 @@ async function _puppeteerSubmitCore(email, password, reportData) {
         const page = await browser.newPage();
         page.setDefaultTimeout(90000);
         await page.setUserAgent(USER_AGENT);
-
-        await page.setRequestInterception(true);
-        page.on("request", req => {
-            const type = req.resourceType();
-            // Only block heavy media. ALLOW fonts/css/scripts
-            if (["image", "media", "websocket", "eventsource", "texttrack"].includes(type)) {
-                req.abort();
-            } else {
-                req.continue();
-            }
-        });
-
-        // Minimal viewport to save memory
         await page.setViewport({ width: 800, height: 600 });
-
         await page.goto(API_ENDPOINTS.LOGIN_URL, { waitUntil: "domcontentloaded" });
 
         const isLoggedIn = () => page.url().includes("dashboard") || page.url().includes("monev");
-
         if (!isLoggedIn()) {
-            // Robust selector for username/identity
-            const identitySelectors = ['input[name="identity"]', 'input[name="username"]', 'input[name="email"]', 'input[type="email"]'];
+            const identitySelectors = ['input[name="identity"]', 'input[name="username"]', 'input[type="email"]'];
             let identityInput = null;
-
             for (const selector of identitySelectors) {
                 try {
                     await page.waitForSelector(selector, { visible: true, timeout: 5000 });
                     identityInput = selector;
                     break;
-                } catch (e) { /* try next */ }
+                } catch (e) { }
             }
-
-            if (!identityInput) {
-                throw new Error("Could not find login input field (identity/username/email) for submission");
-            }
-
+            if (!identityInput) throw new Error("Could not find login input field");
             await page.type(identityInput, email, { delay: 20 });
             await page.type('input[type="password"]', password, { delay: 20 });
             await page.click('button[type="submit"]');
-
-            await page.waitForFunction(
-                () => location.href.includes("monev") || location.href.includes("dashboard"),
-                { timeout: 60000 }
-            );
+            await page.waitForFunction(() => location.href.includes("monev") || location.href.includes("dashboard"), { timeout: 60000 });
         }
 
         const cookies = await page.cookies();
@@ -467,31 +317,23 @@ async function _puppeteerSubmitCore(email, password, reportData) {
 
         const day = new Date().getDate();
         try {
-            await page.waitForSelector("td.clickable-day, div.day, div.v-calendar-daily__day", { timeout: 20000 });
+            await page.waitForSelector("td.clickable-day, div.day", { timeout: 20000 });
             await page.evaluate((d) => {
-                const days = Array.from(document.querySelectorAll('div.day-content, span.day-label, div.v-btn__content, td'));
+                const days = Array.from(document.querySelectorAll('div.day-content, span.day-label, td'));
                 for (let el of days) {
-                    if (el.textContent.trim() == d) {
-                        el.click();
-                        return true;
-                    }
+                    if (el.textContent.trim() == d) { el.click(); return true; }
                 }
                 return false;
             }, day.toString());
-        } catch (e) {
-            // Continue even if calendar click fails
-        }
+        } catch (e) { }
 
         await page.waitForSelector("textarea", { visible: true, timeout: 30000 });
-
         const textareas = await page.$$("textarea");
         if (textareas.length >= 3) {
             await textareas[0].type(reportData.aktivitas);
             await textareas[1].type(reportData.pembelajaran);
             await textareas[2].type(reportData.kendala);
-        } else {
-            throw new Error("Form tidak ditemukan (textarea < 3)");
-        }
+        } else throw new Error("Form tidak ditemukan");
 
         const checkbox = await page.$('input[type="checkbox"]');
         if (checkbox) await checkbox.click();
@@ -500,26 +342,12 @@ async function _puppeteerSubmitCore(email, password, reportData) {
         if (btnSimpan.length > 0) {
             await btnSimpan[0].click();
             await new Promise(r => setTimeout(r, 5000));
-
-            let screenshotPath = null;
-            try {
-                screenshotPath = path.join(TEMP_DIR, `bukti_${Date.now()}.png`);
-                await page.screenshot({ path: screenshotPath });
-            } catch (e) {
-                screenshotPath = null;
-            }
-
+            let screenshotPath = path.join(TEMP_DIR, `bukti_${Date.now()}.png`);
+            await page.screenshot({ path: screenshotPath });
             await browser.close();
-            return {
-                success: true,
-                nama: email,
-                foto: screenshotPath,
-                pesan_tambahan: "(Via Browser)"
-            };
+            return { success: true, nama: email, foto: screenshotPath, pesan_tambahan: "(Via Browser)" };
         }
-
         throw new Error("Tombol simpan tidak ditemukan");
-
     } catch (error) {
         if (browser) await browser.close();
         return { success: false, pesan: error.message };
@@ -533,116 +361,263 @@ async function cekKredensial(email, password) {
 
 async function cekStatusHarian(email, password) {
     const apiResult = await apiService.checkAttendanceStatus(email);
-
-    if (apiResult.success) {
-        return apiResult;
-    }
-
+    if (apiResult.success) return apiResult;
     if (apiResult.needsLogin) {
-        // Try Direct API Login first (FAST & LIGHT)
-        console.log(chalk.cyan("[MONEV] Session expired, attempting Fast Direct Login..."));
         const directResult = await apiService.directLogin(email, password);
-        
         let loginSuccess = directResult.success;
-        let loginMsg = directResult.pesan;
-
-        // Fallback to Puppeteer if direct login fails
         if (!loginSuccess) {
-            console.log(chalk.yellow(`[MONEV] Direct login failed (${loginMsg}), falling back to Puppeteer...`));
             const loginResult = await puppeteerLogin(email, password, false);
             loginSuccess = loginResult.success;
-            loginMsg = loginResult.pesan;
         }
-
-        if (!loginSuccess) {
-            return { success: false, pesan: loginMsg };
-        }
-
-        await new Promise(r => setTimeout(r, 1000));
-
-        const retryResult = await apiService.checkAttendanceStatus(email);
-        if (retryResult.success) {
-            return retryResult;
-        }
+        if (!loginSuccess) return { success: false, pesan: "Login gagal" };
+        return await apiService.checkAttendanceStatus(email);
     }
-
     return { success: false, sudahAbsen: false, pesan: apiResult.pesan || "Unknown error" };
 }
 
 async function prosesLoginDanAbsen(dataUser) {
     const { email, password, aktivitas, pembelajaran, kendala, simulation } = dataUser;
-
-    // --- SIMULATION MODE ---
     if (simulation) {
-        console.log(chalk.yellow(`[SIMULATION] Simulating attendance for ${email}...`));
-        await new Promise(r => setTimeout(r, 2000)); // Fake processing delay
-
-        return {
-            success: true,
-            nama: email,
-            foto: null, // No screenshot in simulation
-            pesan_tambahan: "(MODE SIMULASI - Data tidak dikirim ke server)"
-        };
+        await new Promise(r => setTimeout(r, 1000));
+        return { success: true, nama: email, foto: null, pesan_tambahan: "(MODE SIMULASI)" };
     }
 
-    const apiResult = await apiService.submitAttendanceReport(email, {
-        aktivitas, pembelajaran, kendala
-    });
+    // 1. Try submitting via API using existing session
+    console.log(chalk.cyan(`[PROCESS] Trying API submission for ${email}...`));
+    let apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
+    if (apiResult.success) return apiResult;
 
-    if (apiResult.success) {
-        return {
-            success: true,
-            nama: email,
-            foto: null,
-            pesan_tambahan: "(Fast Mode - API)"
-        };
+    // 2. If API failed due to auth, try Direct Login (Refresh Session)
+    if (apiResult.needsLogin) {
+        console.log(chalk.yellow(`[PROCESS] API failed (needs login). Attempting Direct Login for ${email}...`));
+        const loginResult = await apiService.directLogin(email, password);
+        
+        if (loginResult.success) {
+            console.log(chalk.green(`[PROCESS] Direct Login successful. Retrying API submission...`));
+            apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
+            if (apiResult.success) return apiResult;
+        } else {
+            console.log(chalk.red(`[PROCESS] Direct Login failed: ${loginResult.pesan}`));
+        }
     }
 
+    // 3. Fallback to Puppeteer if all else fails
+    console.log(chalk.yellow(`[PROCESS] Fallback to Puppeteer for ${email}...`));
     return await puppeteerSubmit(email, password, { aktivitas, pembelajaran, kendala });
 }
 
 async function getRiwayat(email, password, days = 1) {
-    // Try API first
     const apiResult = await apiService.getAttendanceHistory(email, days);
-
-    if (apiResult.success) {
-        return apiResult;
-    }
-
-    // If session expired, try to login and retry
+    if (apiResult.success) return apiResult;
     if (apiResult.needsLogin) {
-        // Try Direct API Login first
-        console.log(chalk.cyan("[MONEV] History check: Session expired, attempting Fast Direct Login..."));
         const directResult = await apiService.directLogin(email, password);
-        
-        let loginSuccess = directResult.success;
-        let loginMsg = directResult.pesan;
-
-        if (!loginSuccess) {
-            console.log(chalk.yellow("[MONEV] Direct login failed, falling back to Puppeteer..."));
-            const loginResult = await puppeteerLogin(email, password, false);
-            loginSuccess = loginResult.success;
-            loginMsg = loginResult.pesan;
-        }
-
-        if (!loginSuccess) {
-            return { success: false, logs: [], pesan: loginMsg };
-        }
-
-        await new Promise(r => setTimeout(r, 1000));
-
-        const retryResult = await apiService.getAttendanceHistory(email, days);
-        if (retryResult.success) {
-            return retryResult;
-        }
+        if (directResult.success) return await apiService.getAttendanceHistory(email, days);
+        const loginResult = await puppeteerLogin(email, password, false);
+        if (loginResult.success) return await apiService.getAttendanceHistory(email, days);
     }
+    return { success: false, logs: [], pesan: "Gagal mengambil riwayat" };
+}
 
-    return { success: false, logs: [], pesan: apiResult.pesan || "Gagal mengambil riwayat" };
+/**
+ * Get Dashboard Stats using the NEW API endpoint discovered (Much faster & reliable)
+ */
+async function getDashboardStats(email, password, referenceDate = null) {
+    try {
+        console.log(chalk.cyan(`[STATS] Fetching dashboard stats via API for ${email}...`));
+        
+        const today = referenceDate ? new Date(referenceDate) : new Date();
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+        
+        // Previous Month for Supplement (Dec 24 - Jan 24 cycle)
+        const prevMonthDate = new Date(today);
+        prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+        const startOfPrevMonth = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1).toISOString().split('T')[0];
+        const endOfPrevMonth = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0).toISOString().split('T')[0];
+
+        // Fetch BOTH months in parallel AND Monthly Reports
+        let [currentMonthRes, prevMonthRes, monthlyReportsRes] = await Promise.all([
+            apiService.getAttendances(email, startOfMonth, endOfMonth),
+            apiService.getAttendances(email, startOfPrevMonth, endOfPrevMonth),
+            apiService.getMonthlyReports(email)
+        ]);
+
+        // Re-login if session expired
+        if ((!currentMonthRes.success && currentMonthRes.needsLogin) || 
+            (!prevMonthRes.success && prevMonthRes.needsLogin) ||
+            (!monthlyReportsRes.success && monthlyReportsRes.needsLogin)) {
+            
+            console.log(chalk.yellow(`[STATS] Session expired, re-logging...`));
+            const loginResult = await apiService.directLogin(email, password);
+            if (!loginResult.success) await puppeteerLogin(email, password, false);
+            
+            // Retry fetch
+            [currentMonthRes, prevMonthRes, monthlyReportsRes] = await Promise.all([
+                apiService.getAttendances(email, startOfMonth, endOfMonth),
+                apiService.getAttendances(email, startOfPrevMonth, endOfPrevMonth),
+                apiService.getMonthlyReports(email)
+            ]);
+        }
+
+        if (!currentMonthRes.success) return currentMonthRes;
+
+        const data = [...(currentMonthRes.data || []), ...(prevMonthRes.data || [])];
+        const uniqueData = Array.from(new Map(data.map(item => [item.date, item])).values());
+        
+        // Process Monthly Reports Status (Check for Specific Month)
+        let raporStatus = 'Belum ada';
+        
+        if (monthlyReportsRes.success && monthlyReportsRes.data && Array.isArray(monthlyReportsRes.data)) {
+            // Determine Target Month based on Cycle
+            // Cycle: 24th Prev Month -> 24th This Month
+            // User Rule: "Desember-Januari ya bulan Januari"
+            // So we target the month where the cycle ENDS.
+            
+            let targetDate = new Date(today);
+            if (today.getDate() <= 24) {
+                // If today is 1-24, we are in the cycle ending THIS month.
+                // e.g. Jan 15 -> Cycle Dec 24 - Jan 24. Target: Jan.
+                // No change needed to targetDate (it is Jan).
+            } else {
+                // If today is 25-31, we are in the cycle ending NEXT month.
+                // e.g. Jan 25 -> Cycle Jan 24 - Feb 24. Target: Feb.
+                targetDate.setMonth(targetDate.getMonth() + 1);
+            }
+            
+            // Format target YYYY-MM-01
+            const yyyy = targetDate.getFullYear();
+            const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const targetYearMonth = `${yyyy}-${mm}-01`;
+            
+            const hasReport = monthlyReportsRes.data.some(r => r.year_month === targetYearMonth);
+            if (hasReport) {
+                raporStatus = 'Sudah ada';
+            }
+        }
+
+        // Filter for Current Month stats (compatibility)
+        const currentMonthData = uniqueData.filter(d => d.date >= startOfMonth && d.date <= endOfMonth);
+
+        const results = {
+            hadir: 0,
+            izin: 0,
+            revisi: 0,
+            tidakHadirKet: 0,
+            tidakHadirTanpaKet: 0,
+            ditolak: 0,
+            rapor: raporStatus,
+            periode: today.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+            calendar: {
+                approved: [],
+                rejected: [],
+                revision: [],
+                pending: [],
+                permission: [],
+                alpha: []
+            },
+            full_attendances: uniqueData 
+        };
+
+        // Map current month status
+        currentMonthData.forEach(item => {
+            const day = new Date(item.date).getDate().toString();
+            const status = (item.approval_status || '').toUpperCase();
+            const attendanceStatus = (item.status || '').toUpperCase();
+
+            if (attendanceStatus === 'ON_LEAVE' || attendanceStatus === 'SICK' || attendanceStatus === 'PERMIT') {
+                results.izin++;
+                results.calendar.permission.push(day);
+                return;
+            }
+
+            if (status === 'APPROVED') {
+                results.hadir++;
+                results.calendar.approved.push(day);
+            } else if (status === 'REJECTED' || status === 'DITOLAK') {
+                results.ditolak++;
+                results.calendar.rejected.push(day);
+            } else if (status === 'REVISION' || status.includes('REVISI')) {
+                results.revisi++;
+                results.calendar.revision.push(day);
+            } else {
+                results.calendar.pending.push(day);
+            }
+        });
+
+        // Determine Alphas (Missing reports on workdays - Current Month)
+        const lastDay = today.getDate();
+        for (let i = 1; i <= lastDay; i++) {
+             const d = new Date(today.getFullYear(), today.getMonth(), i);
+             if (d > today) break; 
+             const dStr = d.toISOString().split('T')[0];
+             if (!isHoliday(dStr)) {
+                 if (!currentMonthData.some(item => item.date === dStr)) {
+                     results.tidakHadirTanpaKet++;
+                     results.calendar.alpha.push(i.toString());
+                 }
+             }
+        }
+
+        console.log(chalk.green(`[STATS] API Extraction complete: Hadir=${results.hadir}, Izin=${results.izin}, Rapor=${results.rapor}`));
+        return { success: true, data: results };
+
+    } catch (error) {
+        console.error(chalk.red(`[STATS] Error: ${error.message}`));
+        return { success: false, pesan: error.message };
+    }
+}
+
+async function getAnnouncements(email) {
+    // Delegate to API service (or Puppeteer fallback if we ever implement it)
+    return await apiService.getAnnouncements(email);
+}
+
+/**
+ * Automatically detect Cycle Day (Batch 2 vs Batch 3)
+ * Analyzes monthly reports from Kemnaker
+ */
+async function detectCycleDay(email, password) {
+    try {
+        console.log(chalk.cyan(`[CYCLE] Detecting cycle day for ${email}...`));
+        let reportsRes = await apiService.getMonthlyReports(email);
+
+        if (!reportsRes.success && reportsRes.needsLogin) {
+            await apiService.directLogin(email, password);
+            reportsRes = await apiService.getMonthlyReports(email);
+        }
+
+        if (reportsRes.success && reportsRes.data && Array.isArray(reportsRes.data) && reportsRes.data.length > 0) {
+            // Check the last 3 reports to be sure
+            const samples = reportsRes.data.slice(0, 3);
+            let count16 = 0;
+            let count24 = 0;
+
+            samples.forEach(r => {
+                if (r.start_date) {
+                    const day = parseInt(r.start_date.split('-')[2]);
+                    if (day === 16) count16++;
+                    else if (day === 24) count24++;
+                }
+            });
+
+            if (count16 > count24) return 16;
+            if (count24 > count16) return 24;
+        }
+        
+        // Fallback default
+        return 24;
+    } catch (e) {
+        console.error(`[CYCLE] Detection error: ${e.message}`);
+        return 24;
+    }
 }
 
 module.exports = {
     prosesLoginDanAbsen,
     cekKredensial,
     cekStatusHarian,
-    getRiwayat
+    getRiwayat,
+    getDashboardStats,
+    getAnnouncements,
+    detectCycleDay
 };

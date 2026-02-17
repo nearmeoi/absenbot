@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { processFreeTextToReport } = require('../services/aiService');
-const { getUserByPhone, getUserBySlug } = require('../services/database');
+const { getUserByPhone, getUserBySlug, getAllUsers } = require('../services/database');
 const { getRiwayat, prosesLoginDanAbsen } = require('../services/magang');
 const fs = require('fs');
 const path = require('path');
@@ -61,18 +61,34 @@ const sendNotification = async (phone, title, body) => {
 };
 
 /**
- * API: Get User Profile by Phone/LID or Slug
+ * API: Get User Profile by Phone/LID, Slug, or Name
  */
 router.get('/api/user-profile', (req, res) => {
     try {
-        const { phone, slug } = req.query;
-        if (!phone && !slug) return res.status(400).json({ error: 'Phone or Slug parameter required' });
+        const { phone, slug, name } = req.query;
+        if (!phone && !slug && !name) return res.status(400).json({ error: 'Phone, Slug, or Name parameter required' });
 
         let user = null;
         if (slug) {
             user = getUserBySlug(slug);
-        } else {
+        } else if (phone) {
             user = getUserByPhone(phone);
+        } else if (name) {
+            // Search by Name (Partial Match)
+            const allUsers = getAllUsers();
+            const searchName = name.toLowerCase();
+            
+            user = allUsers.find(u => {
+                // 1. Check explicit name field
+                if (u.name && u.name.toLowerCase().includes(searchName)) return true;
+                
+                // 2. Check derived name from email
+                if (u.email) {
+                    const emailName = u.email.split('@')[0].toLowerCase().replace(/[._]/g, ' ');
+                    if (emailName.includes(searchName)) return true;
+                }
+                return false;
+            });
         }
 
         if (user) {
@@ -124,7 +140,7 @@ router.post('/api/generate-ai', async (req, res) => {
                 kendala: aiResult.kendala
             });
         } else {
-            res.status(500).json({ error: 'Gagal generate AI: ' + aiResult.message });
+            res.status(500).json({ error: 'Gagal generate AI: ' + aiResult.error });
         }
     } catch (e) {
         console.error('AI Generate Route Error:', e);
