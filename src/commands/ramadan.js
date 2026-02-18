@@ -5,13 +5,14 @@ module.exports = {
     name: 'ramadan',
     aliases: ['imsak', 'imsakiyah', 'buka', 'berbuka', 'sholat', 'jadwalsholat', 'sahur', 'puasa'],
     description: 'Fitur Ramadhan: Jadwal Imsak, Buka Puasa, dan Pengingat',
-    async execute(sock, message, args) {
+    async execute(sock, message, context) {
         const { remoteJid } = message.key;
+        const { args } = context;
         const command = message.message.conversation || message.message.extendedTextMessage?.text || '';
         const cmdName = command.split(' ')[0].replace('!', '').toLowerCase();
 
         // Default City logic
-        let city = args.length > 0 ? args.join(' ') : 'Makassar';
+        let city = args && args.length > 0 ? args.join(' ') : 'Makassar';
 
         try {
             // --- COMMAND: !imsakiyah / !jadwalsholat ---

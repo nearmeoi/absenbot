@@ -19,6 +19,9 @@ for (const file of commandFiles) {
 
         // Handle array of names (aliases)
         const names = Array.isArray(command.name) ? command.name : [command.name];
+        if (command.aliases && Array.isArray(command.aliases)) {
+            names.push(...command.aliases);
+        }
 
         for (const name of names) {
             commands.set(name, command);

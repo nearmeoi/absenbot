@@ -169,6 +169,15 @@ const messageHandler = async (sock, msg) => {
                     } catch (e) { }
                 }
                 return;
+            } else {
+                // Typo Handler
+                const allCommands = getCommandKeys();
+                const closest = findClosestMatch(cmdName, allCommands, 2); // Max distance 2
+                if (closest) {
+                    await sock.sendMessage(sender, {
+                        text: `⚠️ Perintah *!${cmdName}* tidak ditemukan.\n🤔 Mungkin maksud Anda: *!${closest}*?`
+                    });
+                }
             }
         }
 
