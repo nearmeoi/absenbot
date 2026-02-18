@@ -9,12 +9,35 @@ let botStatus = 'online'; // 'online' | 'offline' | 'maintenance'
 let botConnected = false;
 let maintenanceCommands = []; // List of commands under maintenance, e.g., ['absen', 'daftar']
 
+// Anti-Loop State
+let sentMessagesHistory = [];
+const LOOP_THRESHOLD = 10;
+const LOOP_WINDOW_MS = 10000; // 10 seconds
+
 // Getters
 const isSchedulerEnabled = () => schedulerEnabled;
 const getBotStatus = () => botStatus;
 const isBotConnected = () => botConnected;
 const getMaintenanceCommands = () => maintenanceCommands;
 const isCommandUnderMaintenance = (cmd) => maintenanceCommands.includes(cmd.toLowerCase());
+
+/**
+ * Record a sent message and check for spam loops
+ * @returns {boolean} true if loop detected
+ */
+const recordSentMessage = () => {
+    const now = Date.now();
+    sentMessagesHistory.push(now);
+    
+    // Clean up history older than the window
+    sentMessagesHistory = sentMessagesHistory.filter(timestamp => (now - timestamp) < LOOP_WINDOW_MS);
+    
+    if (sentMessagesHistory.length >= LOOP_THRESHOLD) {
+        console.error(`[CRITICAL] Loop detected! ${sentMessagesHistory.length} messages sent in ${LOOP_WINDOW_MS/1000}s`);
+        return true;
+    }
+    return false;
+};
 
 // Setters
 const setSchedulerEnabled = (enabled) => {
@@ -52,6 +75,7 @@ module.exports = {
     isBotConnected,
     getMaintenanceCommands,
     isCommandUnderMaintenance,
+    recordSentMessage,
     setSchedulerEnabled,
     setBotStatus,
     setBotConnected,

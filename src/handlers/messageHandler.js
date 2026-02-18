@@ -23,6 +23,9 @@ const messageHandler = async (sock, msg) => {
         let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
 
+        // Ignore messages from self to prevent loops
+        if (msgObj.key.fromMe) return;
+
         const botStatus = getBotStatus();
         const sender = msgObj.key.remoteJid;
         const isGroup = sender.endsWith("@g.us");

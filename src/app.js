@@ -47,6 +47,30 @@ async function connectToWhatsApp() {
         generateHighQualityLinkPreview: true,
     })
 
+    // --- ANTI-LOOP WRAPPER ---
+    const originalSendMessage = sock.sendMessage.bind(sock);
+    const { recordSentMessage } = require('./services/botState');
+    
+    sock.sendMessage = async (...args) => {
+        const isLoop = recordSentMessage();
+        if (isLoop) {
+            console.error(chalk.bgRed.white(" [ANTI-LOOP] CRITICAL: Too many outgoing messages! Shutting down to prevent spam. "));
+            
+            // Try to notify admin before crashing if possible (one last shot)
+            try {
+                const { ADMIN_NUMBERS } = require('./config/constants');
+                if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
+                    await originalSendMessage(ADMIN_NUMBERS[0], { 
+                        text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan." 
+                    });
+                }
+            } catch (e) {}
+
+            process.exit(1); // Force exit, PM2 will handle restart
+        }
+        return originalSendMessage(...args);
+    };
+
     // Pairing code logic
     if (usePairingCode && !sock.authState.creds.registered) {
         const phoneNumber = await question(chalk.green('Nomor WA (628xxx): '))
