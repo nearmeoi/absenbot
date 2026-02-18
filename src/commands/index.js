@@ -17,14 +17,18 @@ for (const file of commandFiles) {
     try {
         const command = require(path.join(__dirname, file));
 
-        // Handle array of names (aliases)
-        const names = Array.isArray(command.name) ? command.name : [command.name];
+        // Handle name and aliases
+        const names = [];
+        if (command.name) {
+            if (Array.isArray(command.name)) names.push(...command.name);
+            else names.push(command.name);
+        }
         if (command.aliases && Array.isArray(command.aliases)) {
             names.push(...command.aliases);
         }
 
         for (const name of names) {
-            commands.set(name, command);
+            commands.set(name.toLowerCase(), command);
         }
 
         console.log(chalk.green(`[COMMANDS] Loaded: ${names.join(', ')}`));

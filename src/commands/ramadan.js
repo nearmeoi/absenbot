@@ -5,21 +5,20 @@ module.exports = {
     name: 'ramadan',
     aliases: ['imsak', 'imsakiyah', 'buka', 'berbuka', 'sholat', 'jadwalsholat', 'sahur', 'puasa'],
     description: 'Fitur Ramadhan: Jadwal Imsak, Buka Puasa, dan Pengingat',
-    async execute(sock, message, context) {
-        const { remoteJid } = message.key;
-        const { args } = context;
-        const command = message.message.conversation || message.message.extendedTextMessage?.text || '';
-        const cmdName = command.split(' ')[0].replace('!', '').toLowerCase();
+    async execute(sock, msgObj, context) {
+        const { sender: remoteJid, args, textMessage, BOT_PREFIX } = context;
+        const commandParts = textMessage.trim().split(/\s+/);
+        const cmdName = commandParts[0].toLowerCase().substring(BOT_PREFIX.length);
 
         // Default City logic
-        let city = args && args.length > 0 ? args.join(' ') : 'Makassar';
+        let city = args && args.trim() !== '' ? args : 'Makassar';
 
         try {
             // --- COMMAND: !imsakiyah / !jadwalsholat ---
             if (['imsak', 'imsakiyah', 'sholat', 'jadwalsholat'].includes(cmdName)) {
                 const result = await getPrayerTimes(city);
                 if (!result.success) {
-                    await sock.sendMessage(remoteJid, { text: `⚠️ Gagal mengambil jadwal untuk kota *${city}*. Coba kota lain.` });
+                    await sock.sendMessage(remoteJid, { text: `⚠️ Gagal mengambil jadwal untuk kota *${city}*. Coba kota lain.` }, { quoted: msgObj });
                     return;
                 }
 
@@ -37,18 +36,18 @@ module.exports = {
                 text += `☀️ *Dzuhur:* ${t.Dhuhr}\n`;
                 text += `🌤️ *Ashar:* ${t.Asr}\n`;
                 text += `🌇 *Maghrib (Buka):* ${t.Maghrib}\n`;
-                text += `im *Isya:* ${t.Isha}\n\n`;
+                text += `🏙️ *Isya:* ${t.Isha}\n\n`;
 
                 text += `_Selamat Menunaikan Ibadah Puasa_ 🌙`;
 
-                await sock.sendMessage(remoteJid, { text });
+                await sock.sendMessage(remoteJid, { text }, { quoted: msgObj });
             }
 
             // --- COMMAND: !berbuka (Countdown) ---
             else if (['buka', 'berbuka', 'puasa'].includes(cmdName)) {
                 const result = await getPrayerTimes(city);
                 if (!result.success) {
-                    await sock.sendMessage(remoteJid, { text: `⚠️ Gagal mengambil data untuk *${city}*.` });
+                    await sock.sendMessage(remoteJid, { text: `⚠️ Gagal mengambil data untuk *${city}*.` }, { quoted: msgObj });
                     return;
                 }
 
@@ -59,14 +58,7 @@ module.exports = {
                 const target = new Date();
                 target.setHours(h, m, 0, 0);
 
-                // Adjust timezone manually if needed, but for now assuming bot runs in WITA
-                // If the input city is different timezone, this calculation might be slightly off relative to Server Time
-                // But Aladhan API returns local time for that city.
-                // We need to compare it to "Now" in that city's timezone.
-                // This is tricky without a timezone key.
-                // Simplified approach: Calculate difference based on SERVER time vs Target Time string.
-                // Assuming user wants to know relative time.
-
+                let text = '';
                 if (target < now) {
                     text = `✅ Waktu berbuka untuk *${city}* (${maghribTime}) sudah lewat hari ini.\nSelamat berbuka puasa! 🍵`;
                 } else {
@@ -80,7 +72,7 @@ module.exports = {
                     text += `_Semangat puasanya!_ 💪`;
                 }
 
-                await sock.sendMessage(remoteJid, { text });
+                await sock.sendMessage(remoteJid, { text }, { quoted: msgObj });
             }
 
             // --- COMMAND: !sahur (Quote/Ayat/Hadith) ---
@@ -103,12 +95,12 @@ module.exports = {
                     text += `_"Makan sahurlah kalian, karena pada sahur itu terdapat keberkahan." (HR. Bukhari & Muslim)_`;
                 }
 
-                await sock.sendMessage(remoteJid, { text });
+                await sock.sendMessage(remoteJid, { text }, { quoted: msgObj });
             }
 
         } catch (e) {
             console.error(chalk.red('[RAMADAN] Command Error:'), e);
-            await sock.sendMessage(remoteJid, { text: '⚠️ Terjadi kesalahan saat memproses data Ramadhan.' });
+            await sock.sendMessage(remoteJid, { text: '⚠️ Terjadi kesalahan saat memproses data Ramadhan.' }, { quoted: msgObj });
         }
     }
 };

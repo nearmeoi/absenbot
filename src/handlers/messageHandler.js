@@ -170,13 +170,16 @@ const messageHandler = async (sock, msg) => {
                 }
                 return;
             } else {
-                // Typo Handler
-                const allCommands = getCommandKeys();
-                const closest = findClosestMatch(cmdName, allCommands, 2); // Max distance 2
+                // --- TYPO HANDLER ---
+                const allCmds = getCommandKeys();
+                const closest = findClosestMatch(cmdName, allCmds, 2); // Threshold 2
                 if (closest) {
-                    await sock.sendMessage(sender, {
-                        text: `⚠️ Perintah *!${cmdName}* tidak ditemukan.\n🤔 Mungkin maksud Anda: *!${closest}*?`
-                    });
+                    try {
+                        await sock.sendMessage(sender, { react: { text: "❓", key: msgObj.key } });
+                        await sock.sendMessage(sender, {
+                            text: `⚠️ Perintah *!${cmdName}* tidak ditemukan. Mungkin maksud Anda *!${closest}*?`
+                        }, { quoted: msgObj });
+                    } catch (e) { }
                 }
             }
         }
