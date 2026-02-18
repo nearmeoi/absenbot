@@ -169,6 +169,18 @@ const messageHandler = async (sock, msg) => {
                     } catch (e) { }
                 }
                 return;
+            } else {
+                // --- TYPO HANDLER ---
+                const allCmds = getCommandKeys();
+                const closest = findClosestMatch(cmdName, allCmds, 2); // Threshold 2
+                if (closest) {
+                    try {
+                        await sock.sendMessage(sender, { react: { text: "❓", key: msgObj.key } });
+                        await sock.sendMessage(sender, {
+                            text: `⚠️ Perintah *!${cmdName}* tidak ditemukan. Mungkin maksud Anda *!${closest}*?`
+                        }, { quoted: msgObj });
+                    } catch (e) { }
+                }
             }
         }
 
