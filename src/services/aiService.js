@@ -437,10 +437,54 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     return report;
 }
 
+/**
+ * Summarize Islamic Content (Hadith/Ayat)
+ * @param {string} text - Full text
+ * @returns {Promise<string>} - Summarized text (Hikmah/Intisari)
+ */
+async function summarizeIslamicContent(text) {
+    // If text is short enough, return as is
+    if (!text || text.length < 250) return text;
+
+    console.log(chalk.cyan(`[AI] Summarizing Islamic content (${text.length} chars)...`));
+
+    const prompt = `Ringkas hadits/ayat berikut menjadi 1-2 kalimat pendek yang berisi "Hikmah" atau "Intisari" utamanya saja.
+    Jangan ubah makna. Bahasa Indonesia santai, ramah, tapi sopan. 
+    JANGAN pakai emoji berlebihan (maksimal 1).
+    JANGAN pakai kata pembuka "Berikut ringkasannya". Langsung isinya.
+    
+    Teks Asli: "${text}"`;
+
+    // 1. Try Groq (Fastest)
+    if (GROQ_API_KEY) {
+        try {
+            const res = await axios.post(GROQ_API_URL, {
+                model: 'llama3-8b-8192', // Fast model
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 150
+            }, {
+                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+                timeout: 10000
+            });
+            const summary = res.data.choices[0]?.message?.content;
+            if (summary) return summary.trim();
+        } catch (e) {
+            console.warn(chalk.yellow('[AI-SUMMARY] Groq failed, trying fallback...'));
+        }
+    }
+
+    // 2. Fallback to Gimita (ChatAI)
+    const res = await callGimitaChatAI(prompt, 'deepseek-v3');
+    if (res.success) return res.content;
+
+    return text; // Return original if all fail
+}
+
 // Exports (Keep existing names)
 module.exports = {
     generateAttendanceReport,
     processFreeTextToReport,
+    summarizeIslamicContent,
     transcribeAudio,
     callGimitaGemini,
     callGimitaDolphin,

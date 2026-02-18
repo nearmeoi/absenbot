@@ -1,5 +1,6 @@
 const axios = require('axios');
 const chalk = require('chalk');
+const { summarizeIslamicContent } = require('./aiService');
 
 // Default Location: Makassar
 const DEFAULT_CITY = 'Makassar';
@@ -58,7 +59,8 @@ async function getRandomAyat() {
                     ayat: ayat.nomorAyat,
                     arab: ayat.teksArab,
                     latin: ayat.teksLatin,
-                    terjemahan: ayat.teksIndonesia
+                    latin: ayat.teksLatin,
+                    terjemahan: await summarizeIslamicContent(ayat.teksIndonesia)
                 }
             };
         }
@@ -102,7 +104,8 @@ async function getRandomHadith() {
                         perawi: data.name,
                         nomor: randomHadith.number,
                         arab: randomHadith.arab,
-                        terjemahan: randomHadith.id
+                        arab: randomHadith.arab,
+                        terjemahan: await summarizeIslamicContent(randomHadith.id)
                     }
                 };
             }

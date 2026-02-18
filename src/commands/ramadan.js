@@ -5,102 +5,120 @@ module.exports = {
     name: 'ramadan',
     aliases: ['imsak', 'imsakiyah', 'buka', 'berbuka', 'sholat', 'jadwalsholat', 'sahur', 'puasa'],
     description: 'Fitur Ramadhan: Jadwal Imsak, Buka Puasa, dan Pengingat',
-    async execute(sock, msgObj, context) {
-        const { sender: remoteJid, args, textMessage, BOT_PREFIX } = context;
-        const commandParts = textMessage.trim().split(/\s+/);
-        const cmdName = commandParts[0].toLowerCase().substring(BOT_PREFIX.length);
+    async execute(sock, message, context) {
+        const { remoteJid } = message.key;
+        const { args, BOT_PREFIX } = context;
+        const command = message.message.conversation || message.message.extendedTextMessage?.text || '';
+        const cmdName = command.split(' ')[0].replace(BOT_PREFIX, '').toLowerCase();
 
         // Default City logic
-        let city = args && args.trim() !== '' ? args : 'Makassar';
+        let city = args && args.length > 0 ? args.join(' ') : 'Makassar';
 
         try {
-            // --- COMMAND: !imsakiyah / !jadwalsholat ---
-            if (['imsak', 'imsakiyah', 'sholat', 'jadwalsholat'].includes(cmdName)) {
-                const result = await getPrayerTimes(city);
-                if (!result.success) {
-                    await sock.sendMessage(remoteJid, { text: `⚠️ Gagal mengambil jadwal untuk kota *${city}*. Coba kota lain.` }, { quoted: msgObj });
-                    return;
-                }
-
-                const t = result.timings;
-                const d = result.date;
-                const hijri = d.hijri ? `${d.hijri.day} ${d.hijri.month.en} ${d.hijri.year}` : '';
-
-                let text = `🕌 *Jadwal Sholat & Imsakiyah*\n`;
-                text += `📍 *${city.toUpperCase()}*\n`;
-                text += `📅 ${d.readable} | ${hijri}\n\n`;
-
-                text += `🌌 *Imsak:* ${t.Imsak}\n`;
-                text += `🌅 *Subuh:* ${t.Fajr}\n`;
-                text += `🌞 *Terbit:* ${t.Sunrise}\n`;
-                text += `☀️ *Dzuhur:* ${t.Dhuhr}\n`;
-                text += `🌤️ *Ashar:* ${t.Asr}\n`;
-                text += `🌇 *Maghrib (Buka):* ${t.Maghrib}\n`;
-                text += `🏙️ *Isya:* ${t.Isha}\n\n`;
-
-                text += `_Selamat Menunaikan Ibadah Puasa_ 🌙`;
-
-                await sock.sendMessage(remoteJid, { text }, { quoted: msgObj });
+            const result = await getPrayerTimes(city);
+            if (!result.success) {
+                await sock.sendMessage(remoteJid, { text: `⚠️ Gagal mengambil data kota *${city}*.` }, { quoted: message });
+                return;
             }
 
-            // --- COMMAND: !berbuka (Countdown) ---
-            else if (['buka', 'berbuka', 'puasa'].includes(cmdName)) {
-                const result = await getPrayerTimes(city);
-                if (!result.success) {
-                    await sock.sendMessage(remoteJid, { text: `⚠️ Gagal mengambil data untuk *${city}*.` }, { quoted: msgObj });
-                    return;
+            const t = result.timings;
+            const now = new Date();
+
+            // Helper to parsing "HH:mm" to Date object for today
+            const timeToDate = (timeStr) => {
+                const [h, m] = timeStr.split(':').map(Number);
+                const date = new Date();
+                date.setHours(h, m, 0, 0);
+                return date;
+            };
+
+            // --- COMMAND: !imsakiyah / !jadwalsholat (COUNTDOWN STYLE) ---
+            if (['imsak', 'imsakiyah', 'sholat', 'jadwalsholat'].includes(cmdName)) {
+                // Find next prayer
+                const prayerList = [
+                    { name: 'Subuh', time: t.Fajr },
+                    { name: 'Dzuhur', time: t.Dhuhr },
+                    { name: 'Ashar', time: t.Asr },
+                    { name: 'Maghrib', time: t.Maghrib },
+                    { name: 'Isya', time: t.Isha }
+                ];
+
+                let nextPrayer = null;
+                let minDiff = Infinity;
+
+                for (const p of prayerList) {
+                    const pDate = timeToDate(p.time);
+                    if (pDate > now) {
+                        const diff = pDate - now;
+                        if (diff < minDiff) {
+                            minDiff = diff;
+                            nextPrayer = p;
+                        }
+                    }
                 }
 
-                const now = new Date();
-                const maghribTime = result.timings.Maghrib; // "18:15"
-                const [h, m] = maghribTime.split(':').map(Number);
-
-                const target = new Date();
-                target.setHours(h, m, 0, 0);
+                // If no prayer left today, next is Subuh tomorrow (logic simplified: just say "Besok")
+                // Or just show full schedule if late night.
 
                 let text = '';
-                if (target < now) {
-                    text = `✅ Waktu berbuka untuk *${city}* (${maghribTime}) sudah lewat hari ini.\nSelamat berbuka puasa! 🍵`;
+                if (nextPrayer) {
+                    const hours = Math.floor(minDiff / (1000 * 60 * 60));
+                    const mins = Math.floor((minDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+                    text = `Menuju *${nextPrayer.name}* (${nextPrayer.time}) dalam:\n`;
+                    text += `*${hours} jam ${mins} menit*\n\n`;
+                    text += `_Lokasi: ${city}_`;
                 } else {
-                    const diff = target - now;
+                    text = `Jadwal sholat hari ini di *${city}* sudah selesai.\n`;
+                    text += `Subuh besok: ${t.Fajr}`;
+                }
+
+                await sock.sendMessage(remoteJid, { text }, { quoted: message });
+            }
+
+            // --- COMMAND: !berbuka (MINIMALIST COUNTDOWN) ---
+            else if (['buka', 'berbuka', 'puasa'].includes(cmdName)) {
+                const maghribDate = timeToDate(t.Maghrib);
+
+                if (maghribDate < now) {
+                    await sock.sendMessage(remoteJid, {
+                        text: `Waktu berbuka (${t.Maghrib}) sudah lewat.\nSelamat berbuka.`
+                    }, { quoted: message });
+                } else {
+                    const diff = maghribDate - now;
                     const hours = Math.floor(diff / (1000 * 60 * 60));
                     const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-                    text = `⏳ *Hitung Mundur Berbuka di ${city}*\n`;
-                    text += `⏰ Waktu Maghrib: *${maghribTime}*\n`;
-                    text += `⏱️ Kurang: *${hours} jam ${mins} menit* lagi\n\n`;
-                    text += `_Semangat puasanya!_ 💪`;
+                    const text = `Berbuka dalam *${hours} jam ${mins} menit*.\n\nSemangat Puasanya`;
+                    await sock.sendMessage(remoteJid, { text }, { quoted: message });
                 }
-
-                await sock.sendMessage(remoteJid, { text }, { quoted: msgObj });
             }
 
-            // --- COMMAND: !sahur (Quote/Ayat/Hadith) ---
+            // --- COMMAND: !sahur (AI SUMMARIZED CONTENT) ---
             else if (['sahur'].includes(cmdName)) {
+                // Fetch random content (Ayat/Hadith) - Service will auto-summarize
                 const contentRes = await getRandomContent();
-                let text = `🥣 *Waktunya Sahur!* Jangan lupa makan dan niat ya.\n\n`;
+                let text = `🥣 *Waktunya Sahur*\n\n`;
 
                 if (contentRes.success) {
+                    const c = contentRes.content;
                     if (contentRes.type === 'ayat') {
-                        const c = contentRes.content;
-                        text += `📖 *QS. ${c.surah}: ${c.ayat}*\n`;
-                        text += `_${c.arab}_\n`;
-                        text += `"${c.terjemahan}"\n`;
+                        text += `QS. ${c.surah}: ${c.ayat}\n`;
+                        text += `"${c.terjemahan}"`;
                     } else {
-                        const c = contentRes.content;
-                        text += `📜 *Hadits Riwayat ${c.perawi} No. ${c.nomor}*\n`;
-                        text += `"${c.terjemahan}"\n`;
+                        text += `HR. ${c.perawi}\n`;
+                        text += `"${c.terjemahan}"`;
                     }
                 } else {
-                    text += `_"Makan sahurlah kalian, karena pada sahur itu terdapat keberkahan." (HR. Bukhari & Muslim)_`;
+                    text += `"Makan sahurlah kalian, karena pada sahur itu terdapat keberkahan."`;
                 }
 
-                await sock.sendMessage(remoteJid, { text }, { quoted: msgObj });
+                await sock.sendMessage(remoteJid, { text }, { quoted: message });
             }
 
         } catch (e) {
             console.error(chalk.red('[RAMADAN] Command Error:'), e);
-            await sock.sendMessage(remoteJid, { text: '⚠️ Terjadi kesalahan saat memproses data Ramadhan.' }, { quoted: msgObj });
+            await sock.sendMessage(remoteJid, { text: 'Error data ramadhan.' }, { quoted: message });
         }
     }
 };
