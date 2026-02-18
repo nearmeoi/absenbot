@@ -34,8 +34,8 @@ module.exports = {
         const url = args.trim();
 
         if (!url) {
-            return await sock.sendMessage(sender, { 
-                text: 'Usage: !dl [URL]' 
+            return await sock.sendMessage(sender, {
+                text: 'Usage: !dl [URL]'
             }, { quoted: msg });
         }
 
@@ -50,7 +50,7 @@ module.exports = {
 
             // --- AUTO-DETECT PLATFORM & GIMITA API ---
             const platform = PLATFORM_CONFIG.find(p => p.hosts.some(h => url.includes(h)));
-            
+
             if (platform) {
                 console.log(`[DL] Using Gimita API for ${platform.name}: ${url}`);
                 try {
@@ -60,15 +60,18 @@ module.exports = {
                         timeout: 45000
                     });
 
+                    console.log(`[DL] Gimita Response Status: ${response.status}`);
+                    console.log(`[DL] Gimita Response Data: ${JSON.stringify(response.data)}`);
+
                     if (response.data && response.data.success && response.data.data) {
                         const resData = response.data.data;
-                        
+
                         // Handle Video
                         const videoUrl = resData.video?.hd || resData.video?.sd || resData.video?.url || (typeof resData.video === 'string' ? resData.video : null);
-                        
+
                         // Handle Images (e.g. Instagram slides, Pinterest)
                         const images = resData.images || resData.photo || [];
-                        
+
                         // Handle Audio (e.g. Spotify, SoundCloud)
                         const audioUrl = resData.audio?.url || (typeof resData.audio === 'string' ? resData.audio : null);
 
@@ -76,7 +79,7 @@ module.exports = {
 
                         if (videoUrl) {
                             const videoRes = await axios.get(videoUrl, { responseType: 'arraybuffer' });
-                            await sock.sendMessage(sender, { 
+                            await sock.sendMessage(sender, {
                                 video: Buffer.from(videoRes.data),
                                 caption: `✅ *${title}*\n\nPlatform: ${platform.name}\nURL: ${url}`
                             }, { quoted: msg });
@@ -93,7 +96,7 @@ module.exports = {
                             return;
                         } else if (audioUrl) {
                             const audioRes = await axios.get(audioUrl, { responseType: 'arraybuffer' });
-                            await sock.sendMessage(sender, { 
+                            await sock.sendMessage(sender, {
                                 audio: Buffer.from(audioRes.data),
                                 mimetype: 'audio/mp4',
                                 ptt: false
@@ -101,6 +104,8 @@ module.exports = {
                             await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
                             return;
                         }
+                    } else {
+                        console.warn(`[DL] Gimita API returned unsuccessful response:`, response.data);
                     }
                 } catch (apiError) {
                     console.error(`[DL] Gimita API (${platform.name}) Error:`, apiError.message);
@@ -110,14 +115,13 @@ module.exports = {
             /**
              * FALLBACK: yt-dlp (For generic sites or if API fails)
              */
-            const impersonate = url.includes('tiktok.com') ? '--impersonate chrome' : '';
-            const dlCmd = `python3 -m yt_dlp ${impersonate} --no-playlist --max-filesize 50M -f "mp4/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -o "${outputPath}" "${url}"`;
-            
+            const dlCmd = `python3 -m yt_dlp -4 --no-playlist --max-filesize 50M -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -o "${outputPath}" "${url}"`;
+
             console.log(`[DL] Executing yt-dlp: ${dlCmd}`);
             await execPromise(dlCmd);
 
             if (fs.existsSync(outputPath)) {
-                await sock.sendMessage(sender, { 
+                await sock.sendMessage(sender, {
                     video: fs.readFileSync(outputPath),
                     caption: `✅ Downloaded: ${url}`
                 }, { quoted: msg });
@@ -132,7 +136,7 @@ module.exports = {
             await sock.sendMessage(sender, { react: { text: '❌', key: msg.key } });
         } finally {
             if (fs.existsSync(outputPath)) {
-                try { fs.unlinkSync(outputPath); } catch (e) {}
+                try { fs.unlinkSync(outputPath); } catch (e) { }
             }
         }
     }
