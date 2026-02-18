@@ -29,7 +29,7 @@ function loadMessages() {
     // 2. Load Modular Files
     if (fs.existsSync(MESSAGES_DIR)) {
         const files = fs.readdirSync(MESSAGES_DIR).filter(file => file.endsWith('.json'));
-        
+
         files.forEach(file => {
             try {
                 const filePath = path.join(MESSAGES_DIR, file);
@@ -57,12 +57,12 @@ function getAppUrl(phone = '') {
         if (user && user.slug) {
             return `${APP_URL}?u=${user.slug}`;
         }
-        
+
         // Fallback to phone logic if no slug
         if (user) {
-             if (user.phone && !user.phone.includes('@lid') && user.phone.includes('@s.whatsapp.net')) {
+            if (user.phone && !user.phone.includes('@lid') && user.phone.includes('@s.whatsapp.net')) {
                 phone = user.phone;
-             }
+            }
         }
     } catch (e) {
         console.error(`[DEBUG] DB Error in getAppUrl: ${e.message}`);
@@ -78,12 +78,12 @@ function getAppUrl(phone = '') {
 function getMessage(key, phone = '') {
     const messages = loadMessages();
     let msg = messages[key] || '';
-    
+
     if (msg && msg.includes('{app_url}')) {
         const url = getAppUrl(phone);
         msg = msg.split('{app_url}').join(url);
     }
-    
+
     return msg;
 }
 
@@ -106,7 +106,7 @@ function updateMessage(key, content) {
     // 1. Check if key exists in any existing file in directory
     if (fs.existsSync(MESSAGES_DIR)) {
         const files = fs.readdirSync(MESSAGES_DIR).filter(file => file.endsWith('.json'));
-        
+
         for (const file of files) {
             const filePath = path.join(MESSAGES_DIR, file);
             try {
@@ -151,15 +151,9 @@ function updateMessage(key, content) {
     return loadMessages();
 }
 
-// Deprecated: Use updateMessage instead
-function saveMessages(messages) {
-    console.warn('saveMessages is deprecated. Use updateMessage for granular updates.');
-}
-
-module.exports = { 
-    loadMessages, 
-    saveMessages, 
-    getMessage, 
+module.exports = {
+    loadMessages,
+    getMessage,
     updateMessage,
     getAppUrl,
     getMessageWithUrl

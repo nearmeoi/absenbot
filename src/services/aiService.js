@@ -170,7 +170,7 @@ async function runGroqGeneration(systemPrompt, userPrompt) {
 
 async function runFallbackChain(systemPrompt, userPrompt) {
     const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
-    
+
     // 1. Dolphin
     console.log(chalk.cyan('[AI] Fallback: Trying Gimita Dolphin...'));
     let result = await callGimitaDolphin(combinedPrompt);
@@ -191,11 +191,11 @@ async function runFallbackChain(systemPrompt, userPrompt) {
 
 async function runGroqRefinement(content, userStory, previousLogs) {
     if (!GROQ_API_KEY) return content;
-    
+
     console.log(chalk.cyan('[AI] Groq Refinement (Double Check)...'));
     let historySummary = "-";
     if (previousLogs && previousLogs.length > 0) {
-            historySummary = previousLogs.map(l => `[${l.date}] ${l.activity_log.substring(0, 50)}...`).join('; ');
+        historySummary = previousLogs.map(l => `[${l.date}] ${l.activity_log.substring(0, 50)}...`).join('; ');
     }
 
     const refinementPrompt = getMessage('AI_REFINEMENT_WITH_CONTEXT_PROMPT')
@@ -216,7 +216,7 @@ async function runGroqRefinement(content, userStory, previousLogs) {
             headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
             timeout: AI_CONFIG.GROQ.TIMEOUT
         });
-        
+
         const refined = refineResponse.data.choices[0]?.message?.content;
         if (refined) {
             console.log(chalk.green('[AI] Groq Refinement Successful.'));
@@ -234,7 +234,7 @@ const parseAndClamp = (content) => {
             // BACKSLASH-SAFE REGEX STRATEGY:
             // Avoid \s because of backslash hell. Use [ \t] instead.
             // Avoid [\s\S] because of backslash hell. Use [^] (any char).
-            
+
             // Regex logic:
             // (?:^|[\n\r])  -> Start of line or string
             // [ \t]*        -> Optional spaces/tabs
@@ -245,12 +245,12 @@ const parseAndClamp = (content) => {
             // [ \t]*        -> Optional spaces/tabs
             // ([^]*?)       -> Capture EVERYTHING until...
             // (?=...)       -> Lookahead for next section header or end of string
-            
+
             const regexStr = `(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*${label}[*: ]*[ \t]*([^]*?)(?=(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*(?:AKTIVITAS|PEMBELAJARAN|KENDALA)|$)`;
-            
+
             const regex = new RegExp(regexStr, 'i');
             const match = text.match(regex);
-            
+
             if (match && match[1] && match[1].trim().length > 0) {
                 return match[1].trim();
             }
@@ -269,25 +269,25 @@ const parseAndClamp = (content) => {
         console.log(chalk.cyan('[AI-PARSE] Regex failed, using manual line split fallback...'));
         const lines = content.split('\n');
         let currentSection = null;
-        
+
         // Reset variables for fallback
         let a_temp = '', p_temp = '', k_temp = '';
-        
+
         lines.forEach(line => {
             const l = line.trim().toUpperCase();
             // Check headers with flexible matching
-            if (l.match(/[*#\-.0-9]*\s*AKTIVITAS[*: ]*/)) { 
-                currentSection = 'A'; 
+            if (l.match(/[*#\-.0-9]*\s*AKTIVITAS[*: ]*/)) {
+                currentSection = 'A';
                 // Remove header and keep content
-                a_temp = line.replace(/.*AKTIVITAS[*: ]*/i, '').trim(); 
+                a_temp = line.replace(/.*AKTIVITAS[*: ]*/i, '').trim();
             }
-            else if (l.match(/[*#\-.0-9]*\s*PEMBELAJARAN[*: ]*/)) { 
-                currentSection = 'P'; 
-                p_temp = line.replace(/.*PEMBELAJARAN[*: ]*/i, '').trim(); 
+            else if (l.match(/[*#\-.0-9]*\s*PEMBELAJARAN[*: ]*/)) {
+                currentSection = 'P';
+                p_temp = line.replace(/.*PEMBELAJARAN[*: ]*/i, '').trim();
             }
-            else if (l.match(/[*#\-.0-9]*\s*KENDALA[*: ]*/)) { 
-                currentSection = 'K'; 
-                k_temp = line.replace(/.*KENDALA[*: ]*/i, '').trim(); 
+            else if (l.match(/[*#\-.0-9]*\s*KENDALA[*: ]*/)) {
+                currentSection = 'K';
+                k_temp = line.replace(/.*KENDALA[*: ]*/i, '').trim();
             }
             else if (currentSection && line.trim()) {
                 // Append continuation lines
@@ -296,7 +296,7 @@ const parseAndClamp = (content) => {
                 else if (currentSection === 'K') k_temp += ' ' + line.trim();
             }
         });
-        
+
         if (a_temp) aktivitas = a_temp;
         if (p_temp) pembelajaran = p_temp;
         if (k_temp) kendala = k_temp;
@@ -367,7 +367,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
         previousLogs.forEach((log, i) => {
             historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
         });
-        
+
         // Truncate history to avoid URL length limits (approx 2000 chars safe for context)
         if (historyText.length > 2000) {
             historyText = historyText.substring(0, 2000) + "\n...(Riwayat dipotong)...";
@@ -400,7 +400,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     // --- FORCE EXPANSION IF BELOW 100 CHARS ---
     if (GROQ_API_KEY && (report.aktivitas.length < 100 || report.pembelajaran.length < 100 || report.kendala.length < 100)) {
         console.log(chalk.cyan('[AI] Some sections too short, performing Expansion Pass...'));
-        
+
         const expansionPrompt = `Laporan ini terlalu singkat. Perpanjang bagian yang kurang agar mencapai 110-140 karakter dengan menambahkan detail profesional/faktual berdasarkan cerita: "${userText}". 
         PENTING: JANGAN LEBAY, jangan pakai kalimat klise (seperti "tetap semangat", "mencari solusi"). Cukup jelaskan prosesnya secara natural.
         
@@ -423,7 +423,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
                 headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
                 timeout: AI_CONFIG.GROQ.TIMEOUT
             });
-            
+
             const expandedContent = expandRes.data.choices[0]?.message?.content;
             if (expandedContent) {
                 console.log(chalk.green('[AI] Expansion Pass Successful.'));
@@ -438,24 +438,15 @@ async function processFreeTextToReport(userText, previousLogs = []) {
 }
 
 // Exports (Keep existing names)
-module.exports = { 
-    generateAttendanceReport, 
-    processFreeTextToReport, 
-    transcribeAudio, 
-    callGimitaGemini, 
-    callGimitaDolphin, 
-    callGimitaChatAI, 
-    improveWithGimitaGemini: async (originalContent, context = '') => {
-        console.warn('improveWithGimitaGemini is deprecated and not exported.');
-        return { success: false, error: 'Deprecated function' };
-    },
-    improveDolphinResult: async (dolphinContent, systemPrompt, userPrompt) => {
-        console.warn('improveDolphinResult is deprecated and not exported.');
-        return { success: false, error: 'Deprecated function' };
-    },
+module.exports = {
+    generateAttendanceReport,
+    processFreeTextToReport,
+    transcribeAudio,
+    callGimitaGemini,
+    callGimitaDolphin,
+    callGimitaChatAI,
     smartChat: async (prompt, systemPrompt = '') => {
         const full = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
-        // Try Dolphin first for speed in Chat
         let r = await callGimitaDolphin(full);
         if (r.success) return { success: true, content: r.content, model: 'Dolphin' };
         r = await callGimitaChatAI(full, 'deepseek-v3');
