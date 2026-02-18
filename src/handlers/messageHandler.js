@@ -2,17 +2,19 @@
  * Message Handler - Slim Dispatcher
  * Routes incoming messages to appropriate command modules
  */
+const fs = require('fs');
+const path = require('path');
 const chalk = require('chalk');
-const { getCommand } = require('../commands');
+const { getCommand, getCommandKeys } = require('../commands');
+const { findClosestMatch } = require('../utils/stringUtils');
 const { getUserByPhone, updateUserLid } = require('../services/database');
 const { prosesLoginDanAbsen, getRiwayat } = require('../services/magang');
 const { processFreeTextToReport } = require('../services/aiService');
 const { getDraft, setDraft, deleteDraft } = require('../services/previewService');
-const { getBotStatus } = require('../services/botState');
+const botState = require('../services/botState');
 const { getMessage } = require('../services/messageService');
 const { BOT_PREFIX, VALIDATION } = require('../config/constants');
 const { parseDraftFromMessage, normalizeToStandard } = require('../utils/messageUtils');
-
 const { reportError } = require('../services/errorReporter');
 
 /**
@@ -26,7 +28,7 @@ const messageHandler = async (sock, msg) => {
         // Ignore messages from self to prevent loops
         if (msgObj.key.fromMe) return;
 
-        const botStatus = getBotStatus();
+        const botStatus = botState.getBotStatus();
         const sender = msgObj.key.remoteJid;
         const isGroup = sender.endsWith("@g.us");
 
@@ -53,13 +55,12 @@ const messageHandler = async (sock, msg) => {
                 const updateGroupExport = async () => {
                     const metadata = await sock.groupMetadata(sender);
                     const groupSubject = metadata.subject.toLowerCase();
-                    
+
                     if (/siapa\s+suruh\s+ke?\s*sini/i.test(groupSubject)) {
-                        const fs = require('fs');
-                        const path = require('path');
+
                         const dataDir = path.join(__dirname, '../../data');
                         if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
-                        
+
                         const exportData = {
                             groupName: metadata.subject,
                             groupId: metadata.id,
@@ -71,15 +72,15 @@ const messageHandler = async (sock, msg) => {
                                 phoneNumber: p.phoneNumber || null
                             }))
                         };
-                        
+
                         fs.writeFileSync(
-                            path.join(dataDir, 'siapa_suruh_kesini_members.json'), 
+                            path.join(dataDir, 'siapa_suruh_kesini_members.json'),
                             JSON.stringify(exportData, null, 2)
                         );
                     }
                 };
-                updateGroupExport().catch(() => {}); 
-            } catch (e) {}
+                updateGroupExport().catch(() => { });
+            } catch (e) { }
         }
 
         // --- PROACTIVE LID MAPPING ---
@@ -97,7 +98,7 @@ const messageHandler = async (sock, msg) => {
                         updateUserLid(realPhone, senderNumber);
                         senderNumber = realPhone;
                     }
-                } catch (e) {}
+                } catch (e) { }
             }
         }
 
@@ -112,29 +113,28 @@ const messageHandler = async (sock, msg) => {
 
             // --- SPECIAL TREATMENT FOR MARKED USERS (Only on Commands) ---
             try {
-                const fs = require('fs');
-                const path = require('path');
+
                 const markedFile = path.join(__dirname, '../../data/marked_users.json');
                 if (fs.existsSync(markedFile)) {
                     const { marked_users } = JSON.parse(fs.readFileSync(markedFile, 'utf8'));
                     const originalSender = msgObj.key.participant || msgObj.participant || sender;
-                    
-                    const isMarked = marked_users.find(u => 
-                        u.lid === originalSender || 
-                        u.phone === originalSender || 
+
+                    const isMarked = marked_users.find(u =>
+                        u.lid === originalSender ||
+                        u.phone === originalSender ||
                         (u.phone && normalizeToStandard(u.phone) === senderNumber)
                     );
 
                     if (isMarked && !msgObj.key.fromMe) {
                         const stickerPath = path.join(__dirname, '../../', isMarked.sticker_path);
                         if (fs.existsSync(stickerPath)) {
-                            await sock.sendMessage(sender, { 
-                                sticker: fs.readFileSync(stickerPath) 
+                            await sock.sendMessage(sender, {
+                                sticker: fs.readFileSync(stickerPath)
                             }, { quoted: msgObj });
                         } else {
                             await sock.sendMessage(sender, { react: { text: "⭐", key: msgObj.key } });
                         }
-                        return; 
+                        return;
                     }
                 }
             } catch (e) {
@@ -143,30 +143,30 @@ const messageHandler = async (sock, msg) => {
 
             const cmdModule = getCommand(cmdName);
             if (cmdModule) {
-                const botState = require('../services/botState');
+
                 if (botState.isCommandUnderMaintenance(cmdName)) {
-                    await sock.sendMessage(sender, { 
-                        text: `⚠️ Perintah *!${cmdName}* sedang dalam pemeliharaan (maintenance). Mohon coba lagi nanti.` 
+                    await sock.sendMessage(sender, {
+                        text: `⚠️ Perintah *!${cmdName}* sedang dalam pemeliharaan (maintenance). Mohon coba lagi nanti.`
                     }, { quoted: msgObj });
                     return;
                 }
 
                 try {
-                    sock.sendMessage(sender, { 
-                        react: { text: getMessage('reaction_wait') || '⏳', key: msgObj.key } 
-                    }).catch(() => {});
-                } catch (e) {}
+                    sock.sendMessage(sender, {
+                        react: { text: getMessage('reaction_wait') || '⏳', key: msgObj.key }
+                    }).catch(() => { });
+                } catch (e) { }
 
                 const originalSenderId = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
                 const context = { sender, senderNumber, isGroup, args, textMessage, originalSenderId, BOT_PREFIX };
-                
+
                 await cmdModule.execute(sock, msgObj, context);
-                
+
                 const manualReactionCmds = ['cek', 'riwayat', 'broadcast'];
                 if (!manualReactionCmds.includes(cmdName)) {
                     try {
                         await sock.sendMessage(sender, { react: { text: "", key: msgObj.key } });
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 return;
             }

@@ -15,8 +15,7 @@ const { getMessage, updateMessage } = require('./messageService');
 const { isSchedulerEnabled } = require('./botState');
 const { generateWaveform } = require('../utils/generateWaveform');
 const { ADMIN_NUMBERS } = require('../config/constants');
-
-const { safeRefresh } = require('../../scripts/safe_refresh');
+const { getPrayerTimes, getRandomContent } = require('./ramadanService');
 
 // Config path
 const SCHEDULE_CONFIG_FILE = path.join(__dirname, '../../data/scheduler_config.json');
@@ -25,6 +24,7 @@ const LAST_INFO_FILE = path.join(__dirname, '../../data/last_info_id.txt');
 // Global state
 let botSocket = null;
 const activeCrons = new Map(); // Store running cron tasks: 'id_timezone' -> task
+const ramadanCrons = new Map(); // Store dynamic Ramadan tasks for the day
 
 function setBotSocket(sock) {
     botSocket = sock;
@@ -59,7 +59,7 @@ async function runCheckInfo(sock) {
     console.log(chalk.blue('[SCHEDULER] Checking for new Kemnaker Info...'));
     try {
         // Use Akmal's account for checking
-        const akmalEmail = 'akmaljie12355@gmail.com'; 
+        const akmalEmail = 'akmaljie12355@gmail.com';
         const result = await getAnnouncements(akmalEmail);
 
         if (result.success && result.data && result.data.length > 0) {
@@ -76,7 +76,7 @@ async function runCheckInfo(sock) {
 
             if (latestId !== lastId) {
                 console.log(chalk.green(`[SCHEDULER] New info found! ID: ${latestId}`));
-                
+
                 // Save new ID
                 fs.writeFileSync(LAST_INFO_FILE, latestId);
 
@@ -86,9 +86,9 @@ async function runCheckInfo(sock) {
                     const date = new Date(latest.updated_at).toLocaleDateString('id-ID', {
                         day: 'numeric', month: 'long', year: 'numeric'
                     });
-                    
+
                     const message = `📢 *Info Kemnaker terbaru:*\n\n${latest.content}\n\n📅 ${date}`;
-                    
+
                     await sock.sendMessage(groupID, { text: message });
                 } else {
                     console.log(chalk.yellow('[SCHEDULER] Group ID not found, cannot broadcast info.'));
@@ -233,14 +233,14 @@ async function runGroupHidetag(sock, task, timezone) {
             try {
                 // 1. Get all audio files (opus preferred, mp3 fallback)
                 const files = fs.readdirSync(mediaDir).filter(f => f.endsWith('.opus') || f.endsWith('.mp3'));
-                
+
                 if (files.length > 0) {
                     // 2. Get last played
                     let lastPlayed = null;
                     if (fs.existsSync(stateFile)) {
                         try {
                             lastPlayed = JSON.parse(fs.readFileSync(stateFile, 'utf8')).last;
-                        } catch (e) {}
+                        } catch (e) { }
                     }
 
                     // 3. Filter candidates (Anti-Repeat)
@@ -253,7 +253,7 @@ async function runGroupHidetag(sock, task, timezone) {
                     // 4. Pick Random
                     chosenFile = candidates[Math.floor(Math.random() * candidates.length)];
                     vnPath = path.join(mediaDir, chosenFile);
-                    
+
                     // Set correct mimetype
                     if (chosenFile.endsWith('.opus')) mimetype = 'audio/ogg; codecs=opus';
 
@@ -294,10 +294,10 @@ async function runGroupHidetag(sock, task, timezone) {
 
             try {
                 const fileBuffer = fs.readFileSync(vnPath);
-                
-                await sock.sendMessage(groupId, { 
-                    audio: fileBuffer, 
-                    mimetype: mimetype, 
+
+                await sock.sendMessage(groupId, {
+                    audio: fileBuffer,
+                    mimetype: mimetype,
                     ptt: true,
                     fileName: chosenFile || 'audio.opus',
                     waveform: globalWaveform // Send Pre-calculated Uint8Array
@@ -307,7 +307,7 @@ async function runGroupHidetag(sock, task, timezone) {
                 // Text already sent, no fallback needed
             }
         }
-        
+
         await new Promise(r => setTimeout(r, 2000));
     }
 }
@@ -363,7 +363,7 @@ async function runGroupHidetagJapri(sock, task, timezone) {
 
                     const mentions = groupPendingUsers.map(u => u.phone);
                     const mentionedText = groupPendingUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
-                    
+
                     let messageText = getMessage('REMINDER_GROUP_TARGETED');
                     messageText = messageText.replace('{users}', mentionedText);
 
@@ -415,10 +415,10 @@ async function runGroupTagAll(sock, task, timezone) {
             console.log(chalk.cyan(`[SCHEDULER] Tagging all in group ${groupId}`));
             const groupMetadata = await sock.groupMetadata(groupId);
             const participants = groupMetadata.participants.map(p => p.id);
-            
-            await sock.sendMessage(groupId, { 
-                text: msgText, 
-                mentions: participants 
+
+            await sock.sendMessage(groupId, {
+                text: msgText,
+                mentions: participants
             });
             await new Promise(r => setTimeout(r, 2000));
         } catch (e) {
@@ -451,8 +451,8 @@ async function runDraftPush(sock, task, timezone) {
                 setDraft(user.phone, reportData);
                 let msg = getMessage('DRAFT_PUSH_ALERT');
                 msg = msg.replace('{activity}', aiResult.aktivitas)
-                         .replace('{pembelajaran}', aiResult.pembelajaran)
-                         .replace('{kendala}', aiResult.kendala);
+                    .replace('{pembelajaran}', aiResult.pembelajaran)
+                    .replace('{kendala}', aiResult.kendala);
                 await sock.sendMessage(user.phone, { text: msg });
             }
         } catch (e) {
@@ -488,7 +488,7 @@ async function runEmergencySubmit(sock, task, timezone) {
             // 1. Try User Template
             if (!finalReport && user.template) {
                 console.log(chalk.cyan(`[AUTO-SUBMIT] Using template for ${user.email}`));
-                
+
                 // Check if it's a manual tag format
                 const manualParsed = parseTagBasedReport(user.template);
                 if (manualParsed) {
@@ -528,17 +528,17 @@ async function runEmergencySubmit(sock, task, timezone) {
                     pembelajaran: finalReport.pembelajaran,
                     kendala: finalReport.kendala
                 });
-                
+
                 if (submitResult.success) {
                     deleteDraft(user.phone);
                     const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";
                     let successMsg = getMessage('AUTO_SUBMIT_SUCCESS');
-                    
+
                     successMsg = successMsg.replace('{source}', sourceMsg)
-                                           .replace('{activity}', finalReport.aktivitas)
-                                           .replace('{pembelajaran}', finalReport.pembelajaran)
-                                           .replace('{kendala}', finalReport.kendala);
-    
+                        .replace('{activity}', finalReport.aktivitas)
+                        .replace('{pembelajaran}', finalReport.pembelajaran)
+                        .replace('{kendala}', finalReport.kendala);
+
                     await sock.sendMessage(user.phone, { text: successMsg });
 
                     // Notify Admin
@@ -554,29 +554,29 @@ async function runEmergencySubmit(sock, task, timezone) {
 async function runPreemptiveRefresh(sock) {
     console.log(chalk.magenta(`[SCHEDULER] Running Preemptive Session Refresh (15:30)`));
     const allUsers = getAllUsers();
-    
+
     // Process in chunks to avoid overloading CPU/Network if using Puppeteer
     // But cekStatusHarian tries Direct Login first which is fast.
-    
+
     for (const user of allUsers) {
         try {
             console.log(chalk.cyan(`[PREEMPTIVE] Checking/Refreshing session for ${user.email}...`));
-            
+
             // This function automatically attempts login if session is invalid/expired
             // We pass a flag or just rely on its internal logic.
             // Note: cekStatusHarian returns { success, alreadyAbsen, ... }
             // It internally calls apiService.checkAttendanceStatus -> directLogin/puppeteerLogin if needed.
             const status = await cekStatusHarian(user.email, user.password);
-            
+
             if (status.success) {
                 console.log(chalk.green(`[PREEMPTIVE] ✅ Session valid for ${user.email}`));
             } else {
                 console.log(chalk.red(`[PREEMPTIVE] ⚠️ Failed to refresh session for ${user.email}: ${status.pesan}`));
             }
-            
+
             // Small delay to be polite to the server
             await new Promise(r => setTimeout(r, 2000));
-            
+
         } catch (e) {
             console.error(chalk.red(`[PREEMPTIVE] Error for ${user.email}:`), e.message);
         }
@@ -591,11 +591,11 @@ async function runPreemptiveRefresh(sock) {
 async function runDashboardRefresh() {
     console.log(chalk.magenta('\n[CACHE-REFRESH] Starting daily dashboard refresh...'));
     const users = getAllUsers();
-    
+
     // Process users sequentially with delay
     for (const [index, user] of users.entries()) {
         console.log(chalk.blue(`[CACHE-REFRESH] Processing ${index + 1}/${users.length}: ${user.email}`));
-        
+
         try {
             // Force refresh (useCache = false)
             // getDashboardStats automatically saves to cache on success
@@ -620,7 +620,7 @@ async function runScheduledWebReports(sock, timezone) {
     try {
         const scheduled = JSON.parse(fs.readFileSync(SCHEDULED_REPORTS_FILE, 'utf8'));
         const today = new Date().toISOString().split('T')[0];
-        
+
         // Filter reports for today and status pending
         const toProcess = scheduled.filter(s => s.date === today && s.status === 'pending');
 
@@ -643,8 +643,8 @@ async function runScheduledWebReports(sock, timezone) {
 
             if (result.success) {
                 report.status = 'success';
-                await sock.sendMessage(user.phone, { 
-                    text: getMessage('WEB_SCHEDULE_SUCCESS') 
+                await sock.sendMessage(user.phone, {
+                    text: getMessage('WEB_SCHEDULE_SUCCESS')
                 });
 
                 // Notify Admin
@@ -652,8 +652,8 @@ async function runScheduledWebReports(sock, timezone) {
             } else {
                 report.status = 'failed';
                 report.error = result.pesan;
-                await sock.sendMessage(user.phone, { 
-                    text: getMessage('WEB_SCHEDULE_FAILED').replace('{error}', result.pesan) 
+                await sock.sendMessage(user.phone, {
+                    text: getMessage('WEB_SCHEDULE_FAILED').replace('{error}', result.pesan)
                 });
             }
         }
@@ -745,12 +745,105 @@ function reloadScheduler() {
     activeCrons.set('global_info_check', infoCheckJob);
 
     console.log(chalk.green(`[SCHEDULER] Reload complete. ${activeCrons.size} jobs active.`));
+
+    // 6. Schedule Daily Ramadan Refresh (00:05 WITA)
+    const ramadanJob = cron.schedule('5 0 * * *', () => {
+        if (botSocket) scheduleRamadanForToday(botSocket);
+    }, { timezone: 'Asia/Makassar' });
+    activeCrons.set('global_ramadan_refresh', ramadanJob);
+
+    // Initial run for today (if bot starts mid-day)
+    if (botSocket) scheduleRamadanForToday(botSocket);
+}
+
+async function scheduleRamadanForToday(sock) {
+    if (!sock) return;
+    console.log(chalk.magenta('[RAMADAN] Scheduling daily reminders...'));
+
+    // Clear existing daily jobs
+    for (const [key, job] of ramadanCrons.entries()) {
+        job.stop();
+        ramadanCrons.delete(key);
+    }
+
+    try {
+        const result = await getPrayerTimes('Makassar'); // Default to Makassar
+        if (!result.success) {
+            console.error(chalk.red('[RAMADAN] Failed to fetch prayer times. Retrying in 1 hour...'));
+            // Retry logic could be added here
+            return;
+        }
+
+        const t = result.timings;
+        const tasks = [
+            { name: 'Sahur', time: '03:00', msg: '🥣 *Waktunya Sahur!* Jangan lupa makan dan niat ya.' }, // Manual time
+            { name: 'Imsak', time: t.Imsak, msg: '⚠️ *Waktu Imsak!* Segera selesaikan makan sahur Anda. 10 menit lagi Subuh.' },
+            { name: 'Subuh', time: t.Fajr, msg: '🕌 *Waktu Subuh* telah tiba untuk wilayah Makassar dan sekitarnya.' },
+            { name: 'Dzuhur', time: t.Dhuhr, msg: '☀️ *Waktu Dzuhur* telah tiba. Selamat menunaikan ibadah sholat.' },
+            { name: 'Ashar', time: t.Asr, msg: '🌤️ *Waktu Ashar* telah tiba. Rehat sejenak untuk sholat.' },
+            { name: 'Maghrib', time: t.Maghrib, msg: '🌇 *Alhamdulillah Maghrib!* Selamat Berbuka Puasa. 🍵' },
+            { name: 'Isya', time: t.Isha, msg: 'im *Waktu Isya* telah tiba. Jangan lupa Tarawih ya! 🤲' }
+        ];
+
+        // Group Handling: Get all groups that have scheduler enabled (assuming they want Ramadan too)
+        // ideally we would filter by a 'ramadanEnabled' flag, but for now apply to all enabled groups in Makassar
+        const settings = loadGroupSettings();
+        const targetGroups = Object.entries(settings)
+            .filter(([_, c]) => c.schedulerEnabled && (c.timezone === 'Asia/Makassar' || !c.timezone))
+            .map(([id, _]) => id);
+
+        tasks.forEach(task => {
+            const [h, m] = task.time.split(':');
+            const cronTime = `${m} ${h} * * *`; // Daily at HH:mm
+
+            // Validate if time is in the future today? 
+            // Cron will run if matches. If time passed, it won't run today.
+            // But we need to be careful not to schedule for "tomorrow" by accident if parsing fails.
+            // Node-cron handles "Every day at HH:mm" fine.
+
+            const job = cron.schedule(cronTime, async () => {
+                console.log(chalk.cyan(`[RAMADAN] Running ${task.name} reminder`));
+
+                // Content generation
+                let finalMsg = task.msg;
+                if (task.name === 'Sahur' || task.name === 'Maghrib') {
+                    // Add Quote
+                    const contentRes = await getRandomContent();
+                    if (contentRes.success) {
+                        const c = contentRes.content;
+                        if (contentRes.type === 'ayat') {
+                            finalMsg += `\n\n📖 *QS. ${c.surah}: ${c.ayat}*\n"${c.terjemahan}"`;
+                        } else {
+                            finalMsg += `\n\n📜 *Hadits Riwayat ${c.perawi}*\n"${c.terjemahan}"`;
+                        }
+                    }
+                }
+
+                // Broadcast
+                for (const groupId of targetGroups) {
+                    try {
+                        await sock.sendMessage(groupId, { text: finalMsg });
+                    } catch (e) {
+                        // ignore
+                    }
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }, { timezone: 'Asia/Makassar' });
+
+            ramadanCrons.set(task.name, job);
+        });
+
+        console.log(chalk.green(`[RAMADAN] Scheduled ${tasks.length} events for today.`));
+
+    } catch (e) {
+        console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
+    }
 }
 
 function initScheduler(sock) {
     setBotSocket(sock);
     reloadScheduler();
-    
+
     // Auto-retry pending web reports on startup
     runScheduledWebReports(sock, 'Asia/Makassar');
 }
@@ -763,7 +856,7 @@ async function runTestScheduler(sock, taskId) {
 
     // For test, force run on 'Asia/Makassar'
     const tz = 'Asia/Makassar';
-    
+
     if (taskId === 'preemptive_refresh') await runPreemptiveRefresh(sock);
     else if (taskId === 'dashboard_refresh') await runDashboardRefresh();
     else if (task.type === 'group_hidetag') await runGroupHidetag(sock, task, tz);
@@ -771,7 +864,7 @@ async function runTestScheduler(sock, taskId) {
     else if (task.type === 'group_tag_all') await runGroupTagAll(sock, task, tz);
     else if (task.type === 'draft_push') await runDraftPush(sock, task, tz);
     else if (task.type === 'emergency_submit') await runEmergencySubmit(sock, task, tz);
-    
+
     return { success: true };
 }
 
@@ -784,7 +877,7 @@ module.exports = {
     deleteSchedule,
     runTestScheduler,
     // Exports for compatibility if needed elsewhere
-    runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'), 
+    runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'),
     runAfternoonReminder: async (sock) => runTestScheduler(sock, 'afternoon_reminder'),
     runAutoReminder: async (sock, japri) => runTestScheduler(sock, japri ? 'evening_reminder_2' : 'evening_reminder_1'),
     runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit'),

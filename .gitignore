@@ -27,7 +27,16 @@ temp/
 Thumbs.db
 .DS_Store
 
-# Old/unused files
+# Backup files
+*.bak
+*.bak_*
+data_bak_*/
+safety_backups/
+
+# Debug files
+debug_*
+
+# Old/unused
 kemnaker.css
 data/push_subscriptions.json
 data/scheduled_reports.json

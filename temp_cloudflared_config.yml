@@ -1,8 +1,0 @@
-tunnel: 8421eb7a-ccdd-41ba-a522-9277288d8a57
-credentials-file: /etc/cloudflared/8421eb7a-ccdd-41ba-a522-9277288d8a57.json
-ingress:
-  - hostname: monev-absenbot.my.id
-    service: http://localhost:3000
-  - hostname: app.monev-absenbot.my.id
-    service: http://localhost:3000
-  - service: http_status:404
