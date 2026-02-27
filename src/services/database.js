@@ -22,7 +22,7 @@ let cachedUsers = null;
 
 const loadUsers = () => {
     // 1. Return from memory if available
-    if (cachedUsers) return [...cachedUsers];
+    if (cachedUsers) return structuredClone(cachedUsers);
 
     // 2. Otherwise load from disk
     try {

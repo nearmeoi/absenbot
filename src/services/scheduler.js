@@ -59,8 +59,8 @@ async function runCheckInfo(sock) {
     console.log(chalk.blue('[SCHEDULER] Checking for new Kemnaker Info...'));
     try {
         // Use Akmal's account for checking
-        const akmalEmail = 'akmaljie12355@gmail.com';
-        const result = await getAnnouncements(akmalEmail);
+        const checkEmail = process.env.INFO_CHECK_EMAIL || 'akmaljie12355@gmail.com';
+        const result = await getAnnouncements(checkEmail);
 
         if (result.success && result.data && result.data.length > 0) {
             // Sort by ID descending (newest first) just in case
@@ -181,19 +181,17 @@ function isWeekendOrHoliday(timezone) {
 }
 
 function shouldSkipGroup(config, timezone) {
-    // Check holiday
-    if (config.holidays && config.holidays.length > 0) {
-        const now = new Date();
-        const tzString = now.toLocaleString("en-US", { timeZone: timezone });
-        const tzDate = new Date(tzString);
-        const dateStr = tzDate.toISOString().split('T')[0];
-        if (config.holidays.includes(dateStr)) return true;
-    }
-    // Check weekend
     const now = new Date();
     const tzString = now.toLocaleString("en-US", { timeZone: timezone });
     const tzDate = new Date(tzString);
+    const dateStr = tzDate.toISOString().split('T')[0];
     const day = tzDate.getDay();
+
+    // Check custom holidays
+    if (config.holidays && config.holidays.length > 0) {
+        if (config.holidays.includes(dateStr)) return true;
+    }
+    // Check weekend
     const isWeekend = (day === 0 || day === 6);
     return isWeekend && (config.skipWeekends !== false);
 }
@@ -240,10 +238,10 @@ async function runEmergencyWarning(sock, task, timezone) {
 
     // Parallel check statuses
     const pendingCriticalUsers = (await parallelMap(allUsers, async (user) => {
-        const isCriticalDay = 
-            (user.cycle_day === 24 && todayDate === 23) || 
+        const isCriticalDay =
+            (user.cycle_day === 24 && todayDate === 23) ||
             (user.cycle_day === 16 && todayDate === 15);
-        
+
         if (!isCriticalDay) return null;
 
         try {
@@ -260,7 +258,7 @@ async function runEmergencyWarning(sock, task, timezone) {
             const mentionedText = pendingCriticalUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
             const mentions = pendingCriticalUsers.map(u => u.phone);
             const warningMsg = `🚨 *PENGINGAT DEADLINE (DEADLINE 17:00)* 🚨\n\nHalo ${mentionedText}\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya sudah mengirimkan *Draf Laporan* ke Chat Pribadi Anda.\n\nSilakan cek DM dan balas *ya* untuk mengirim. Jika sampai jam 16:30 tetap belum absen, saya akan mengirimkannya secara *OTOMATIS* demi mengamankan upah Anda.`;
-            
+
             await sock.sendMessage(groupId, { text: warningMsg, mentions });
         }
 
@@ -286,7 +284,7 @@ async function runEmergencyWarning(sock, task, timezone) {
                             }
                         }
                     }
-                    
+
                     // Fallback to AI from History
                     if (!reportData) {
                         const riwayatResult = await getRiwayat(user.email, user.password, 3);
@@ -303,8 +301,8 @@ async function runEmergencyWarning(sock, task, timezone) {
                     const draftMsg = `🚨 *PERINGATAN DEADLINE (17:00)* 🚨\n\nHalo, Anda belum absen. Saya sudah menyiapkan draf laporan untuk Anda (${source}):\n\n*Aktivitas:* ${reportData.aktivitas}\n*Pembelajaran:* ${reportData.pembelajaran}\n*Kendala:* ${reportData.kendala}\n\nKetik *ya* untuk mengirim sekarang.\n\n⚠️ *PENTING:* Jika tidak ada balasan sampai jam 16:30, saya akan mengirimkan laporan di atas secara *OTOMATIS* ke server Kemnaker agar upah Anda tidak terpotong.`;
                     await sock.sendMessage(user.phone, { text: draftMsg });
                 } else {
-                    await sock.sendMessage(user.phone, { 
-                        text: `📢 *PENGINGAT DEADLINE*\n\nHalo, mohon segera lakukan absen manual sebelum jam 17:00 WITA. Jika tetap belum absen sampai jam 16:30, saya akan mencoba mengabsenkan otomatis.` 
+                    await sock.sendMessage(user.phone, {
+                        text: `📢 *PENGINGAT DEADLINE*\n\nHalo, mohon segera lakukan absen manual sebelum jam 17:00 WITA. Jika tetap belum absen sampai jam 16:30, saya akan mencoba mengabsenkan otomatis.`
                     });
                 }
                 await new Promise(r => setTimeout(r, 1000));
@@ -576,10 +574,10 @@ async function runEmergencySubmit(sock, task, timezone) {
 
     // 1. Identify Phase (Parallel)
     const pendingCriticalUsers = (await parallelMap(allUsers, async (user) => {
-        const isCriticalDay = 
-            (user.cycle_day === 24 && todayDate === 23) || 
+        const isCriticalDay =
+            (user.cycle_day === 24 && todayDate === 23) ||
             (user.cycle_day === 16 && todayDate === 15);
-        
+
         if (!isCriticalDay) return null;
 
         try {
@@ -591,25 +589,25 @@ async function runEmergencySubmit(sock, task, timezone) {
 
     if (pendingCriticalUsers.length > 0) {
         console.log(chalk.yellow(`[CRITICAL] Found ${pendingCriticalUsers.length} users haven't attended on deadline day!`));
-        
+
         // Notify in Group
         const groupId = getGroupId();
         if (groupId) {
             const mentionedText = pendingCriticalUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
             const mentions = pendingCriticalUsers.map(u => u.phone);
             const warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
-            
+
             await sock.sendMessage(groupId, { text: warningMsg, mentions });
         }
 
         // Notify via DM and then Submit
         for (const user of pendingCriticalUsers) {
             try {
-                await sock.sendMessage(user.phone, { 
-                    text: `🚨 *PERINGATAN DEADLINE*\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya akan membantu melakukan absen otomatis sekarang agar upah Anda tidak terpotong.` 
+                await sock.sendMessage(user.phone, {
+                    text: `🚨 *PERINGATAN DEADLINE*\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya akan membantu melakukan absen otomatis sekarang agar upah Anda tidak terpotong.`
                 });
                 await new Promise(r => setTimeout(r, 1000));
-            } catch (e) {}
+            } catch (e) { }
 
             // The actual submit logic
             await executeAutoSubmit(sock, user);
@@ -847,20 +845,20 @@ async function scheduleRamadanForToday(sock) {
     try {
         const settings = loadGroupSettings();
         const enabledGroups = Object.entries(settings).filter(([_, c]) => c.schedulerEnabled);
-        
+
         // Map to store schedules per city to avoid redundant API calls
         const citySchedules = new Map();
 
         for (const [groupId, config] of enabledGroups) {
             // 1. Determine City for this group
             let groupCity = config.city; // If already set manually
-            
+
             if (!groupCity) {
                 // Try to infer from group name
                 try {
                     const metadata = await sock.groupMetadata(groupId);
                     const groupName = metadata.subject.toLowerCase();
-                    
+
                     // Simple inference (can be expanded)
                     if (groupName.includes('jakarta')) groupCity = 'Jakarta';
                     else if (groupName.includes('bandung')) groupCity = 'Bandung';
@@ -917,13 +915,13 @@ async function scheduleRamadanForToday(sock) {
 
                 const job = cron.schedule(cronTime, async () => {
                     console.log(chalk.cyan(`[RAMADAN] Running ${task.name} for group ${groupId}`));
-                    
+
                     let finalMsg = task.msg;
                     if (task.name.startsWith('Sahur') || task.name.startsWith('Maghrib')) {
                         const contentRes = await getRandomContent();
                         if (contentRes.success) {
                             const c = contentRes.content;
-                            finalMsg += contentRes.type === 'ayat' 
+                            finalMsg += contentRes.type === 'ayat'
                                 ? `\n\n📖 *QS. ${c.surah}: ${c.ayat}*\n"${c.terjemahan}"`
                                 : `\n\n📜 *Hadits Riwayat ${c.perawi}*\n"${c.terjemahan}"`;
                         }

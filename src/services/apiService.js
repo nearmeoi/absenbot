@@ -70,7 +70,7 @@ function loadSession(email) {
  */
 function saveSession(email, cookies, csrfToken = null, accessToken = null, refreshToken = null, participantId = null) {
     const sessionPath = path.join(SESSION_DIR, `${email}.json`);
-    
+
     // Load existing session to merge data (don't overwrite with nulls)
     let existingSession = loadSession(email) || {};
 
@@ -86,8 +86,10 @@ function saveSession(email, cookies, csrfToken = null, accessToken = null, refre
     // Update Memory
     sessionCache.set(email, session);
 
-    // Persist to Disk
-    fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+    // Persist to Disk (non-blocking)
+    fs.writeFile(sessionPath, JSON.stringify(session, null, 2), 'utf8', (err) => {
+        if (err) console.error(chalk.red(`[API] Session write error for ${email}:`), err.message);
+    });
     console.log(chalk.green(`[API] Session saved for ${email}${session.accessToken ? ' (with access token)' : ''}${session.participantId ? ' (with participant ID)' : ''}`));
 }
 
@@ -96,7 +98,7 @@ function saveSession(email, cookies, csrfToken = null, accessToken = null, refre
  */
 function createApiClient(session) {
     const jar = new CookieJar();
-    
+
     // Restore cookies to jar
     if (session.cookies && Array.isArray(session.cookies)) {
         session.cookies.forEach(c => {
@@ -136,6 +138,22 @@ function createApiClient(session) {
 }
 
 /**
+ * Ensure participantId is available in the session.
+ * Fetches from DAILY_LOGS if not cached yet.
+ */
+async function ensureParticipantId(email, client, session) {
+    if (session.participantId) return session.participantId;
+
+    const logsRes = await client.get(API_ENDPOINTS.DAILY_LOGS);
+    if (logsRes.data?.data?.length > 0) {
+        session.participantId = logsRes.data.data[0].participant_id;
+        saveSession(email, session.cookies, session.csrfToken, session.accessToken, session.refreshToken, session.participantId);
+        return session.participantId;
+    }
+    throw new Error("Could not find participant_id");
+}
+
+/**
  * Fast API login - Skip Puppeteer if possible
  * Performs the full 3-step OIDC flow to get access and refresh tokens
  */
@@ -171,7 +189,7 @@ async function directLogin(email, password) {
 
         if (loginRes.status === 200 && loginRes.data.data?.authenticated) {
             console.log(chalk.green(`[API] ✅ Account Login Successful! Synchronizing SSO to Monev...`));
-            
+
             let monevSuccess = false;
             let accessToken = null;
             let refreshToken = null;
@@ -181,18 +199,18 @@ async function directLogin(email, password) {
                 // client_id is constant for Monev app
                 const clientId = "79230891-cc02-43c8-964c-b525bce27857";
                 const authUrl = `https://account.kemnaker.go.id/auth?client_id=${clientId}&redirect_uri=https%3A%2F%2Fmonev.maganghub.kemnaker.go.id%2Fsso%2Fcallback&response_type=code&scope=basic%20email`;
-                
+
                 const authRes = await client.get(authUrl, {
                     maxRedirects: 0,
                     validateStatus: (s) => s === 302
                 });
-                
+
                 const callbackUrl = authRes.headers.location;
                 const codeMatch = callbackUrl?.match(/code=([^&]+)/);
-                
+
                 if (codeMatch) {
                     const code = codeMatch[1];
-                    
+
                     // 4. Exchange Code for Tokens
                     const exchangeUrl = `https://monev-api.maganghub.kemnaker.go.id/authenticate/login/callback?code=${code}`;
                     const exchangeRes = await client.get(exchangeUrl, {
@@ -215,7 +233,7 @@ async function directLogin(email, password) {
 
             const allCookies = [];
             const domains = ['account.kemnaker.go.id', 'monev.maganghub.kemnaker.go.id', 'kemnaker.go.id', 'siapkerja.kemnaker.go.id'];
-            
+
             for (const domain of domains) {
                 const domainCookies = await jar.getCookies('https://' + domain);
                 domainCookies.forEach(c => {
@@ -232,8 +250,8 @@ async function directLogin(email, password) {
 
             saveSession(email, allCookies, csrfToken, accessToken, refreshToken);
 
-            return { 
-                success: true, 
+            return {
+                success: true,
                 sso_completed: monevSuccess,
                 pesan: monevSuccess ? "Login & SSO Berhasil (API)" : "Account Login Berhasil (SSO menyusul via browser)"
             };
@@ -258,10 +276,10 @@ async function checkAttendanceStatus(email) {
         });
 
         if (response.request?.res?.responseUrl) {
-             const finalUrl = response.request.res.responseUrl;
-             if (finalUrl.includes('login') || finalUrl.includes('auth')) {
-                 return { success: false, needsLogin: true, pesan: "Session expired - redirected to login" };
-             }
+            const finalUrl = response.request.res.responseUrl;
+            if (finalUrl.includes('login') || finalUrl.includes('auth')) {
+                return { success: false, needsLogin: true, pesan: "Session expired - redirected to login" };
+            }
         }
 
         const logs = response.data?.data;
@@ -272,42 +290,41 @@ async function checkAttendanceStatus(email) {
 
         if (todayLog) {
             return { success: true, sudahAbsen: true, data: todayLog };
-        } 
-        
+        }
+
         // --- FALLBACK CHECK: Check for "Izin/Sakit" in Attendances Endpoint ---
         // Daily Logs ONLY contains "PRESENT" logs. "ON_LEAVE" (Izin/Sakit) are only in /api/attendances
-        
-        let participantId = session.participantId;
-        if (!participantId && logs.length > 0) {
-            participantId = logs[0].participant_id;
-            // Optimistic update of session file with new participantId
+
+        let participantId = session.participantId || (logs.length > 0 ? logs[0].participant_id : null);
+        if (participantId && !session.participantId) {
+            session.participantId = participantId;
             saveSession(email, session.cookies, session.csrfToken, session.accessToken, session.refreshToken, participantId);
         }
 
         if (participantId) {
-             const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-             const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
-             const attendancesUrl = `${API_BASE_URL}/api/attendances?participant_id=${participantId}&start_date=${startOfMonth}&end_date=${endOfMonth}`;
-             
-             try {
-                 const attRes = await client.get(attendancesUrl);
-                 if (attRes.status === 200 && attRes.data?.data) {
-                     const attendances = attRes.data.data;
-                     const todayAtt = attendances.find(a => a.date === today);
-                     
-                     if (todayAtt) {
-                         // Check for non-present statuses that count as "Absen"
-                         const validStatuses = ['ON_LEAVE', 'SICK', 'PERMIT', 'PRESENT']; 
-                         if (validStatuses.includes(todayAtt.status)) {
-                             return { success: true, sudahAbsen: true, data: todayAtt, isIzin: true };
-                         }
-                     }
-                 }
-             } catch (e) {
-                 console.log(chalk.yellow(`[API] Failed to check detailed attendances: ${e.message}`));
-             }
+            const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+            const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+            const attendancesUrl = `${API_BASE_URL}/api/attendances?participant_id=${participantId}&start_date=${startOfMonth}&end_date=${endOfMonth}`;
+
+            try {
+                const attRes = await client.get(attendancesUrl);
+                if (attRes.status === 200 && attRes.data?.data) {
+                    const attendances = attRes.data.data;
+                    const todayAtt = attendances.find(a => a.date === today);
+
+                    if (todayAtt) {
+                        // Check for non-present statuses that count as "Absen"
+                        const validStatuses = ['ON_LEAVE', 'SICK', 'PERMIT', 'PRESENT'];
+                        if (validStatuses.includes(todayAtt.status)) {
+                            return { success: true, sudahAbsen: true, data: todayAtt, isIzin: true };
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log(chalk.yellow(`[API] Failed to check detailed attendances: ${e.message}`));
+            }
         }
-        
+
         return { success: true, sudahAbsen: false };
 
     } catch (error) {
@@ -412,13 +429,7 @@ async function getAttendances(email, startDate, endDate) {
 
     try {
         const client = createApiClient(session);
-        if (!session.participantId) {
-            const logsRes = await client.get(API_ENDPOINTS.DAILY_LOGS);
-            if (logsRes.data?.data?.length > 0) {
-                session.participantId = logsRes.data.data[0].participant_id;
-                saveSession(email, session.cookies, session.csrfToken, session.accessToken, session.refreshToken, session.participantId);
-            } else throw new Error("Could not find participant_id");
-        }
+        await ensureParticipantId(email, client, session);
 
         const url = `${API_BASE_URL}/api/attendances?participant_id=${session.participantId}&start_date=${startDate}&end_date=${endDate}`;
         const response = await client.get(url);
@@ -439,19 +450,11 @@ async function getMonthlyReports(email) {
 
     try {
         const client = createApiClient(session);
-        
-        // Get participant_id if not in session
-        if (!session.participantId) {
-            const logsRes = await client.get(API_ENDPOINTS.DAILY_LOGS);
-            if (logsRes.data?.data?.length > 0) {
-                session.participantId = logsRes.data.data[0].participant_id;
-                saveSession(email, session.cookies, session.csrfToken, session.accessToken, session.refreshToken, session.participantId);
-            } else throw new Error("Could not find participant_id");
-        }
+        await ensureParticipantId(email, client, session);
 
         const url = `${API_ENDPOINTS.MONTHLY_REPORTS}?participant_id=${session.participantId}`;
         const response = await client.get(url);
-        
+
         if (response.status === 200 && response.data?.data) {
             return { success: true, data: response.data.data };
         }
@@ -472,7 +475,7 @@ async function getAnnouncements(email) {
     try {
         const client = createApiClient(session);
         const response = await client.get(API_ENDPOINTS.ANNOUNCEMENTS);
-        
+
         if (response.status === 200 && response.data?.data) {
             return { success: true, data: response.data.data };
         }
@@ -492,19 +495,11 @@ async function getParticipantProfile(email) {
 
     try {
         const client = createApiClient(session);
-        
-        // Get participant_id if not in session
-        if (!session.participantId) {
-            const logsRes = await client.get(API_ENDPOINTS.DAILY_LOGS);
-            if (logsRes.data?.data?.length > 0) {
-                session.participantId = logsRes.data.data[0].participant_id;
-                saveSession(email, session.cookies, session.csrfToken, session.accessToken, session.refreshToken, session.participantId);
-            } else throw new Error("Could not find participant_id");
-        }
+        await ensureParticipantId(email, client, session);
 
         const url = `${API_BASE_URL}/api/participants/${session.participantId}`;
         const response = await client.get(url);
-        
+
         if (response.status === 200 && response.data?.data) {
             return { success: true, data: response.data.data };
         }
@@ -525,7 +520,7 @@ async function getUserProfile(email) {
     try {
         const client = createApiClient(session);
         const response = await client.get(API_ENDPOINTS.USER_ME);
-        
+
         if (response.status === 200 && response.data?.data) {
             return { success: true, data: response.data.data };
         }
