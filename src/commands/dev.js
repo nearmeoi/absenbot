@@ -64,14 +64,52 @@ module.exports = {
             const groups = getAllowedGroups();
             const today = new Date().toISOString().split('T')[0];
             const todayIsHoliday = isHoliday();
+            
+            // Memory stats
+            const used = process.memoryUsage();
+            const memMsg = `💾 Memory: ${Math.round(used.rss / 1024 / 1024 * 100) / 100} MB\n`;
 
             const statusMsg = getMessage('DEV_STATUS_HEADER') +
                 `Hari ini: ${today}\n` +
-                `Status: ${todayIsHoliday ? '🔴 LIBUR' : '🟢 KERJA'}\n\n` +
+                `Status: ${todayIsHoliday ? '🔴 LIBUR' : '🟢 KERJA'}\n` +
+                memMsg +
                 `📅 Custom Holidays (${holidays.length}):\n${holidays.length > 0 ? holidays.map(d => `  • ${d}`).join('\n') : '  (kosong)'}\n\n` +
                 `👥 Allowed Groups (${groups.length}):\n${groups.length > 0 ? groups.map(g => `  • ${g}`).join('\n') : '  (kosong)'}`;
 
             await sock.sendMessage(senderNumber, { text: statusMsg });
+            return;
+        }
+
+        // !dev update
+        if (subCmd === 'update') {
+            await sock.sendMessage(senderNumber, { text: '🚀 Memulai update dari GitHub...' });
+            const { exec } = require('child_process');
+            exec('git pull && npm install', (err, stdout, stderr) => {
+                if (err) {
+                    sock.sendMessage(senderNumber, { text: `❌ Update Gagal: ${err.message}` });
+                    return;
+                }
+                sock.sendMessage(senderNumber, { text: `✅ Update Selesai. Merestart bot...\n\nLog:\n${stdout.substring(0, 500)}` }).then(() => {
+                    process.exit(0); // PM2 will restart
+                });
+            });
+            return;
+        }
+
+        // !dev clean
+        if (subCmd === 'clean') {
+            const { AUTH_STATE_DIR } = require('../config/constants');
+            const fs = require('fs');
+            const path = require('path');
+            const files = fs.readdirSync(AUTH_STATE_DIR);
+            let count = 0;
+            for (const file of files) {
+                if (file !== 'creds.json') {
+                    fs.unlinkSync(path.join(AUTH_STATE_DIR, file));
+                    count++;
+                }
+            }
+            await sock.sendMessage(senderNumber, { text: `🧹 Berhasil membersihkan ${count} file junk di SesiWA.` });
             return;
         }
 

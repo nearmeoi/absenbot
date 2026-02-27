@@ -49,6 +49,26 @@ process.on('unhandledRejection', (reason, promise) => {
     reportError(reason, 'UnhandledRejection');
 });
 
+// --- AUTO LOG CLEANUP (Every 24 Hours) ---
+setInterval(() => {
+    const fs = require('fs');
+    const path = require('path');
+    const logDir = path.join(__dirname, 'logs');
+    if (fs.existsSync(logDir)) {
+        const files = fs.readdirSync(logDir);
+        for (const file of files) {
+            if (file.endsWith('.log')) {
+                const filePath = path.join(logDir, file);
+                const stats = fs.statSync(filePath);
+                if (stats.size > 10 * 1024 * 1024) { // 10MB limit
+                    fs.writeFileSync(filePath, ''); // Clear it
+                    console.log(`[CLEANUP] Cleared large log file: ${file}`);
+                }
+            }
+        }
+    }
+}, 24 * 60 * 60 * 1000);
+
 // Start Application
 try {
     connectToWhatsApp();
