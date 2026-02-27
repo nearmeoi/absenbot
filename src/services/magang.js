@@ -13,6 +13,7 @@ const {
 } = require("../config/constants");
 const apiService = require("./apiService");
 const { isHoliday } = require("../config/holidays");
+const { getDashboardCache, setDashboardCache } = require("./dashboardCache");
 
 // Queue to ensure only ONE browser instance opens at a time
 class BrowserQueue {
@@ -105,8 +106,15 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
     try {
         browser = await launchBrowser();
         page = await browser.newPage();
-        page.setDefaultTimeout(60000);
+        page.setDefaultTimeout(120000);
         await page.setUserAgent(USER_AGENT);
+
+        // --- PRE-LOAD COOKIES ---
+        const existingSession = apiService.loadSession(email);
+        if (existingSession && existingSession.cookies) {
+            console.log(chalk.cyan(`[BROWSER] Pre-loading existing cookies for ${email}...`));
+            await page.setCookie(...existingSession.cookies);
+        }
 
         const context = browser.defaultBrowserContext();
         await context.overridePermissions("https://account.kemnaker.go.id", []);
@@ -130,7 +138,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
             try {
                 await page.goto(API_ENDPOINTS.LOGIN_URL, {
                     waitUntil: i === 0 ? "networkidle2" : "domcontentloaded",
-                    timeout: 60000
+                    timeout: 120000
                 });
                 navSuccess = true;
                 break;
@@ -196,7 +204,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         try {
             await page.goto('https://monev.maganghub.kemnaker.go.id/dashboard', {
                 waitUntil: 'domcontentloaded',
-                timeout: 60000
+                timeout: 120000
             });
             await new Promise(r => setTimeout(r, 10000));
         } catch (e) {
@@ -285,7 +293,7 @@ async function _puppeteerSubmitCore(email, password, reportData) {
     try {
         browser = await launchBrowser();
         const page = await browser.newPage();
-        page.setDefaultTimeout(90000);
+        page.setDefaultTimeout(120000);
         await page.setUserAgent(USER_AGENT);
         await page.setViewport({ width: 800, height: 600 });
         await page.goto(API_ENDPOINTS.LOGIN_URL, { waitUntil: "domcontentloaded" });
@@ -305,7 +313,7 @@ async function _puppeteerSubmitCore(email, password, reportData) {
             await page.type(identityInput, email, { delay: 20 });
             await page.type('input[type="password"]', password, { delay: 20 });
             await page.click('button[type="submit"]');
-            await page.waitForFunction(() => location.href.includes("monev") || location.href.includes("dashboard"), { timeout: 60000 });
+            await page.waitForFunction(() => location.href.includes("monev") || location.href.includes("dashboard"), { timeout: 120000 });
         }
 
         const cookies = await page.cookies();
@@ -355,22 +363,44 @@ async function _puppeteerSubmitCore(email, password, reportData) {
 }
 
 async function cekKredensial(email, password) {
-    apiService.clearSession(email);
+    // 1. Try Direct Login first (it's fast)
+    // We don't clear the session here because directLogin will update it
+    const directResult = await apiService.directLogin(email, password);
+    
+    // If it's fully successful (including SSO), we are done!
+    if (directResult.success && directResult.sso_completed) {
+        console.log(chalk.green(`[MAGANG] ✅ Direct Login (Fast) successful for ${email}`));
+        return directResult;
+    }
+    
+    // 2. If Account login succeeded but SSO failed, proceed to Puppeteer
+    // Puppeteer will use the cookies we just saved to skip the login form
+    console.log(chalk.yellow(`[MAGANG] Direct Login partially successful. Completing via browser for ${email}...`));
     return await puppeteerLogin(email, password, true);
 }
 
 async function cekStatusHarian(email, password) {
     const apiResult = await apiService.checkAttendanceStatus(email);
     if (apiResult.success) return apiResult;
+    
     if (apiResult.needsLogin) {
+        // Try Direct Login (Fast Account Refresh)
         const directResult = await apiService.directLogin(email, password);
-        let loginSuccess = directResult.success;
-        if (!loginSuccess) {
-            const loginResult = await puppeteerLogin(email, password, false);
-            loginSuccess = loginResult.success;
+        
+        // Even if Direct Login succeeded, if SSO handshake failed, 
+        // we still need Puppeteer to get the full session (Monev tokens)
+        if (directResult.success && directResult.sso_completed) {
+            return await apiService.checkAttendanceStatus(email);
         }
-        if (!loginSuccess) return { success: false, pesan: "Login gagal" };
-        return await apiService.checkAttendanceStatus(email);
+        
+        // Fallback to Puppeteer for full session
+        console.log(chalk.yellow(`[MAGANG] Direct Login incomplete. Completing via Puppeteer...`));
+        const loginResult = await puppeteerLogin(email, password, false);
+        
+        if (loginResult.success) {
+            return await apiService.checkAttendanceStatus(email);
+        }
+        return { success: false, pesan: "Login gagal" };
     }
     return { success: false, sudahAbsen: false, pesan: apiResult.pesan || "Unknown error" };
 }
@@ -392,10 +422,12 @@ async function prosesLoginDanAbsen(dataUser) {
         console.log(chalk.yellow(`[PROCESS] API failed (needs login). Attempting Direct Login for ${email}...`));
         const loginResult = await apiService.directLogin(email, password);
         
-        if (loginResult.success) {
+        if (loginResult.success && loginResult.sso_completed) {
             console.log(chalk.green(`[PROCESS] Direct Login successful. Retrying API submission...`));
             apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
             if (apiResult.success) return apiResult;
+        } else if (loginResult.success) {
+            console.log(chalk.yellow(`[PROCESS] Direct Login partially successful (Account OK, SSO pending). Fallback to Puppeteer...`));
         } else {
             console.log(chalk.red(`[PROCESS] Direct Login failed: ${loginResult.pesan}`));
         }
@@ -411,7 +443,9 @@ async function getRiwayat(email, password, days = 1) {
     if (apiResult.success) return apiResult;
     if (apiResult.needsLogin) {
         const directResult = await apiService.directLogin(email, password);
-        if (directResult.success) return await apiService.getAttendanceHistory(email, days);
+        if (directResult.success && directResult.sso_completed) return await apiService.getAttendanceHistory(email, days);
+        
+        console.log(chalk.yellow(`[MAGANG] Direct Login incomplete for riwayat. Completing via Puppeteer...`));
         const loginResult = await puppeteerLogin(email, password, false);
         if (loginResult.success) return await apiService.getAttendanceHistory(email, days);
     }
@@ -421,11 +455,22 @@ async function getRiwayat(email, password, days = 1) {
 /**
  * Get Dashboard Stats using the NEW API endpoint discovered (Much faster & reliable)
  */
-async function getDashboardStats(email, password, referenceDate = null) {
+async function getDashboardStats(email, password, referenceDate = null, useCache = true) {
     try {
+        const today = referenceDate ? new Date(referenceDate) : new Date();
+        const isCurrentMonth = today.getMonth() === new Date().getMonth() && today.getFullYear() === new Date().getFullYear();
+        
+        // 0. Check Cache First (Only for CURRENT month, and if requested)
+        if (useCache && isCurrentMonth) {
+            const cached = getDashboardCache(email, 2); // 2 hours max age
+            if (cached) {
+                console.log(chalk.green(`[STATS] Using cached dashboard stats for ${email}`));
+                return { success: true, data: cached, cached: true };
+            }
+        }
+
         console.log(chalk.cyan(`[STATS] Fetching dashboard stats via API for ${email}...`));
         
-        const today = referenceDate ? new Date(referenceDate) : new Date();
         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
         const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
         
@@ -449,7 +494,9 @@ async function getDashboardStats(email, password, referenceDate = null) {
             
             console.log(chalk.yellow(`[STATS] Session expired, re-logging...`));
             const loginResult = await apiService.directLogin(email, password);
-            if (!loginResult.success) await puppeteerLogin(email, password, false);
+            if (!loginResult.success || !loginResult.sso_completed) {
+                 await puppeteerLogin(email, password, false);
+            }
             
             // Retry fetch
             [currentMonthRes, prevMonthRes, monthlyReportsRes] = await Promise.all([
@@ -546,10 +593,16 @@ async function getDashboardStats(email, password, referenceDate = null) {
 
         // Determine Alphas (Missing reports on workdays - Current Month)
         const lastDay = today.getDate();
+        const realTodayStr = new Date().toISOString().split('T')[0];
+
         for (let i = 1; i <= lastDay; i++) {
              const d = new Date(today.getFullYear(), today.getMonth(), i);
              if (d > today) break; 
              const dStr = d.toISOString().split('T')[0];
+             
+             // Skip today for Alpha calculation (don't flag as Alpha if check is done before submission)
+             if (dStr === realTodayStr) continue;
+
              if (!isHoliday(dStr)) {
                  if (!currentMonthData.some(item => item.date === dStr)) {
                      results.tidakHadirTanpaKet++;
@@ -559,6 +612,12 @@ async function getDashboardStats(email, password, referenceDate = null) {
         }
 
         console.log(chalk.green(`[STATS] API Extraction complete: Hadir=${results.hadir}, Izin=${results.izin}, Rapor=${results.rapor}`));
+        
+        // Save to cache (only if it's the current month)
+        if (isCurrentMonth) {
+            setDashboardCache(email, results);
+        }
+
         return { success: true, data: results };
 
     } catch (error) {
@@ -572,6 +631,14 @@ async function getAnnouncements(email) {
     return await apiService.getAnnouncements(email);
 }
 
+async function getParticipantProfile(email) {
+    return await apiService.getParticipantProfile(email);
+}
+
+async function getUserProfile(email) {
+    return await apiService.getUserProfile(email);
+}
+
 /**
  * Automatically detect Cycle Day (Batch 2 vs Batch 3)
  * Analyzes monthly reports from Kemnaker
@@ -582,7 +649,10 @@ async function detectCycleDay(email, password) {
         let reportsRes = await apiService.getMonthlyReports(email);
 
         if (!reportsRes.success && reportsRes.needsLogin) {
-            await apiService.directLogin(email, password);
+            const directResult = await apiService.directLogin(email, password);
+            if (!directResult.success || !directResult.sso_completed) {
+                await puppeteerLogin(email, password, false);
+            }
             reportsRes = await apiService.getMonthlyReports(email);
         }
 
@@ -619,5 +689,7 @@ module.exports = {
     getRiwayat,
     getDashboardStats,
     getAnnouncements,
+    getParticipantProfile,
+    getUserProfile,
     detectCycleDay
 };

@@ -1,7 +1,8 @@
-const { getUserByPhone } = require('../services/database');
-const { getDashboardStats, getRiwayat, detectCycleDay } = require('../services/magang');
+const { getUserByPhone, getAllUsers } = require('../services/database');
+const { getDashboardStats, getRiwayat, detectCycleDay, getParticipantProfile, getUserProfile } = require('../services/magang');
 const { getMessage } = require('../services/messageService');
 const { isHoliday } = require('../config/holidays');
+const { ADMIN_NUMBERS } = require('../config/constants');
 
 const processingUsers = new Set();
 
@@ -10,9 +11,93 @@ module.exports = {
     description: 'Cek status approval & ringkasan dashboard',
 
     async execute(sock, msgObj, context) {
-        const { sender, senderNumber, args } = context;
+        const { sender, senderNumber, args, BOT_PREFIX } = context;
         let today = new Date();
 
+        // --- NEW: Handle !cekapprove all (Admin only) ---
+        if (args && args.toLowerCase().trim() === 'all') {
+            const senderDigits = senderNumber.replace('@s.whatsapp.net', '');
+            if (!ADMIN_NUMBERS.includes(senderDigits)) {
+                await sock.sendMessage(sender, { text: '🚫 Perintah ini hanya untuk Admin.' }, { quoted: msgObj });
+                return;
+            }
+
+            const users = getAllUsers();
+            if (users.length === 0) {
+                await sock.sendMessage(sender, { text: 'Belum ada user terdaftar.' }, { quoted: msgObj });
+                return;
+            }
+
+            await sock.sendMessage(sender, { react: { text: '⏳', key: msgObj.key } });
+            await sock.sendMessage(sender, { text: `🔍 *CEK SEMUA USER*\nMulai mengecek ${users.length} user...` });
+
+            let report = `*STATUS APPROVAL SEMUA USER*\n`;
+            report += `Tanggal: ${today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}\n`;
+            report += `--------------------------------\n\n`;
+
+            for (const [index, user] of users.entries()) {
+                try {
+                    // console.log(`[CEKAPPROVE ALL] Checking ${user.email} (${index + 1}/${users.length})`);
+                    const [statsResult, profileResult, userProfileResult] = await Promise.all([
+                        // Third param: today (referenceDate), Fourth param: true (useCache)
+                        getDashboardStats(user.email, user.password, today, true),
+                        getParticipantProfile(user.email),
+                        getUserProfile(user.email)
+                    ]);
+                    
+                    let statusLine = `${index + 1}. *${user.name || user.email.split('@')[0]}*\n`;
+                    
+                    const p = profileResult.success ? profileResult.data : {};
+                    const u = userProfileResult.success ? userProfileResult.data : {};
+                    
+                    const m = u.mentor_name || p.mentor?.name || p.mentor_name || '-';
+                    
+                    statusLine += `├ Mentor: ${m}\n`;
+
+                    if (statsResult.success) {
+                        const stats = statsResult.data;
+                        const cal = stats.calendar || {};
+                        const pending = (cal.pending || []).length;
+                        const rejected = (cal.rejected || []).length;
+                        const revision = (cal.revision || []).length;
+                        
+                        const isCached = statsResult.cached ? ' (Cache)' : '';
+                        
+                        if (pending === 0 && rejected === 0 && revision === 0) {
+                            statusLine += `└ ✅ Aman${isCached} (Semua Approved)\n`;
+                        } else {
+                            let issues = [];
+                            if (pending > 0) issues.push(`⏳ Belum: ${pending}`);
+                            if (revision > 0) issues.push(`🟠 Revisi: ${revision}`);
+                            if (rejected > 0) issues.push(`🔴 Ditolak: ${rejected}`);
+                            statusLine += `└ Status: ${issues.join(' | ')}${isCached}\n`;
+                        }
+                    } else {
+                        statusLine += `└ ❌ Error Dashboard: ${statsResult.pesan}\n`;
+                    }
+                    
+                    report += statusLine + `\n`;
+
+                    // Send partial report every 10 users to avoid message length limits and give progress
+                    if ((index + 1) % 10 === 0 && index < users.length - 1) {
+                        await sock.sendMessage(sender, { text: report });
+                        report = `*Lanjutan Status Approval (${index + 2}-${Math.min(index + 11, users.length)})*\n--------------------------------\n\n`;
+                    }
+
+                    // Smaller delay (500ms instead of 2000ms) if using cache
+                    const delay = statsResult.cached ? 500 : 2000;
+                    await new Promise(r => setTimeout(r, delay));
+                } catch (err) {
+                    report += `${index + 1}. *${user.name || user.email}*: ❌ Crash\n\n`;
+                }
+            }
+
+            await sock.sendMessage(sender, { text: report });
+            await sock.sendMessage(sender, { react: { text: '✅', key: msgObj.key } });
+            return;
+        }
+
+        // --- ORIGINAL Logic ---
         // 0. Check Concurrency Lock
         if (processingUsers.has(sender)) {
             await sock.sendMessage(sender, { react: { text: '✋', key: msgObj.key } });
@@ -78,9 +163,11 @@ module.exports = {
 
             // 2. Fetch Data (Try Cache First)
             // Pass 'today' as reference date for stats
-            const [statsResult, historyResult] = await Promise.all([
+            const [statsResult, historyResult, profileResult, userProfileResult] = await Promise.all([
                 getDashboardStats(user.email, user.password, today),
-                getRiwayat(user.email, user.password, 45)
+                getRiwayat(user.email, user.password, 45),
+                getParticipantProfile(user.email),
+                getUserProfile(user.email)
             ]);
 
             if (!statsResult.success) {
@@ -90,6 +177,12 @@ module.exports = {
             }
 
             const stats = statsResult.data;
+            const profileData = profileResult.success ? profileResult.data : {};
+            const userData = userProfileResult.success ? userProfileResult.data : {};
+
+            const mentorName = userData.mentor_name || profileData.mentor?.name || profileData.mentor_name || '-';
+            const positionName = userData.job_role || profileData.vacancy?.name || profileData.position || profileData.vacancy_name || '-';
+
             const cal = stats.calendar || { approved: [], rejected: [], revision: [], pending: [], alpha: [] };
             // Use full_attendances from API if available (contains both months)
             const fullLogs = stats.full_attendances || [];
@@ -139,6 +232,7 @@ module.exports = {
             // 4. Iterate through the cycle day by day
             // This is the most accurate way to merge "Calendar" and "History"
             let tempDate = new Date(startPeriod);
+            const realTodayStr = new Date().toISOString().split('T')[0];
             
             // Map available data for fast lookup
             const logsMap = new Map();
@@ -187,8 +281,11 @@ module.exports = {
                     }
                 } else if (isWorkDay) {
                     // No log on a workday = Alpha
-                    totalAlpha++;
-                    lists.alpha.push(dayLabel);
+                    // Skip today if no log yet
+                    if (dStr !== realTodayStr) {
+                        totalAlpha++;
+                        lists.alpha.push(dayLabel);
+                    }
                 } else {
                     // Holiday/Weekend and no log
                     totalLibur++;
@@ -201,7 +298,7 @@ module.exports = {
             // Helper to format line with date
             const formatLine = (count, datesArr) => {
                 if (count > 0 && datesArr && datesArr.length > 0) {
-                    return `${count} [tanggal: ${datesArr.join(', ')}]`;
+                    return `${count} [${datesArr.join(', ')}]`;
                 }
                 if (count > 0) {
                     return `${count}`;
@@ -212,11 +309,35 @@ module.exports = {
             // 5. Construct Message
             const formatDate = (d) => `${d.getDate()} ${d.toLocaleString('id-ID', { month: 'short' })} ${d.getFullYear()}`;
             const rangeStr = `${formatDate(startPeriod)} - ${formatDate(displayEndPeriod)}`;
+            const batchNum = cycleDay === 16 ? '3' : (cycleDay === 24 ? '2' : '-');
+
+            // Helper for Capitalize Each Word
+            const capitalize = (str) => {
+                if (!str || str === '-') return str;
+                return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            };
+
+            // Determine Today's Status
+            let statusAbsenToday = 'Belum Absen';
+            const logToday = logsMap.get(realTodayStr);
+            if (logToday) {
+                const attStatus = (logToday.status || '').toUpperCase();
+                if (attStatus === 'ON_LEAVE' || attStatus === 'SICK' || attStatus === 'PERMIT') {
+                    statusAbsenToday = 'Izin/Sakit';
+                } else {
+                    statusAbsenToday = 'Sudah Absen';
+                }
+            } else if (isHoliday(realTodayStr)) {
+                statusAbsenToday = 'Libur';
+            }
 
             let reply = `*LAPORAN DASHBOARD*\n`;
-            reply += `Periode: ${rangeStr}\n`;
-            reply += `Nama: ${user.name}\n\n`;
+            reply += `Batch: ${batchNum}\n`;
+            reply += `Nama: ${capitalize(user.name)}\n`;
+            reply += `Mentor: ${capitalize(mentorName)}\n\n`;
             
+            reply += `Status Absen: ${statusAbsenToday}\n\n`;
+
             reply += `*Ringkasan:*\n`;
             reply += `Approve: ${totalApprove || '-'}\n`;
             reply += `Izin: ${formatLine(totalPermission, lists.permission)}\n`;

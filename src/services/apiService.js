@@ -12,6 +12,9 @@ const { SESSION_DIR, API_ENDPOINTS, API_BASE_URL, SESSION_TIMEOUT_MS, LOGS_DIR }
 const { wrapper } = require('axios-cookiejar-support');
 const { CookieJar } = require('tough-cookie');
 
+// In-memory Session Cache
+const sessionCache = new Map();
+
 // Ensure directories exist
 if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
@@ -19,13 +22,18 @@ if (!fs.existsSync(LOGS_DIR)) fs.mkdirSync(LOGS_DIR, { recursive: true });
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /**
- * Load session cookies from file
+ * Load session cookies from memory or file
  */
 function loadSession(email) {
+    // 1. Try Memory first
+    if (sessionCache.has(email)) {
+        return sessionCache.get(email);
+    }
+
+    // 2. Fallback to Disk
     const sessionPath = path.join(SESSION_DIR, `${email}.json`);
 
     if (!fs.existsSync(sessionPath)) {
-        console.log(chalk.yellow(`[API] No session file found for ${email}`));
         return null;
     }
 
@@ -45,8 +53,11 @@ function loadSession(email) {
         if (isStale) {
             console.log(chalk.yellow(`[API] Session stale for ${email} (${ageMinutes} min), but attempting reuse...`));
         } else {
-            console.log(chalk.cyan(`[API] Session loaded: ${email}`));
+            console.log(chalk.cyan(`[API] Session loaded from DISK: ${email}`));
         }
+
+        // Save to memory for next time
+        sessionCache.set(email, session);
         return session;
     } catch (e) {
         console.error(chalk.red(`[API] Error loading session for ${email}:`), e.message);
@@ -55,22 +66,29 @@ function loadSession(email) {
 }
 
 /**
- * Save session cookies to file
+ * Save session cookies to memory and file
  */
 function saveSession(email, cookies, csrfToken = null, accessToken = null, refreshToken = null, participantId = null) {
     const sessionPath = path.join(SESSION_DIR, `${email}.json`);
+    
+    // Load existing session to merge data (don't overwrite with nulls)
+    let existingSession = loadSession(email) || {};
 
     const session = {
-        cookies,
-        csrfToken,
-        accessToken,
-        refreshToken,
-        participantId,
+        cookies: cookies || existingSession.cookies,
+        csrfToken: csrfToken || existingSession.csrfToken,
+        accessToken: accessToken || existingSession.accessToken,
+        refreshToken: refreshToken || existingSession.refreshToken,
+        participantId: participantId || existingSession.participantId,
         timestamp: Date.now()
     };
 
+    // Update Memory
+    sessionCache.set(email, session);
+
+    // Persist to Disk
     fs.writeFileSync(sessionPath, JSON.stringify(session, null, 2));
-    console.log(chalk.green(`[API] Session saved for ${email}${accessToken ? ' (with access token)' : ''}${participantId ? ' (with participant ID)' : ''}`));
+    console.log(chalk.green(`[API] Session saved for ${email}${session.accessToken ? ' (with access token)' : ''}${session.participantId ? ' (with participant ID)' : ''}`));
 }
 
 /**
@@ -118,73 +136,10 @@ function createApiClient(session) {
 }
 
 /**
- * Attempt to refresh the session using the refresh token
- */
-async function refreshSession(email) {
-    const session = loadSession(email);
-    if (!session || !session.refreshToken) {
-        return false;
-    }
-
-    console.log(chalk.cyan(`[API] Attempting to refresh token for ${email}...`));
-
-    try {
-        const client = axios.create({
-            headers: {
-                "User-Agent": USER_AGENT,
-                "Content-Type": "application/json"
-            }
-        });
-
-        const refreshUrl = "https://account.kemnaker.go.id/auth/refresh-token"; 
-        
-        const response = await client.post(refreshUrl, {
-            refresh_token: session.refreshToken
-        });
-
-        if (response.status === 200 && response.data.access_token) {
-            console.log(chalk.green(`[API] ✅ Token refreshed successfully!`));
-            
-            let newCookies = session.cookies;
-            if (response.headers['set-cookie']) {
-                const setCookie = response.headers['set-cookie'];
-                setCookie.forEach(sc => {
-                    const parts = sc.split(';')[0].split('=');
-                    const name = parts[0];
-                    const value = parts.slice(1).join('=');
-                    
-                    const existingIdx = newCookies.findIndex(c => c.name === name);
-                    if (existingIdx >= 0) {
-                        newCookies[existingIdx].value = value;
-                    } else {
-                        newCookies.push({ name, value, domain: 'account.kemnaker.go.id' });
-                    }
-                });
-            }
-
-            saveSession(
-                email, 
-                newCookies, 
-                session.csrfToken, 
-                response.data.access_token, 
-                response.data.refresh_token || session.refreshToken,
-                session.participantId
-            );
-            return true;
-        }
-    } catch (e) {
-        console.log(chalk.red(`[API] Token refresh failed: ${e.message}`));
-    }
-    return false;
-}
-
-/**
- * Direct API Login (Bypasses Puppeteer)
+ * Fast API login - Skip Puppeteer if possible
+ * Performs the full 3-step OIDC flow to get access and refresh tokens
  */
 async function directLogin(email, password) {
-    console.log(chalk.cyan(`[API] Attempting Direct Login for ${email}...`));
-    let monevSuccess = false;
-
     const jar = new CookieJar();
     const client = wrapper(axios.create({
         jar,
@@ -192,52 +147,71 @@ async function directLogin(email, password) {
         headers: {
             'User-Agent': USER_AGENT,
             'Accept': 'application/json, text/plain, */*',
-            'Content-Type': 'application/json',
-            'Origin': 'https://account.kemnaker.go.id',
-            'Referer': 'https://account.kemnaker.go.id/auth/login'
+            'Origin': 'https://account.kemnaker.go.id'
         }
     }));
 
     try {
-        const pageRes = await client.get('https://account.kemnaker.go.id/auth/login');
-        const csrfMatch = pageRes.data.match(/<meta name="csrf-token" content="([^"]+)">/);
-        
-        if (!csrfMatch) {
-            throw new Error("CSRF token not found on login page");
-        }
-        
-        const csrfToken = csrfMatch[1];
-        client.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+        console.log(chalk.cyan(`[API] Attempting Direct Login for ${email}...`));
 
-        const payload = {
+        // 1. Get CSRF Token
+        const loginPage = await client.get('https://account.kemnaker.go.id/auth/login');
+        const csrfMatch = loginPage.data.match(/<meta name="csrf-token" content="([^"]+)">/);
+        if (!csrfMatch) throw new Error("Could not find CSRF token");
+        const csrfToken = csrfMatch[1];
+
+        // 2. POST Login to Account
+        const loginRes = await client.post('https://account.kemnaker.go.id/auth/login', {
             username: email,
             password: password,
             remember: true
-        };
-
-        const loginRes = await client.post('https://account.kemnaker.go.id/auth/login', payload);
+        }, {
+            headers: { 'X-CSRF-TOKEN': csrfToken }
+        });
 
         if (loginRes.status === 200 && loginRes.data.data?.authenticated) {
             console.log(chalk.green(`[API] ✅ Account Login Successful! Synchronizing SSO to Monev...`));
             
+            let monevSuccess = false;
+            let accessToken = null;
+            let refreshToken = null;
+
             try {
-                const ssoRes = await client.get('https://monev.maganghub.kemnaker.go.id/login', {
-                    headers: {
-                        'Referer': 'https://monev.maganghub.kemnaker.go.id/',
-                        'Upgrade-Insecure-Requests': '1'
-                    },
-                    maxRedirects: 20,
-                    validateStatus: null
+                // 3. Trigger OIDC Authorization
+                // client_id is constant for Monev app
+                const clientId = "79230891-cc02-43c8-964c-b525bce27857";
+                const authUrl = `https://account.kemnaker.go.id/auth?client_id=${clientId}&redirect_uri=https%3A%2F%2Fmonev.maganghub.kemnaker.go.id%2Fsso%2Fcallback&response_type=code&scope=basic%20email`;
+                
+                const authRes = await client.get(authUrl, {
+                    maxRedirects: 0,
+                    validateStatus: (s) => s === 302
                 });
                 
-                const finalUrl = ssoRes.request.res.responseUrl;
-                if (finalUrl.includes('/dashboard') || (finalUrl.includes('callback') && ssoRes.status === 200)) {
-                    monevSuccess = true;
-                    if (finalUrl.includes('callback')) {
-                         await client.get('https://monev.maganghub.kemnaker.go.id/dashboard').catch(() => {});
+                const callbackUrl = authRes.headers.location;
+                const codeMatch = callbackUrl?.match(/code=([^&]+)/);
+                
+                if (codeMatch) {
+                    const code = codeMatch[1];
+                    
+                    // 4. Exchange Code for Tokens
+                    const exchangeUrl = `https://monev-api.maganghub.kemnaker.go.id/authenticate/login/callback?code=${code}`;
+                    const exchangeRes = await client.get(exchangeUrl, {
+                        headers: {
+                            'Origin': 'https://monev.maganghub.kemnaker.go.id',
+                            'Referer': 'https://monev.maganghub.kemnaker.go.id/'
+                        }
+                    });
+
+                    if (exchangeRes.data && exchangeRes.data.access_token) {
+                        accessToken = exchangeRes.data.access_token;
+                        refreshToken = exchangeRes.data.refresh_token;
+                        monevSuccess = true;
+                        console.log(chalk.green(`[API] 🔥 SSO Synchronized via API (No Browser!)`));
                     }
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.log(chalk.yellow(`[API] SSO handshake failed via API: ${e.message}. Fallback to browser cookies sync may occur.`));
+            }
 
             const allCookies = [];
             const domains = ['account.kemnaker.go.id', 'monev.maganghub.kemnaker.go.id', 'kemnaker.go.id', 'siapkerja.kemnaker.go.id'];
@@ -256,12 +230,13 @@ async function directLogin(email, password) {
                 });
             }
 
-            saveSession(email, allCookies, csrfToken);
+            saveSession(email, allCookies, csrfToken, accessToken, refreshToken);
 
-            if (!monevSuccess) {
-                 return { success: false, pesan: "SSO Handshake failed - fallback to puppeteer may be needed" };
-            }
-            return { success: true };
+            return { 
+                success: true, 
+                sso_completed: monevSuccess,
+                pesan: monevSuccess ? "Login & SSO Berhasil (API)" : "Account Login Berhasil (SSO menyusul via browser)"
+            };
         } else {
             throw new Error(`Login failed. Status: ${loginRes.status}`);
         }
@@ -399,6 +374,7 @@ async function isSessionValid(email) {
 }
 
 function clearSession(email) {
+    sessionCache.delete(email);
     const sessionPath = path.join(SESSION_DIR, `${email}.json`);
     if (fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
 }
@@ -506,6 +482,59 @@ async function getAnnouncements(email) {
     }
 }
 
+/**
+ * Get detailed participant profile (includes mentor info)
+ */
+async function getParticipantProfile(email) {
+    console.log(chalk.cyan(`[API] Fetching participant profile for ${email}...`));
+    const session = loadSession(email);
+    if (!session) return { success: false, needsLogin: true, pesan: "Session tidak ditemukan" };
+
+    try {
+        const client = createApiClient(session);
+        
+        // Get participant_id if not in session
+        if (!session.participantId) {
+            const logsRes = await client.get(API_ENDPOINTS.DAILY_LOGS);
+            if (logsRes.data?.data?.length > 0) {
+                session.participantId = logsRes.data.data[0].participant_id;
+                saveSession(email, session.cookies, session.csrfToken, session.accessToken, session.refreshToken, session.participantId);
+            } else throw new Error("Could not find participant_id");
+        }
+
+        const url = `${API_BASE_URL}/api/participants/${session.participantId}`;
+        const response = await client.get(url);
+        
+        if (response.status === 200 && response.data?.data) {
+            return { success: true, data: response.data.data };
+        }
+        return { success: false, pesan: "Gagal mengambil profil peserta" };
+    } catch (error) {
+        return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+    }
+}
+
+/**
+ * Get current user profile (alternative to participant profile)
+ */
+async function getUserProfile(email) {
+    console.log(chalk.cyan(`[API] Fetching user/me profile for ${email}...`));
+    const session = loadSession(email);
+    if (!session) return { success: false, needsLogin: true, pesan: "Session tidak ditemukan" };
+
+    try {
+        const client = createApiClient(session);
+        const response = await client.get(API_ENDPOINTS.USER_ME);
+        
+        if (response.status === 200 && response.data?.data) {
+            return { success: true, data: response.data.data };
+        }
+        return { success: false, pesan: "Gagal mengambil profil user" };
+    } catch (error) {
+        return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+    }
+}
+
 module.exports = {
     loadSession,
     saveSession,
@@ -518,6 +547,8 @@ module.exports = {
     getAttendances,
     getMonthlyReports,
     getAnnouncements,
+    getParticipantProfile,
+    getUserProfile,
     directLogin,
     createApiClient
 };

@@ -17,20 +17,40 @@ const safeWriteFile = (path, data) => {
     return writeQueue;
 };
 
-// Cek apakah file database ada
-if (!fs.existsSync(USERS_FILE)) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify([]));
-}
+// In-memory cache
+let cachedUsers = null;
 
 const loadUsers = () => {
+    // 1. Return from memory if available
+    if (cachedUsers) return [...cachedUsers];
+
+    // 2. Otherwise load from disk
     try {
+        if (!fs.existsSync(USERS_FILE)) {
+            fs.writeFileSync(USERS_FILE, JSON.stringify([]));
+            cachedUsers = [];
+            return [];
+        }
+
         const data = fs.readFileSync(USERS_FILE, "utf8");
-        return JSON.parse(data);
+        cachedUsers = JSON.parse(data);
+        return [...cachedUsers];
     } catch (e) {
         console.error('[DATABASE] Load error:', e.message);
         return [];
     }
 };
+
+/**
+ * Update memory and persist to disk
+ */
+const updateUsers = (users) => {
+    cachedUsers = [...users];
+    return safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
+};
+
+// ... replace all safeWriteFile(USERS_FILE, ...) with updateUsers(users) ...
+
 
 // Helper: Normalisasi nomor telepon
 const normalizePhone = (phone) => {
@@ -146,7 +166,7 @@ const saveUser = (phoneNumber, email, password) => {
         });
     }
 
-    safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
+    updateUsers(users);
     return true;
 };
 
@@ -164,7 +184,7 @@ const updateUserLid = (realPhoneNumber, lid) => {
             users[index].identifiers.push(lid);
         }
 
-        safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
+        updateUsers(users);
         return true;
     }
     return false;
@@ -185,7 +205,7 @@ const deleteUser = (phoneNumber) => {
 
     if (index !== -1) {
         users.splice(index, 1);
-        safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
+        updateUsers(users);
         return true;
     }
     return false;
@@ -205,7 +225,7 @@ const saveUserTemplate = (phoneNumber, templateData) => {
 
     if (index !== -1) {
         users[index].template = templateData;
-        safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
+        updateUsers(users);
         return true;
     }
     return false;

@@ -209,6 +209,112 @@ async function broadcastSimpleWithHidetag(sock, groupId, msgKey) {
 
 // --- TASK EXECUTORS ---
 
+/**
+ * Helper to process an array of items in parallel with a concurrency limit
+ */
+async function parallelMap(items, mapper, limit = 3) {
+    const results = [];
+    const executing = [];
+    for (const item of items) {
+        const p = Promise.resolve().then(() => mapper(item, items));
+        results.push(p);
+        if (limit <= items.length) {
+            const e = p.then(() => executing.splice(executing.indexOf(e), 1));
+            executing.push(e);
+            if (executing.length >= limit) {
+                await Promise.race(executing);
+            }
+        }
+    }
+    return Promise.all(results);
+}
+
+async function runEmergencyWarning(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Emergency Warning (${timezone})`));
+    if (timezone !== 'Asia/Makassar') return; // Global logic
+    if (isWeekendOrHoliday(timezone)) return;
+
+    const now = new Date();
+    const todayDate = now.getDate();
+    const allUsers = getAllUsers();
+
+    // Parallel check statuses
+    const pendingCriticalUsers = (await parallelMap(allUsers, async (user) => {
+        const isCriticalDay = 
+            (user.cycle_day === 24 && todayDate === 23) || 
+            (user.cycle_day === 16 && todayDate === 15);
+        
+        if (!isCriticalDay) return null;
+
+        try {
+            const status = await cekStatusHarian(user.email, user.password);
+            if (!status.success || !status.sudahAbsen) return user;
+        } catch (e) { }
+        return null;
+    }, 5)).filter(Boolean);
+
+    if (pendingCriticalUsers.length > 0) {
+        // 1. Notify in Group
+        const groupId = getGroupId();
+        if (groupId) {
+            const mentionedText = pendingCriticalUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+            const mentions = pendingCriticalUsers.map(u => u.phone);
+            const warningMsg = `🚨 *PENGINGAT DEADLINE (DEADLINE 17:00)* 🚨\n\nHalo ${mentionedText}\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya sudah mengirimkan *Draf Laporan* ke Chat Pribadi Anda.\n\nSilakan cek DM dan balas *ya* untuk mengirim. Jika sampai jam 16:30 tetap belum absen, saya akan mengirimkannya secara *OTOMATIS* demi mengamankan upah Anda.`;
+            
+            await sock.sendMessage(groupId, { text: warningMsg, mentions });
+        }
+
+        // 2. Prepare Draft and Notify via DM
+        for (const user of pendingCriticalUsers) {
+            try {
+                let reportData = getDraft(user.phone);
+                let source = "Draft Sebelumnya";
+
+                if (!reportData) {
+                    // Try Template
+                    if (user.template) {
+                        const parsed = parseTagBasedReport(user.template);
+                        if (parsed) {
+                            reportData = parsed;
+                            source = "Template Anda";
+                        } else {
+                            const history = await getRiwayat(user.email, user.password, 3);
+                            const res = await processFreeTextToReport(user.template, history.success ? history.logs : []);
+                            if (res.success) {
+                                reportData = { aktivitas: res.aktivitas, pembelajaran: res.pembelajaran, kendala: res.kendala };
+                                source = "Template (AI Refined)";
+                            }
+                        }
+                    }
+                    
+                    // Fallback to AI from History
+                    if (!reportData) {
+                        const riwayatResult = await getRiwayat(user.email, user.password, 3);
+                        const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+                        if (aiResult.success) {
+                            reportData = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala };
+                            source = "Generasi AI (Berdasarkan Riwayat)";
+                        }
+                    }
+                }
+
+                if (reportData) {
+                    setDraft(user.phone, reportData);
+                    const draftMsg = `🚨 *PERINGATAN DEADLINE (17:00)* 🚨\n\nHalo, Anda belum absen. Saya sudah menyiapkan draf laporan untuk Anda (${source}):\n\n*Aktivitas:* ${reportData.aktivitas}\n*Pembelajaran:* ${reportData.pembelajaran}\n*Kendala:* ${reportData.kendala}\n\nKetik *ya* untuk mengirim sekarang.\n\n⚠️ *PENTING:* Jika tidak ada balasan sampai jam 16:30, saya akan mengirimkan laporan di atas secara *OTOMATIS* ke server Kemnaker agar upah Anda tidak terpotong.`;
+                    await sock.sendMessage(user.phone, { text: draftMsg });
+                } else {
+                    await sock.sendMessage(user.phone, { 
+                        text: `📢 *PENGINGAT DEADLINE*\n\nHalo, mohon segera lakukan absen manual sebelum jam 17:00 WITA. Jika tetap belum absen sampai jam 16:30, saya akan mencoba mengabsenkan otomatis.` 
+                    });
+                }
+                await new Promise(r => setTimeout(r, 1000));
+            } catch (e) {
+                console.error(`[EMERGENCY-WARNING] Error for ${user.email}:`, e.message);
+            }
+        }
+    }
+}
+
 async function runGroupHidetag(sock, task, timezone) {
     console.log(chalk.magenta(`[SCHEDULER] Running Group Hidetag: ${task.id} (${timezone})`));
     if (!isSchedulerEnabled()) return;
@@ -317,21 +423,19 @@ async function runGroupHidetagJapri(sock, task, timezone) {
     if (!isSchedulerEnabled()) return;
     if (isWeekendOrHoliday(timezone)) return;
 
-    // 1. Identify Missing Users FIRST
+    // 1. Identify Missing Users FIRST (Parallel check)
     const allUsers = getAllUsers();
-    const pendingUsers = [];
-
-    // Check status for all users to determine who to tag
-    for (const user of allUsers) {
+    const pendingUsers = (await parallelMap(allUsers, async (user) => {
         try {
             const status = await cekStatusHarian(user.email, user.password);
             if (!status.success || !status.sudahAbsen) {
-                pendingUsers.push(user);
+                return user;
             }
         } catch (e) {
             console.error(`[SCHEDULER] Error checking status for ${user.email}:`, e.message);
         }
-    }
+        return null;
+    }, 5)).filter(Boolean);
 
     // 2. Logic: Send Group Message ONLY if there are pending users
     if (pendingUsers.length > 0) {
@@ -433,10 +537,10 @@ async function runDraftPush(sock, task, timezone) {
     if (isWeekendOrHoliday(timezone)) return;
 
     const allUsers = getAllUsers();
-    for (const user of allUsers) {
+    await parallelMap(allUsers, async (user) => {
         try {
             const status = await cekStatusHarian(user.email, user.password);
-            if (status.success && status.sudahAbsen) continue;
+            if (status.success && status.sudahAbsen) return;
 
             const riwayatResult = await getRiwayat(user.email, user.password, 3);
             const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
@@ -458,7 +562,7 @@ async function runDraftPush(sock, task, timezone) {
         } catch (e) {
             console.error(chalk.red(`[DRAFT-PUSH] Error for ${user.email}:`), e.message);
         }
-    }
+    }, 3); // Lower concurrency for AI to avoid rate limits
 }
 
 async function runEmergencySubmit(sock, task, timezone) {
@@ -466,150 +570,127 @@ async function runEmergencySubmit(sock, task, timezone) {
     if (timezone !== 'Asia/Makassar') return; // Global logic
     if (isWeekendOrHoliday(timezone)) return;
 
+    const now = new Date();
+    const todayDate = now.getDate();
     const allUsers = getAllUsers();
-    for (const user of allUsers) {
+
+    // 1. Identify Phase (Parallel)
+    const pendingCriticalUsers = (await parallelMap(allUsers, async (user) => {
+        const isCriticalDay = 
+            (user.cycle_day === 24 && todayDate === 23) || 
+            (user.cycle_day === 16 && todayDate === 15);
+        
+        if (!isCriticalDay) return null;
+
         try {
             const status = await cekStatusHarian(user.email, user.password);
-            if (status.success && status.sudahAbsen) continue;
+            if (!status.success || !status.sudahAbsen) return user;
+        } catch (e) { }
+        return null;
+    }, 5)).filter(Boolean);
 
-            let finalReport = null;
+    if (pendingCriticalUsers.length > 0) {
+        console.log(chalk.yellow(`[CRITICAL] Found ${pendingCriticalUsers.length} users haven't attended on deadline day!`));
+        
+        // Notify in Group
+        const groupId = getGroupId();
+        if (groupId) {
+            const mentionedText = pendingCriticalUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+            const mentions = pendingCriticalUsers.map(u => u.phone);
+            const warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
+            
+            await sock.sendMessage(groupId, { text: warningMsg, mentions });
+        }
 
-            // 0. Priority: Check for Pending Draft in Memory (User's manual edit)
-            const memoryDraft = getDraft(user.phone);
-            if (memoryDraft) {
-                console.log(chalk.cyan(`[AUTO-SUBMIT] Using memory draft for ${user.email} (Phone: ${user.phone})`));
-                finalReport = {
-                    aktivitas: memoryDraft.aktivitas,
-                    pembelajaran: memoryDraft.pembelajaran,
-                    kendala: memoryDraft.kendala
-                };
-            }
-
-            // 1. Try User Template
-            if (!finalReport && user.template) {
-                console.log(chalk.cyan(`[AUTO-SUBMIT] Using template for ${user.email}`));
-
-                // Check if it's a manual tag format
-                const manualParsed = parseTagBasedReport(user.template);
-                if (manualParsed) {
-                    finalReport = manualParsed;
-                } else {
-                    // It's a story/text -> Process with AI
-                    const history = await getRiwayat(user.email, user.password, 3);
-                    const processResult = await processFreeTextToReport(user.template, history.success ? history.logs : []);
-                    if (processResult.success) {
-                        finalReport = {
-                            aktivitas: processResult.aktivitas,
-                            pembelajaran: processResult.pembelajaran,
-                            kendala: processResult.kendala
-                        };
-                    }
-                }
-            }
-
-            // 2. Fallback: Generate from History (Original Logic)
-            if (!finalReport) {
-                const riwayatResult = await getRiwayat(user.email, user.password, 3);
-                const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
-                if (aiResult.success) {
-                    finalReport = {
-                        aktivitas: aiResult.aktivitas,
-                        pembelajaran: aiResult.pembelajaran,
-                        kendala: aiResult.kendala
-                    };
-                }
-            }
-
-            if (finalReport) {
-                const submitResult = await prosesLoginDanAbsen({
-                    email: user.email,
-                    password: user.password,
-                    aktivitas: finalReport.aktivitas,
-                    pembelajaran: finalReport.pembelajaran,
-                    kendala: finalReport.kendala
+        // Notify via DM and then Submit
+        for (const user of pendingCriticalUsers) {
+            try {
+                await sock.sendMessage(user.phone, { 
+                    text: `🚨 *PERINGATAN DEADLINE*\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya akan membantu melakukan absen otomatis sekarang agar upah Anda tidak terpotong.` 
                 });
+                await new Promise(r => setTimeout(r, 1000));
+            } catch (e) {}
 
-                if (submitResult.success) {
-                    deleteDraft(user.phone);
-                    const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";
-                    let successMsg = getMessage('AUTO_SUBMIT_SUCCESS');
-
-                    successMsg = successMsg.replace('{source}', sourceMsg)
-                        .replace('{activity}', finalReport.aktivitas)
-                        .replace('{pembelajaran}', finalReport.pembelajaran)
-                        .replace('{kendala}', finalReport.kendala);
-
-                    await sock.sendMessage(user.phone, { text: successMsg });
-
-                    // Notify Admin
-                    await notifyAdmins(`*Absen Otomatis Berhasil*\n\nUser: ${user.name} (${user.email})\nSource: ${sourceMsg}\n\n*Aktivitas:* ${finalReport.aktivitas}\n*Pembelajaran:* ${finalReport.pembelajaran}\n*Kendala:* ${finalReport.kendala}`);
-                }
-            }
-        } catch (e) {
-            console.error(chalk.red(`[AUTO-SUBMIT] Error for ${user.email}:`), e.message);
+            // The actual submit logic
+            await executeAutoSubmit(sock, user);
         }
     }
-}
-
-async function runPreemptiveRefresh(sock) {
-    console.log(chalk.magenta(`[SCHEDULER] Running Preemptive Session Refresh (15:30)`));
-    const allUsers = getAllUsers();
-
-    // Process in chunks to avoid overloading CPU/Network if using Puppeteer
-    // But cekStatusHarian tries Direct Login first which is fast.
-
-    for (const user of allUsers) {
-        try {
-            console.log(chalk.cyan(`[PREEMPTIVE] Checking/Refreshing session for ${user.email}...`));
-
-            // This function automatically attempts login if session is invalid/expired
-            // We pass a flag or just rely on its internal logic.
-            // Note: cekStatusHarian returns { success, alreadyAbsen, ... }
-            // It internally calls apiService.checkAttendanceStatus -> directLogin/puppeteerLogin if needed.
-            const status = await cekStatusHarian(user.email, user.password);
-
-            if (status.success) {
-                console.log(chalk.green(`[PREEMPTIVE] ✅ Session valid for ${user.email}`));
-            } else {
-                console.log(chalk.red(`[PREEMPTIVE] ⚠️ Failed to refresh session for ${user.email}: ${status.pesan}`));
-            }
-
-            // Small delay to be polite to the server
-            await new Promise(r => setTimeout(r, 2000));
-
-        } catch (e) {
-            console.error(chalk.red(`[PREEMPTIVE] Error for ${user.email}:`), e.message);
-        }
-    }
-    console.log(chalk.magenta(`[SCHEDULER] Preemptive Refresh Complete.`));
 }
 
 /**
- * Daily Dashboard Refresh (Cache Warm-up)
- * Runs at 5:00 AM to ensure !cekapprove data is ready
+ * Extracted submit logic for reuse
  */
-async function runDashboardRefresh() {
-    console.log(chalk.magenta('\n[CACHE-REFRESH] Starting daily dashboard refresh...'));
-    const users = getAllUsers();
+async function executeAutoSubmit(sock, user) {
+    try {
+        let finalReport = null;
 
-    // Process users sequentially with delay
-    for (const [index, user] of users.entries()) {
-        console.log(chalk.blue(`[CACHE-REFRESH] Processing ${index + 1}/${users.length}: ${user.email}`));
-
-        try {
-            // Force refresh (useCache = false)
-            // getDashboardStats automatically saves to cache on success
-            await getDashboardStats(user.email, user.password, false);
-        } catch (e) {
-            console.error(chalk.red(`[CACHE-REFRESH] Failed for ${user.email}:`), e.message);
+        // 0. Priority: Memory Draft
+        const memoryDraft = getDraft(user.phone);
+        if (memoryDraft) {
+            finalReport = {
+                aktivitas: memoryDraft.aktivitas,
+                pembelajaran: memoryDraft.pembelajaran,
+                kendala: memoryDraft.kendala
+            };
         }
 
-        // Wait 45s between users to avoid browser overload/detection
-        if (index < users.length - 1) {
-            await new Promise(r => setTimeout(r, 45000));
+        // 1. Template
+        if (!finalReport && user.template) {
+            const manualParsed = parseTagBasedReport(user.template);
+            if (manualParsed) {
+                finalReport = manualParsed;
+            } else {
+                const history = await getRiwayat(user.email, user.password, 3);
+                const processResult = await processFreeTextToReport(user.template, history.success ? history.logs : []);
+                if (processResult.success) {
+                    finalReport = {
+                        aktivitas: processResult.aktivitas,
+                        pembelajaran: processResult.pembelajaran,
+                        kendala: processResult.kendala
+                    };
+                }
+            }
         }
+
+        // 2. Fallback: AI
+        if (!finalReport) {
+            const riwayatResult = await getRiwayat(user.email, user.password, 3);
+            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+            if (aiResult.success) {
+                finalReport = {
+                    aktivitas: aiResult.aktivitas,
+                    pembelajaran: aiResult.pembelajaran,
+                    kendala: aiResult.kendala
+                };
+            }
+        }
+
+        if (finalReport) {
+            const submitResult = await prosesLoginDanAbsen({
+                email: user.email,
+                password: user.password,
+                aktivitas: finalReport.aktivitas,
+                pembelajaran: finalReport.pembelajaran,
+                kendala: finalReport.kendala
+            });
+
+            if (submitResult.success) {
+                deleteDraft(user.phone);
+                const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";
+                let successMsg = getMessage('AUTO_SUBMIT_SUCCESS');
+
+                successMsg = successMsg.replace('{source}', sourceMsg)
+                    .replace('{activity}', finalReport.aktivitas)
+                    .replace('{pembelajaran}', finalReport.pembelajaran)
+                    .replace('{kendala}', finalReport.kendala);
+
+                await sock.sendMessage(user.phone, { text: successMsg });
+                await notifyAdmins(`*Absen Otomatis Deadline Berhasil*\n\nUser: ${user.name}\nEmail: ${user.email}\nSource: ${sourceMsg}`);
+            }
+        }
+    } catch (e) {
+        console.error(`[AUTO-SUBMIT] Error for ${user.email}:`, e.message);
     }
-    console.log(chalk.magenta('[CACHE-REFRESH] Completed.\n'));
 }
 
 async function runScheduledWebReports(sock, timezone) {
@@ -682,7 +763,7 @@ function scheduleTask(task, timezone) {
         else if (task.type === 'group_tag_all') runGroupTagAll(sock, task, timezone);
         else if (task.type === 'draft_push') runDraftPush(sock, task, timezone);
         else if (task.type === 'emergency_submit') runEmergencySubmit(sock, task, timezone);
-        else if (task.type === 'preemptive_refresh') runPreemptiveRefresh(sock);
+        else if (task.type === 'emergency_warning') runEmergencyWarning(sock, task, timezone);
         else console.warn(chalk.yellow(`[SCHEDULER] Unknown task type: ${task.type}`));
 
     }, { timezone: timezone });
@@ -718,27 +799,13 @@ function reloadScheduler() {
         });
     });
 
-    // 2. Schedule Web App Reports (Always at 16:00 WITA)
-    const webJob = cron.schedule('0 16 * * 1-5', () => {
+    // 2. Schedule Web App Reports (Always at 15:00 WITA)
+    const webJob = cron.schedule('0 15 * * 1-5', () => {
         if (botSocket) runScheduledWebReports(botSocket, 'Asia/Makassar');
     }, { timezone: 'Asia/Makassar' });
     activeCrons.set('global_web_reports', webJob);
 
-    // 3. Schedule Preemptive Session Refresh (15:30 WITA / 14:30 WIB)
-    // Runs globally once per day at 15:30 Makassar time
-    const refreshJob = cron.schedule('30 15 * * 1-5', () => {
-        if (botSocket) runPreemptiveRefresh(botSocket);
-    }, { timezone: 'Asia/Makassar' });
-    activeCrons.set('global_preemptive_refresh', refreshJob);
-
-    // 4. Daily Dashboard & Cookie Refresh (Every 2 Hours)
-    // Runs from 07:00 to 00:00 to keep cache fresh and cookies alive
-    const dashboardRefreshJob = cron.schedule('0 7,9,11,13,15,17,19,21,23,0 * * *', () => {
-        runDashboardRefresh();
-    }, { timezone: 'Asia/Makassar' });
-    activeCrons.set('global_dashboard_refresh', dashboardRefreshJob);
-
-    // 5. Daily Info Kemnaker Check (07:00)
+    // 3. Daily Info Kemnaker Check (07:00)
     const infoCheckJob = cron.schedule('0 7 * * *', () => {
         if (botSocket) runCheckInfo(botSocket);
     }, { timezone: 'Asia/Makassar' });
@@ -746,7 +813,7 @@ function reloadScheduler() {
 
     console.log(chalk.green(`[SCHEDULER] Reload complete. ${activeCrons.size} jobs active.`));
 
-    // 6. Schedule Daily Ramadan Refresh (00:05 WITA)
+    // 4. Schedule Daily Ramadan Refresh (00:05 WITA)
     const ramadanJob = cron.schedule('5 0 * * *', () => {
         if (botSocket) scheduleRamadanForToday(botSocket);
     }, { timezone: 'Asia/Makassar' });
@@ -754,6 +821,17 @@ function reloadScheduler() {
 
     // Initial run for today (if bot starts mid-day)
     if (botSocket) scheduleRamadanForToday(botSocket);
+}
+
+/**
+ * Helper to subtract minutes from HH:mm time
+ */
+function subtractMinutes(timeStr, mins) {
+    if (!timeStr) return null;
+    const [h, m] = timeStr.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h, m - mins, 0, 0);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 async function scheduleRamadanForToday(sock) {
@@ -767,78 +845,106 @@ async function scheduleRamadanForToday(sock) {
     }
 
     try {
-        const result = await getPrayerTimes('Makassar'); // Default to Makassar
-        if (!result.success) {
-            console.error(chalk.red('[RAMADAN] Failed to fetch prayer times. Retrying in 1 hour...'));
-            // Retry logic could be added here
-            return;
-        }
-
-        const t = result.timings;
-        const tasks = [
-            { name: 'Sahur', time: '03:00', msg: '🥣 *Waktunya Sahur!* Jangan lupa makan dan niat ya.' }, // Manual time
-            { name: 'Imsak', time: t.Imsak, msg: '⚠️ *Waktu Imsak!* Segera selesaikan makan sahur Anda. 10 menit lagi Subuh.' },
-            { name: 'Subuh', time: t.Fajr, msg: '🕌 *Waktu Subuh* telah tiba untuk wilayah Makassar dan sekitarnya.' },
-            { name: 'Dzuhur', time: t.Dhuhr, msg: '☀️ *Waktu Dzuhur* telah tiba. Selamat menunaikan ibadah sholat.' },
-            { name: 'Ashar', time: t.Asr, msg: '🌤️ *Waktu Ashar* telah tiba. Rehat sejenak untuk sholat.' },
-            { name: 'Maghrib', time: t.Maghrib, msg: '🌇 *Alhamdulillah Maghrib!* Selamat Berbuka Puasa. 🍵' },
-            { name: 'Isya', time: t.Isha, msg: 'im *Waktu Isya* telah tiba. Jangan lupa Tarawih ya! 🤲' }
-        ];
-
-        // Group Handling: Get all groups that have scheduler enabled (assuming they want Ramadan too)
-        // ideally we would filter by a 'ramadanEnabled' flag, but for now apply to all enabled groups in Makassar
         const settings = loadGroupSettings();
-        const targetGroups = Object.entries(settings)
-            .filter(([_, c]) => c.schedulerEnabled && (c.timezone === 'Asia/Makassar' || !c.timezone))
-            .map(([id, _]) => id);
+        const enabledGroups = Object.entries(settings).filter(([_, c]) => c.schedulerEnabled);
+        
+        // Map to store schedules per city to avoid redundant API calls
+        const citySchedules = new Map();
 
-        tasks.forEach(task => {
-            const [h, m] = task.time.split(':');
-            const cronTime = `${m} ${h} * * *`; // Daily at HH:mm
+        for (const [groupId, config] of enabledGroups) {
+            // 1. Determine City for this group
+            let groupCity = config.city; // If already set manually
+            
+            if (!groupCity) {
+                // Try to infer from group name
+                try {
+                    const metadata = await sock.groupMetadata(groupId);
+                    const groupName = metadata.subject.toLowerCase();
+                    
+                    // Simple inference (can be expanded)
+                    if (groupName.includes('jakarta')) groupCity = 'Jakarta';
+                    else if (groupName.includes('bandung')) groupCity = 'Bandung';
+                    else if (groupName.includes('surabaya')) groupCity = 'Surabaya';
+                    else if (groupName.includes('jogja')) groupCity = 'Yogyakarta';
+                    else if (groupName.includes('makassar')) groupCity = 'Makassar';
+                    else if (groupName.includes('bali')) groupCity = 'Denpasar';
+                    else if (groupName.includes('medan')) groupCity = 'Medan';
+                } catch (e) {
+                    console.warn(`[RAMADAN] Could not fetch metadata for ${groupId}, using timezone fallback.`);
+                }
+            }
 
-            // Validate if time is in the future today? 
-            // Cron will run if matches. If time passed, it won't run today.
-            // But we need to be careful not to schedule for "tomorrow" by accident if parsing fails.
-            // Node-cron handles "Every day at HH:mm" fine.
+            // 2. Fallback to Timezone default cities
+            if (!groupCity) {
+                const tz = config.timezone || 'Asia/Makassar';
+                if (tz === 'Asia/Jakarta') groupCity = 'Jakarta';
+                else if (tz === 'Asia/Jayapura') groupCity = 'Jayapura';
+                else groupCity = 'Makassar';
+            }
 
-            const job = cron.schedule(cronTime, async () => {
-                console.log(chalk.cyan(`[RAMADAN] Running ${task.name} reminder`));
+            // 3. Get or Fetch Prayer Times
+            if (!citySchedules.has(groupCity)) {
+                const res = await getPrayerTimes(groupCity);
+                if (res.success) {
+                    citySchedules.set(groupCity, res);
+                } else {
+                    console.error(`[RAMADAN] Failed to fetch for city: ${groupCity}`);
+                    continue;
+                }
+            }
 
-                // Content generation
-                let finalMsg = task.msg;
-                if (task.name === 'Sahur' || task.name === 'Maghrib') {
-                    // Add Quote
-                    const contentRes = await getRandomContent();
-                    if (contentRes.success) {
-                        const c = contentRes.content;
-                        if (contentRes.type === 'ayat') {
-                            finalMsg += `\n\n📖 *QS. ${c.surah}: ${c.ayat}*\n"${c.terjemahan}"`;
-                        } else {
-                            finalMsg += `\n\n📜 *Hadits Riwayat ${c.perawi}*\n"${c.terjemahan}"`;
+            const scheduleData = citySchedules.get(groupCity);
+            const t = scheduleData.timings;
+            const timezone = config.timezone || 'Asia/Makassar';
+
+            const tasks = [
+                { name: `Sahur_${groupId}`, time: '03:00', msg: '🥣 *Waktunya Sahur!* Jangan lupa makan dan niat ya.' },
+                { name: `Imsak_${groupId}`, time: t.Imsak, msg: '⚠️ *Waktu Imsak!* Segera selesaikan makan sahur Anda. 10 menit lagi Subuh.' },
+                { name: `Subuh_${groupId}`, time: t.Fajr, msg: `🕌 *Waktu Subuh* telah tiba untuk wilayah *${groupCity}* and sekitarnya.` },
+                { name: `Pre-Dzuhur_${groupId}`, time: subtractMinutes(t.Dhuhr, 10), msg: '🔔 *10 Menit lagi Dzuhur.* Bersiap untuk sholat ya!' },
+                { name: `Dzuhur_${groupId}`, time: t.Dhuhr, msg: '☀️ *Waktu Dzuhur* telah tiba. Selamat menunaikan ibadah sholat.' },
+                { name: `Pre-Ashar_${groupId}`, time: subtractMinutes(t.Asr, 10), msg: '🔔 *10 Menit lagi Ashar.* Yuk selesaikan pekerjaan sejenak.' },
+                { name: `Ashar_${groupId}`, time: t.Asr, msg: '🌤️ *Waktu Ashar* telah tiba. Rehat sejenak untuk sholat.' },
+                { name: `Pre-Maghrib_${groupId}`, time: subtractMinutes(t.Maghrib, 10), msg: '🌅 *10 Menit lagi Buka Puasa!* Siapkan hidangan dan perbanyak doa. ✨' },
+                { name: `Maghrib_${groupId}`, time: t.Maghrib, msg: '🌇 *Alhamdulillah Maghrib!* Selamat Berbuka Puasa. 🍵' },
+                { name: `Pre-Isya_${groupId}`, time: subtractMinutes(t.Isha, 10), msg: '🔔 *10 Menit lagi Isya.* Bersiap untuk sholat dan Tarawih.' },
+                { name: `Isya_${groupId}`, time: t.Isha, msg: '🌙 *Waktu Isya* telah tiba. Jangan lupa Tarawih ya! 🤲' }
+            ];
+
+            tasks.forEach(task => {
+                const [h, m] = task.time.split(':');
+                const cronTime = `${m} ${h} * * *`;
+
+                const job = cron.schedule(cronTime, async () => {
+                    console.log(chalk.cyan(`[RAMADAN] Running ${task.name} for group ${groupId}`));
+                    
+                    let finalMsg = task.msg;
+                    if (task.name.startsWith('Sahur') || task.name.startsWith('Maghrib')) {
+                        const contentRes = await getRandomContent();
+                        if (contentRes.success) {
+                            const c = contentRes.content;
+                            finalMsg += contentRes.type === 'ayat' 
+                                ? `\n\n📖 *QS. ${c.surah}: ${c.ayat}*\n"${c.terjemahan}"`
+                                : `\n\n📜 *Hadits Riwayat ${c.perawi}*\n"${c.terjemahan}"`;
                         }
                     }
-                }
 
-                // Broadcast
-                for (const groupId of targetGroups) {
                     try {
                         await sock.sendMessage(groupId, { text: finalMsg });
-                    } catch (e) {
-                        // ignore
-                    }
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-            }, { timezone: 'Asia/Makassar' });
+                    } catch (e) { }
+                }, { timezone: timezone });
 
-            ramadanCrons.set(task.name, job);
-        });
+                ramadanCrons.set(task.name, job);
+            });
+        }
 
-        console.log(chalk.green(`[RAMADAN] Scheduled ${tasks.length} events for today.`));
+        console.log(chalk.green(`[RAMADAN] Scheduled reminders for ${citySchedules.size} cities across ${enabledGroups.length} groups.`));
 
     } catch (e) {
         console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
     }
 }
+
 
 function initScheduler(sock) {
     setBotSocket(sock);
@@ -852,14 +958,12 @@ function initScheduler(sock) {
 async function runTestScheduler(sock, taskId) {
     const schedules = loadSchedules();
     const task = schedules.find(s => s.id === taskId);
-    if (!task && taskId !== 'preemptive_refresh' && taskId !== 'dashboard_refresh') return { success: false, message: 'Task not found' };
+    if (!task) return { success: false, message: 'Task not found' };
 
     // For test, force run on 'Asia/Makassar'
     const tz = 'Asia/Makassar';
 
-    if (taskId === 'preemptive_refresh') await runPreemptiveRefresh(sock);
-    else if (taskId === 'dashboard_refresh') await runDashboardRefresh();
-    else if (task.type === 'group_hidetag') await runGroupHidetag(sock, task, tz);
+    if (task.type === 'group_hidetag') await runGroupHidetag(sock, task, tz);
     else if (task.type === 'group_hidetag_japri') await runGroupHidetagJapri(sock, task, tz);
     else if (task.type === 'group_tag_all') await runGroupTagAll(sock, task, tz);
     else if (task.type === 'draft_push') await runDraftPush(sock, task, tz);
@@ -876,10 +980,10 @@ module.exports = {
     updateSchedule,
     deleteSchedule,
     runTestScheduler,
+    runScheduledWebReports,
     // Exports for compatibility if needed elsewhere
     runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'),
     runAfternoonReminder: async (sock) => runTestScheduler(sock, 'afternoon_reminder'),
     runAutoReminder: async (sock, japri) => runTestScheduler(sock, japri ? 'evening_reminder_2' : 'evening_reminder_1'),
-    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit'),
-    runDashboardRefresh // Export for manual testing/dashboard trigger
+    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit')
 };

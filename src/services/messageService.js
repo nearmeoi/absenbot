@@ -5,15 +5,15 @@ const { getUserByPhone } = require('./database');
 const MESSAGES_DIR = path.join(__dirname, '../config/messages');
 const LEGACY_MESSAGES_FILE = path.join(__dirname, '../config/messages.json');
 
-// Ensure directory exists
-if (!fs.existsSync(MESSAGES_DIR)) {
-    fs.mkdirSync(MESSAGES_DIR, { recursive: true });
-}
+// In-memory cache
+let cachedMessages = null;
 
 /**
  * Load all messages from JSON files in the messages directory
  */
-function loadMessages() {
+function loadMessages(forceReload = false) {
+    if (cachedMessages && !forceReload) return cachedMessages;
+
     let messages = {};
 
     // 1. Load Legacy File (if exists, for migration safety)
@@ -41,6 +41,7 @@ function loadMessages() {
         });
     }
 
+    cachedMessages = messages;
     return messages;
 }
 
@@ -148,6 +149,8 @@ function updateMessage(key, content) {
         }
     }
 
+    // Clear cache to force reload
+    cachedMessages = null;
     return loadMessages();
 }
 

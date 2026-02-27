@@ -115,7 +115,8 @@ module.exports = {
             /**
              * FALLBACK: yt-dlp (For generic sites or if API fails)
              */
-            const dlCmd = `python3 -m yt_dlp -4 --no-playlist --max-filesize 50M -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -o "${outputPath}" "${url}"`;
+            const ytDlpPath = '/home/ubuntu/.local/bin/yt-dlp';
+            const dlCmd = `${ytDlpPath} -4 --no-playlist --max-filesize 50M -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -o "${outputPath}" "${url}"`;
 
             console.log(`[DL] Executing yt-dlp: ${dlCmd}`);
             await execPromise(dlCmd);

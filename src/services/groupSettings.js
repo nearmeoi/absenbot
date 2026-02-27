@@ -24,11 +24,16 @@ const DEFAULT_SETTINGS = {
     timezone: 'Asia/Makassar' // Default to WITA
 };
 
+// In-memory cache
+let cachedSettings = null;
+
 /**
  * Load all group settings
  * Performs migration from old file if needed
  */
-function loadGroupSettings() {
+function loadGroupSettings(forceReload = false) {
+    if (cachedSettings && !forceReload) return cachedSettings;
+
     // MIGRATION: Check if old file exists and new one doesn't
     if (fs.existsSync(OLD_GROUPS_FILE) && !fs.existsSync(SETTINGS_FILE)) {
         try {
@@ -54,11 +59,14 @@ function loadGroupSettings() {
 
     if (!fs.existsSync(SETTINGS_FILE)) {
         fs.writeFileSync(SETTINGS_FILE, JSON.stringify({}, null, 2));
+        cachedSettings = {};
         return {};
     }
 
     try {
-        return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+        const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+        cachedSettings = JSON.parse(data);
+        return cachedSettings;
     } catch (e) {
         console.error(chalk.red('[GROUPS] Error loading settings:'), e);
         return {};
@@ -66,6 +74,7 @@ function loadGroupSettings() {
 }
 
 function saveGroupSettings(settings) {
+    cachedSettings = settings;
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
 }
 

@@ -9,17 +9,8 @@
     "enabled": true
   },
   {
-    "id": "sched_1768889405899",
-    "time": "14:30",
-    "days": "1-5",
-    "type": "group_hidetag",
-    "messageKey": "SCHED_CUSTOM_1768889405899",
-    "description": "Pengingat absen",
-    "enabled": true
-  },
-  {
     "id": "afternoon_reminder",
-    "time": "16:00",
+    "time": "15:00",
     "days": "1-5",
     "type": "group_hidetag",
     "messageKey": "REMINDER_AFTERNOON",
@@ -27,12 +18,21 @@
     "enabled": true
   },
   {
-    "id": "sched_1767967711403",
-    "time": "18:00",
+    "id": "emergency_warning_critical",
+    "time": "16:00",
     "days": "1-5",
-    "type": "group_hidetag",
-    "messageKey": "REMINDER_EVENING",
-    "description": "Maghrib",
+    "type": "emergency_warning",
+    "messageKey": null,
+    "description": "Peringatan Deadline (15 & 23)",
+    "enabled": true
+  },
+  {
+    "id": "emergency_submit_critical",
+    "time": "16:30",
+    "days": "1-5",
+    "type": "emergency_submit",
+    "messageKey": null,
+    "description": "Auto Submit Deadline (15 & 23)",
     "enabled": true
   },
   {
@@ -45,15 +45,6 @@
     "enabled": true
   },
   {
-    "id": "night_tag_all",
-    "time": "22:00",
-    "days": "1-5",
-    "type": "group_tag_all",
-    "messageKey": "REMINDER_TAG_ALL",
-    "description": "Pengingat Malam (Tag All)",
-    "enabled": true
-  },
-  {
     "id": "evening_reminder_2",
     "time": "23:00",
     "days": "1-5",
@@ -63,21 +54,12 @@
     "enabled": true
   },
   {
-    "id": "draft_push",
-    "time": "23:30",
-    "days": "1-5",
-    "type": "draft_push",
-    "messageKey": null,
-    "description": "Draft Push (Darurat)",
-    "enabled": true
-  },
-  {
     "id": "emergency_submit",
     "time": "23:50",
     "days": "1-5",
     "type": "emergency_submit",
     "messageKey": null,
-    "description": "Auto Submit (Darurat)",
+    "description": "Auto Submit (Darurat Harian)",
     "enabled": true
   }
 ]

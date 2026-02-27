@@ -252,7 +252,8 @@ const API_ENDPOINTS = {
     SIAPKERJA_HOME: `${SIAPKERJA_URL}/app/home`,
     LOGIN_URL: `https://account.kemnaker.go.id/auth/login`,
     MONTHLY_REPORTS: `${API_BASE_URL}/api/monthly-reports`,
-    ANNOUNCEMENTS: `${API_BASE_URL}/api/announcements/users`
+    ANNOUNCEMENTS: `${API_BASE_URL}/api/announcements/users`,
+    USER_ME: `${API_BASE_URL}/api/users/me`
 };
 
 // Session timeout (default 24 hours)

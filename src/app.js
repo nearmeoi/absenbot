@@ -32,7 +32,52 @@ function getMessageContent(msg) {
     return "";
 }
 
+// Group Metadata Cache
+const groupCache = new Map();
+
+async function getGroupMetadata(sock, jid) {
+    if (groupCache.has(jid)) {
+        const cached = groupCache.get(jid);
+        if (Date.now() - cached.timestamp < 3600000) { // 1 hour cache
+            return cached.metadata;
+        }
+    }
+    try {
+        const metadata = await sock.groupMetadata(jid);
+        groupCache.set(jid, { metadata, timestamp: Date.now() });
+        return metadata;
+    } catch (e) {
+        return null;
+    }
+}
+
+async function pruneSession() {
+    try {
+        if (!fs.existsSync(AUTH_STATE_DIR)) return;
+        
+        const files = fs.readdirSync(AUTH_STATE_DIR);
+        if (files.length < 1000) return; // Only prune if it's getting very large
+
+        console.log(chalk.yellow(`[SESSION] Pruning ${files.length} session files to improve stability...`));
+        let count = 0;
+        
+        for (const file of files) {
+            // ONLY keep creds.json - everything else is recreatable junk
+            if (file === 'creds.json') continue;
+            
+            try {
+                fs.unlinkSync(path.join(AUTH_STATE_DIR, file));
+                count++;
+            } catch (e) {}
+        }
+        console.log(chalk.green(`[SESSION] Deleted ${count} junk files. Session is now lean.`));
+    } catch (e) {
+        console.error(chalk.red('[SESSION] Pruning error:'), e.message);
+    }
+}
+
 async function connectToWhatsApp() {
+    await pruneSession();
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_STATE_DIR)
     const { version } = await fetchLatestBaileysVersion()
 
@@ -42,9 +87,16 @@ async function connectToWhatsApp() {
         logger: pino({ level: "silent" }),
         printQRInTerminal: !usePairingCode,
         auth: state,
-        browser: ['Ubuntu', 'Chrome', '20.0.04'],
+        browser: ['AbsenBot', 'Chrome', '1.0.0'],
         version,
-        generateHighQualityLinkPreview: true,
+        generateHighQualityLinkPreview: false,
+        syncFullHistory: false,
+        markOnlineOnConnect: true,
+        shouldSyncHistoryMessage: () => false, // Don't sync history
+        retryRequestDelayMs: 5000,
+        defaultQueryTimeoutMs: 0, // No timeout
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 15000,
     })
 
     // --- ANTI-LOOP WRAPPER ---
@@ -105,8 +157,10 @@ async function connectToWhatsApp() {
 
             const shouldReconnect = reason !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
-                console.log(chalk.yellow('🔄 Attempting to reconnect...'));
-                connectToWhatsApp();
+                console.log(chalk.yellow('🔄 Reconnecting in 5 seconds...'));
+                setTimeout(() => {
+                    connectToWhatsApp();
+                }, 5000);
             } else {
                 console.log(chalk.bgRed('⛔ Session Invalid/Logged Out. Please delete session folder and restart.'));
             }
@@ -140,67 +194,84 @@ async function connectToWhatsApp() {
 
     // Store startup time to ignore old messages
     const STARTUP_TIME = Math.floor(Date.now() / 1000);
+    const processedMessages = new Set();
 
     sock.ev.on("messages.upsert", async (m) => {
-        const msg = m.messages[0]
-        if (!msg.message) return
-        if (msg.key.remoteJid === 'status@broadcast') return;
-        if (msg.key.remoteJid.includes('@newsletter')) return; // Ignore Channels
+        if (m.type !== 'notify') return;
 
-        // Ignore old messages (only if older than 1 hour before startup)
-        const msgTime = (typeof msg.messageTimestamp === 'number')
-            ? msg.messageTimestamp
-            : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
-
-        const TOLERANCE = 3600; // 1 hour tolerance
-        if (msgTime < (STARTUP_TIME - TOLERANCE)) {
-            console.log(chalk.gray(`[IGNORE] Old message (> 1 hour old)`));
-            return;
-        }
-
-        const text = getMessageContent(msg);
-
-        if (!text) return;
-
-        const isMe = msg.key.fromMe;
-        const remoteJid = msg.key.remoteJid;
-        const isGroup = remoteJid.endsWith('@g.us');
-
-        // Get Sender Name
-        let senderName = msg.pushName || 'Unknown';
-        if (isMe) senderName = 'ME';
-
-        // Get Group Name (if applicable)
-        let contextInfo = '';
-        if (isGroup) {
-            try {
-                // Try to get group metadata from cache or fetch
-                const groupMetadata = await sock.groupMetadata(remoteJid);
-                contextInfo = chalk.yellow(`[${groupMetadata.subject}] `);
-            } catch (e) {
-                contextInfo = chalk.yellow(`[Group] `);
+        for (const msg of m.messages) {
+            if (!msg.message) continue;
+            
+            const msgId = msg.key.id;
+            if (processedMessages.has(msgId)) continue;
+            processedMessages.add(msgId);
+            
+            // Clean up cache if too large
+            if (processedMessages.size > 1000) {
+                const first = processedMessages.values().next().value;
+                processedMessages.delete(first);
             }
-        }
 
-        // Format Timestamp
-        const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (msg.key.remoteJid === 'status@broadcast') continue;
+            if (msg.key.remoteJid.includes('@newsletter')) continue; // Ignore Channels
 
-        // Log Format: [TIME] [Group] Sender: Message
-        const prefix = chalk.gray(`[${time}]`);
-        const sender = isMe ? chalk.blue.bold('ME') : chalk.green.bold(senderName);
+            // Mark as read to avoid repeated processing
+            try {
+                await sock.readMessages([msg.key]);
+            } catch (e) { }
 
-        console.log(`${prefix} ${contextInfo}${sender}: ${text}`);
+            // Ignore old messages (only if older than 30 minutes before startup)
+            const msgTime = (typeof msg.messageTimestamp === 'number')
+                ? msg.messageTimestamp
+                : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
 
-        try {
-            msg.bodyTeks = text;
-            await messageHandler(sock, msg);
-        } catch (e) {
-            console.error(chalk.bgRed(" HANDLER ERROR "), e);
-            reportError(e, 'messageHandler', { 
-                sender: remoteJid, 
-                text: text,
-                isGroup: isGroup
-            });
+            const TOLERANCE = 1800; // 30 minutes tolerance
+            if (msgTime < (STARTUP_TIME - TOLERANCE)) {
+                continue;
+            }
+
+            const text = getMessageContent(msg);
+            if (!text) continue;
+
+            const isMe = msg.key.fromMe;
+            const remoteJid = msg.key.remoteJid;
+            const isGroup = remoteJid.endsWith('@g.us');
+
+            // Get Sender Name
+            let senderName = msg.pushName || 'Unknown';
+            if (isMe) senderName = 'ME';
+
+            // Get Group Name (if applicable)
+            let contextInfo = '';
+            if (isGroup) {
+                const groupMetadata = await getGroupMetadata(sock, remoteJid);
+                if (groupMetadata) {
+                    contextInfo = chalk.yellow(`[${groupMetadata.subject}] `);
+                } else {
+                    contextInfo = chalk.yellow(`[Group] `);
+                }
+            }
+
+            // Format Timestamp
+            const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            // Log Format: [TIME] [Group] Sender: Message
+            const prefix = chalk.gray(`[${time}]`);
+            const sender = isMe ? chalk.blue.bold('ME') : chalk.green.bold(senderName);
+
+            console.log(`${prefix} ${contextInfo}${sender}: ${text}`);
+
+            try {
+                msg.bodyTeks = text;
+                await messageHandler(sock, msg);
+            } catch (e) {
+                console.error(chalk.bgRed(" HANDLER ERROR "), e);
+                reportError(e, 'messageHandler', { 
+                    sender: remoteJid, 
+                    text: text,
+                    isGroup: isGroup
+                });
+            }
         }
     })
 }

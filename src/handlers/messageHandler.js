@@ -17,6 +17,25 @@ const { BOT_PREFIX, VALIDATION } = require('../config/constants');
 const { parseDraftFromMessage, normalizeToStandard } = require('../utils/messageUtils');
 const { reportError } = require('../services/errorReporter');
 
+// In-memory cache for marked users
+let cachedMarkedUsers = null;
+const MARKED_USERS_FILE = path.join(__dirname, '../../data/marked_users.json');
+
+const loadMarkedUsers = () => {
+    if (cachedMarkedUsers) return cachedMarkedUsers;
+    try {
+        if (fs.existsSync(MARKED_USERS_FILE)) {
+            const data = JSON.parse(fs.readFileSync(MARKED_USERS_FILE, 'utf8'));
+            cachedMarkedUsers = data.marked_users || [];
+            return cachedMarkedUsers;
+        }
+    } catch (e) {
+        console.error('[HANDLER] Error loading marked users:', e.message);
+    }
+    cachedMarkedUsers = [];
+    return [];
+};
+
 /**
  * Main message handler
  */
@@ -49,40 +68,6 @@ const messageHandler = async (sock, msg) => {
             ? msgObj.key.participant || msgObj.participant
             : sender;
 
-        // --- AUTOMATIC GROUP EXPORT (siapa suruh kesini) ---
-        if (isGroup) {
-            try {
-                const updateGroupExport = async () => {
-                    const metadata = await sock.groupMetadata(sender);
-                    const groupSubject = metadata.subject.toLowerCase();
-
-                    if (/siapa\s+suruh\s+ke?\s*sini/i.test(groupSubject)) {
-
-                        const dataDir = path.join(__dirname, '../../data');
-                        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
-
-                        const exportData = {
-                            groupName: metadata.subject,
-                            groupId: metadata.id,
-                            lastActivity: new Date().toISOString(),
-                            totalParticipants: metadata.participants.length,
-                            members: metadata.participants.map(p => ({
-                                id: p.id,
-                                isLid: p.id.includes('@lid'),
-                                phoneNumber: p.phoneNumber || null
-                            }))
-                        };
-
-                        fs.writeFileSync(
-                            path.join(dataDir, 'siapa_suruh_kesini_members.json'),
-                            JSON.stringify(exportData, null, 2)
-                        );
-                    }
-                };
-                updateGroupExport().catch(() => { });
-            } catch (e) { }
-        }
-
         // --- PROACTIVE LID MAPPING ---
         if (senderNumber && senderNumber.includes('@lid')) {
             const userByLid = getUserByPhone(senderNumber);
@@ -113,13 +98,10 @@ const messageHandler = async (sock, msg) => {
 
             // --- SPECIAL TREATMENT FOR MARKED USERS (Only on Commands) ---
             try {
-
-                const markedFile = path.join(__dirname, '../../data/marked_users.json');
-                if (fs.existsSync(markedFile)) {
-                    const { marked_users } = JSON.parse(fs.readFileSync(markedFile, 'utf8'));
+                const markedUsers = loadMarkedUsers();
+                if (markedUsers.length > 0) {
                     const originalSender = msgObj.key.participant || msgObj.participant || sender;
-
-                    const isMarked = marked_users.find(u =>
+                    const isMarked = markedUsers.find(u =>
                         u.lid === originalSender ||
                         u.phone === originalSender ||
                         (u.phone && normalizeToStandard(u.phone) === senderNumber)
@@ -185,12 +167,9 @@ const messageHandler = async (sock, msg) => {
         }
 
         // --- CONFIRMATION FLOW: "ya" ---
-        const hasPendingDraft = !!getDraft(senderNumber);
-        if (isConfirmation && hasPendingDraft) {
-            const cachedDraft = getDraft(senderNumber);
-            if (!cachedDraft) return;
-
-            if (cachedDraft.type === 'simulation') {
+        const draft = getDraft(senderNumber);
+        if (isConfirmation && draft) {
+            if (draft.type === 'simulation') {
                 await sock.sendMessage(sender, { react: { text: "🛠️", key: msgObj.key } });
                 await new Promise(r => setTimeout(r, 1000));
                 await sock.sendMessage(sender, {
@@ -208,9 +187,9 @@ const messageHandler = async (sock, msg) => {
             const loginResult = await prosesLoginDanAbsen({
                 email: user.email,
                 password: user.password,
-                aktivitas: cachedDraft.aktivitas,
-                pembelajaran: cachedDraft.pembelajaran,
-                kendala: cachedDraft.kendala
+                aktivitas: draft.aktivitas,
+                pembelajaran: draft.pembelajaran,
+                kendala: draft.kendala
             });
 
             if (loginResult.success) {
@@ -222,7 +201,7 @@ const messageHandler = async (sock, msg) => {
             return;
         }
 
-        // --- DRAFT EDIT FLOW ---
+        // --- DRAFT EDIT & AI REVISION FLOW ---
         const isDraftContent = textMessage.includes("*DRAF LAPORAN ANDA*") ||
             textMessage.includes("*DRAF LAPORAN OTOMATIS*") ||
             textMessage.includes("Draf absen darurat") ||
@@ -230,12 +209,12 @@ const messageHandler = async (sock, msg) => {
 
         const isTemplate = textMessage.includes("Aktivitas pada hari ini adalah") || textMessage.includes("Isi dan kirim balik pesan ini");
 
-        if ((hasPendingDraft || isDraftContent) && !isCommand && !isTemplate) {
+        if ((draft || isDraftContent) && !isCommand && !isTemplate) {
             const contextInfo = msgObj.message.extendedTextMessage?.contextInfo;
             const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
             const isReplyToBot = contextInfo?.participant === botJid || contextInfo?.participant === sock.user.id;
 
-            if (isDraftContent || ((!isGroup || isReplyToBot) && hasPendingDraft)) {
+            if (isDraftContent || ((!isGroup || isReplyToBot) && draft)) {
                 const parsedEdit = parseDraftFromMessage(textMessage);
 
                 if (parsedEdit) {
@@ -266,14 +245,14 @@ const messageHandler = async (sock, msg) => {
                     } else {
                         await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                     }
-                } else {
-                    // AI Revision
+                } else if (!isGroup || isReplyToBot) {
+                    // AI Revision (Free text reply)
                     const user = getUserByPhone(senderNumber);
                     if (!user) return;
 
                     await sock.sendMessage(sender, { react: { text: getMessage('reaction_write', senderNumber), key: msgObj.key } });
                     const history = await getRiwayat(user.email, user.password, 3);
-                    const revisionContext = (hasPendingDraft && getDraft(senderNumber).type === 'ai') ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual/baru: ';
+                    const revisionContext = (draft && draft.type === 'ai') ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual/baru: ';
                     const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
 
                     if (aiResult.success) {
