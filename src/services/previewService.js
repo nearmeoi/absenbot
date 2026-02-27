@@ -73,9 +73,27 @@ function cleanup() {
 // Auto-cleanup every hour
 setInterval(cleanup, 60 * 60 * 1000);
 
+/**
+ * Format draft data into preview message text
+ * @param {Object} reportData { aktivitas, pembelajaran, kendala }
+ * @param {string} messageKey - Message template key (default: 'draft_preview')
+ * @returns {string} Formatted preview text
+ */
+function formatDraftPreview(reportData, messageKey = 'draft_preview') {
+    const { getMessage } = require('./messageService');
+    return getMessage(messageKey)
+        .replace('{aktivitas_len}', reportData.aktivitas.length)
+        .replace('{aktivitas}', reportData.aktivitas)
+        .replace('{pembelajaran_len}', reportData.pembelajaran.length)
+        .replace('{pembelajaran}', reportData.pembelajaran)
+        .replace('{kendala_len}', reportData.kendala.length)
+        .replace('{kendala}', reportData.kendala);
+}
+
 module.exports = {
     setDraft,
     getDraft,
     deleteDraft,
+    formatDraftPreview,
     pendingPreviews // Exposed for absolute control if needed
 };

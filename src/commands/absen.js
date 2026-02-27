@@ -6,7 +6,7 @@ const chalk = require('chalk');
 const { getUserByPhone } = require('../services/database');
 const { prosesLoginDanAbsen, cekStatusHarian, getRiwayat } = require('../services/magang');
 const { generateAttendanceReport, processFreeTextToReport } = require('../services/aiService');
-const { setDraft, getDraft, deleteDraft } = require('../services/previewService');
+const { setDraft, getDraft, deleteDraft, formatDraftPreview } = require('../services/previewService');
 const { isHoliday } = require('../config/holidays');
 const { loadGroupSettings } = require('../services/groupSettings');
 const { getMessage } = require('../services/messageService');
@@ -31,7 +31,6 @@ module.exports = {
         if (!contentToProcess) {
             if (user.template) {
                 contentToProcess = user.template;
-                // Silently proceed to use template
             } else {
                 const hint = getMessage('!absen_hint', senderNumber);
                 await sock.sendMessage(sender, { text: hint }, { quoted: msgObj });
@@ -39,20 +38,22 @@ module.exports = {
             }
         }
 
-        // 3. Pre-check: Already submitted today? (NETWORK CALL)
-        try {
-            const statusCheck = await cekStatusHarian(user.email, user.password);
-            if (statusCheck.success && statusCheck.sudahAbsen) {
-                const log = statusCheck.data;
-                const reply = getMessage('!cek_done', senderNumber)
-                    .replace('{date}', log.date)
-                    .replace('{activity}', log.activity_log ? log.activity_log.substring(0, 50) + '...' : '-');
+        // 3. Pre-check + History fetch IN PARALLEL (saves ~2-3s)
+        const [statusCheck, history] = await Promise.all([
+            cekStatusHarian(user.email, user.password).catch(e => {
+                console.error("[CMD:ABSEN] Error pre-check:", e.message);
+                return { success: false };
+            }),
+            getRiwayat(user.email, user.password, 3).catch(e => ({ success: false, logs: [] }))
+        ]);
 
-                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
-                return;
-            }
-        } catch (e) {
-            console.error("[CMD:ABSEN] Error pre-check:", e);
+        if (statusCheck.success && statusCheck.sudahAbsen) {
+            const log = statusCheck.data;
+            const reply = getMessage('!cek_done', senderNumber)
+                .replace('{date}', log.date)
+                .replace('{activity}', log.activity_log ? log.activity_log.substring(0, 50) + '...' : '-');
+            await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+            return;
         }
 
         // With args: Process report
@@ -82,8 +83,7 @@ module.exports = {
                 return;
             }
         } else {
-            // AI mode
-            const history = await getRiwayat(user.email, user.password, 3);
+            // AI mode — history already fetched in parallel above
             const aiResult = await processFreeTextToReport(contentToProcess, history.success ? history.logs : []);
 
             if (!aiResult.success) {
@@ -101,13 +101,7 @@ module.exports = {
 
         setDraft(senderNumber, reportData);
 
-        let previewText = getMessage('draft_preview')
-            .replace('{aktivitas_len}', reportData.aktivitas.length)
-            .replace('{aktivitas}', reportData.aktivitas)
-            .replace('{pembelajaran_len}', reportData.pembelajaran.length)
-            .replace('{pembelajaran}', reportData.pembelajaran)
-            .replace('{kendala_len}', reportData.kendala.length)
-            .replace('{kendala}', reportData.kendala);
+        let previewText = formatDraftPreview(reportData);
 
         // Add info footer if template was used
         if (!args || args.trim() === '') {

@@ -31,13 +31,15 @@ for (const file of commandFiles) {
             commands.set(name.toLowerCase(), command);
         }
 
-        console.log(chalk.green(`[COMMANDS] Loaded: ${names.join(', ')}`));
+        // Silent load — only log failures
     } catch (e) {
         console.error(chalk.red(`[COMMANDS] Failed to load ${file}:`), e.message);
     }
 }
 
-console.log(chalk.cyan(`[COMMANDS] Total commands loaded: ${commands.size}`));
+// One-line summary with unique command names
+const uniqueNames = [...new Set([...commands.values()].map(c => (Array.isArray(c.name) ? c.name[0] : c.name)))];
+console.log(chalk.cyan(`[COMMANDS] ${commands.size} loaded (${uniqueNames.join(', ')})`));
 
 /**
  * Get command by name

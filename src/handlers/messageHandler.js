@@ -10,7 +10,7 @@ const { findClosestMatch } = require('../utils/stringUtils');
 const { getUserByPhone, updateUserLid } = require('../services/database');
 const { prosesLoginDanAbsen, getRiwayat } = require('../services/magang');
 const { processFreeTextToReport } = require('../services/aiService');
-const { getDraft, setDraft, deleteDraft } = require('../services/previewService');
+const { getDraft, setDraft, deleteDraft, formatDraftPreview } = require('../services/previewService');
 const botState = require('../services/botState');
 const { getMessage } = require('../services/messageService');
 const { BOT_PREFIX, VALIDATION } = require('../config/constants');
@@ -230,13 +230,7 @@ const messageHandler = async (sock, msg) => {
                     }
 
                     setDraft(senderNumber, parsedEdit);
-                    const previewText = getMessage('draft_updated', senderNumber)
-                        .replace('{aktivitas_len}', parsedEdit.aktivitas.length)
-                        .replace('{aktivitas}', parsedEdit.aktivitas)
-                        .replace('{pembelajaran_len}', parsedEdit.pembelajaran.length)
-                        .replace('{pembelajaran}', parsedEdit.pembelajaran)
-                        .replace('{kendala_len}', parsedEdit.kendala.length)
-                        .replace('{kendala}', parsedEdit.kendala);
+                    const previewText = formatDraftPreview(parsedEdit, 'draft_updated');
 
                     if (isGroup) {
                         await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
@@ -258,13 +252,7 @@ const messageHandler = async (sock, msg) => {
                     if (aiResult.success) {
                         const reportData = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala, type: 'ai' };
                         setDraft(senderNumber, reportData);
-                        const previewText = getMessage('draft_updated', senderNumber)
-                            .replace('{aktivitas_len}', reportData.aktivitas.length)
-                            .replace('{aktivitas}', reportData.aktivitas)
-                            .replace('{pembelajaran_len}', reportData.pembelajaran.length)
-                            .replace('{pembelajaran}', reportData.pembelajaran)
-                            .replace('{kendala_len}', reportData.kendala.length)
-                            .replace('{kendala}', reportData.kendala);
+                        const previewText = formatDraftPreview(reportData, 'draft_updated');
 
                         if (isGroup) {
                             await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });

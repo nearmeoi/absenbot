@@ -6,65 +6,51 @@ const path = require('path');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const execAsync = promisify(exec);
-const puppeteer = require('puppeteer-core');
-const { CHROMIUM_PATH, PUPPETEER_ARGS } = require('../config/constants');
+const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+
+// Load Apple Color Emoji font once at startup (if available)
+const EMOJI_FONT_PATH = '/home/ubuntu/.local/share/fonts/AppleColorEmoji.ttf';
+try {
+    const fontFs = require('fs');
+    if (fontFs.existsSync(EMOJI_FONT_PATH)) {
+        GlobalFonts.registerFromPath(EMOJI_FONT_PATH, 'AppleEmoji');
+        console.log('[STICKER] Apple Color Emoji font loaded ✅');
+    } else {
+        console.warn('[STICKER] Apple Color Emoji not found at', EMOJI_FONT_PATH, '- using system emoji');
+    }
+} catch (e) {
+    console.warn('[STICKER] Could not load emoji font:', e.message);
+}
 
 /**
- * Render text to transparent PNG using Puppeteer (Chrome)
+ * Render text to transparent PNG using @napi-rs/canvas (Rust native, no browser)
+ * Supports Apple Color Emoji (iPhone emoji) rendering
+ * ~100x faster and ~50x less RAM than Puppeteer
  */
 async function renderTextToImage(text) {
-    const browser = await puppeteer.launch({
-        executablePath: CHROMIUM_PATH,
-        args: [...PUPPETEER_ARGS, '--no-sandbox'],
-        headless: true
-    });
-    
-    try {
-        const page = await browser.newPage();
-        await page.setViewport({ width: 512, height: 200, deviceScaleFactor: 1 });
-        
-        const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
-        
-        const processedText = text.split(emojiRegex).map(part => {
-            if (!part) return '';
-            if (part.match(emojiRegex)) return `<span class="emoji">${part}</span>`;
-            return `<span class="outline">${part}</span>`;
-        }).join('');
+    const width = 512;
+    const height = 120;
 
-        const html = `
-        <html>
-        <head>
-            <style>
-                @font-face {
-                    font-family: 'Apple Color Emoji';
-                    src: url('file:///home/ubuntu/.local/share/fonts/AppleColorEmoji.ttf');
-                }
-                body {
-                    margin: 0; padding: 0; background: transparent;
-                    display: flex; justify-content: center; align-items: flex-end;
-                    height: 100vh; overflow: hidden;
-                }
-                .text {
-                    font-size: 60px; font-weight: bold; color: white;
-                    text-align: center; padding-bottom: 20px;
-                    -webkit-font-smoothing: antialiased; line-height: 1.2;
-                }
-                .emoji { font-family: 'Apple Color Emoji'; }
-                .outline {
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    text-shadow: -1.5px -1.5px 0 #000, 1.5px -1.5px 0 #000, -1.5px 1.5px 0 #000, 1.5px 1.5px 0 #000;
-                }
-            </style>
-        </head>
-        <body><div class="text">${processedText}</div></body>
-        </html>`;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
 
-        await page.setContent(html);
-        const element = await page.$('.text');
-        return await element.screenshot({ omitBackground: true });
-    } finally {
-        await browser.close();
-    }
+    // Auto-size font based on text length
+    const fontSize = Math.min(56, Math.floor(450 / Math.max(text.length, 1)) + 20);
+    const fontFamily = '"AppleEmoji", "Segoe UI Emoji", "Segoe UI", "Noto Color Emoji", sans-serif';
+
+    // Draw text outline (black stroke)
+    ctx.font = `bold ${fontSize}px ${fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'black';
+    ctx.strokeText(text, width / 2, height * 0.6);
+
+    // Draw text fill (white)
+    ctx.fillStyle = 'white';
+    ctx.fillText(text, width / 2, height * 0.6);
+
+    return canvas.toBuffer('image/png');
 }
 
 /**
@@ -81,7 +67,7 @@ async function videoToWebp(inputBuffer, textOverlayBuffer = null) {
 
     try {
         fs.writeFileSync(inputPath, inputBuffer);
-        
+
         let filter = `fps=15,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0`;
         let inputFiles = `-i "${inputPath}"`;
 
@@ -93,7 +79,7 @@ async function videoToWebp(inputBuffer, textOverlayBuffer = null) {
 
         // Convert to 512x512 animated webp, max 5 seconds, 15 fps
         await execAsync(`ffmpeg ${inputFiles} -t 5 -vf "${filter}" -loop 0 -vcodec libwebp -lossless 0 -compression_level 4 -q:v 50 "${outputPath}"`);
-        
+
         const outputBuffer = fs.readFileSync(outputPath);
         return outputBuffer;
     } finally {
@@ -106,35 +92,35 @@ async function videoToWebp(inputBuffer, textOverlayBuffer = null) {
 const { reportError } = require('../services/errorReporter');
 
 module.exports = {
-    name: ['s', 'sticker', 'stiker'],
-    description: 'Ubah gambar/video ke sticker dengan iOS Emoji (Ultra HD)',
+    name: ['s', 'sticker', 'stiker', 'sf', 'sfull', 'stickerfull'],
+    description: 'Ubah gambar/video ke sticker (!sf untuk pertahankan dimensi asli)',
     async execute(sock, msg, context) {
         const { sender } = context;
 
         try {
             const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
             const targetMsg = quotedMsg ? quotedMsg : msg.message;
-            
-            const viewOnce = targetMsg.viewOnceMessageV2 || targetMsg.viewOnceMessage || 
-                             targetMsg.viewOnceMessageV2Extension; 
+
+            const viewOnce = targetMsg.viewOnceMessageV2 || targetMsg.viewOnceMessage ||
+                targetMsg.viewOnceMessageV2Extension;
             const content = viewOnce ? viewOnce.message : targetMsg;
             const mediaMsg = content.imageMessage || content.videoMessage || content.stickerMessage;
 
             if (!mediaMsg) {
-                return await sock.sendMessage(sender, { 
-                    text: '⚠️ Kirim gambar/video dengan caption *!s* atau reply gambar/video/sticker.' 
+                return await sock.sendMessage(sender, {
+                    text: '⚠️ Kirim gambar/video dengan caption *!s* atau *!sf* (full dimension), atau reply gambar/video/sticker.'
                 }, { quoted: msg });
             }
 
             if (!mediaMsg.mediaKey) {
-                return await sock.sendMessage(sender, { 
-                    text: '⚠️ Media tidak dapat diunduh (Media Key kosong). Cobalah mengirim ulang media tersebut.' 
+                return await sock.sendMessage(sender, {
+                    text: '⚠️ Media tidak dapat diunduh (Media Key kosong). Cobalah mengirim ulang media tersebut.'
                 }, { quoted: msg });
             }
 
             const msgToDownload = {
-                key: quotedMsg ? { 
-                    ...msg.key, 
+                key: quotedMsg ? {
+                    ...msg.key,
                     id: msg.message.extendedTextMessage.contextInfo.stanzaId,
                     participant: msg.message.extendedTextMessage.contextInfo.participant || msg.key.participant
                 } : msg.key,
@@ -147,6 +133,10 @@ module.exports = {
             const text = context.args.trim();
             const isVideo = !!content.videoMessage;
             let textOverlay = null;
+
+            // Detect full mode from original command (!sf, !sfull, !stickerfull)
+            const cmdUsed = context.textMessage.trim().split(/\s+/)[0].toLowerCase().replace(/^!/, '');
+            const isFullMode = ['sf', 'sfull', 'stickerfull'].includes(cmdUsed);
 
             if (text) {
                 textOverlay = await renderTextToImage(text);
@@ -167,7 +157,7 @@ module.exports = {
             // For videos, the text is already burned in by FFmpeg in Step 1
             let pipeline = sharp(buffer, { animated: true })
                 .resize(512, 512, {
-                    fit: 'cover',
+                    fit: isFullMode ? 'contain' : 'cover',
                     background: { r: 0, g: 0, b: 0, alpha: 0 }
                 });
 
@@ -184,7 +174,7 @@ module.exports = {
             }
 
             const finalBuffer = await pipeline
-                .webp({ effort: 6, quality: isVideo ? 40 : 60 }) 
+                .webp({ effort: 6, quality: isVideo ? 40 : 60 })
                 .toBuffer();
 
             // Step 3: Create and Send Sticker
@@ -202,8 +192,8 @@ module.exports = {
         } catch (error) {
             console.error('[STICKER] Error:', error);
             reportError(error, 'stickerCommand', { sender: sender, args: context.args });
-            await sock.sendMessage(sender, { 
-                text: `❌ *Gagal membuat sticker*\n\n*Error:* ${error.message.substring(0, 100)}` 
+            await sock.sendMessage(sender, {
+                text: `❌ *Gagal membuat sticker*\n\n*Error:* ${error.message.substring(0, 100)}`
             }, { quoted: msg });
         }
     }

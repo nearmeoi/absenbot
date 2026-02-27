@@ -155,8 +155,8 @@ async function runGroqGeneration(systemPrompt, userPrompt) {
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt }
             ],
-            temperature: 0.7,
-            max_tokens: AI_CONFIG.GROQ.MAX_TOKENS
+            temperature: 0.6,
+            max_tokens: 600
         }, {
             headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
             timeout: AI_CONFIG.GROQ.TIMEOUT
@@ -359,6 +359,7 @@ async function generateAttendanceReport(previousLogs = []) {
 
 /**
  * Process free text input into a structured attendance report (Story Mode)
+ * Optimized: skips separate refinement for short input, combines with expansion
  */
 async function processFreeTextToReport(userText, previousLogs = []) {
     const contextMessages = [];
@@ -368,7 +369,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
             historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
         });
 
-        // Truncate history to avoid URL length limits (approx 2000 chars safe for context)
+        // Truncate history to avoid URL length limits
         if (historyText.length > 2000) {
             historyText = historyText.substring(0, 2000) + "\n...(Riwayat dipotong)...";
         }
@@ -379,7 +380,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: \"${userText}\"\n\nBuatkan laporan dengan gaya saya!`;
 
     // 1. Try Groq (Primary)
-    let res = await runGroqGeneration(systemPrompt, fullPrompt); // Use systemPrompt for role, fullPrompt for user
+    let res = await runGroqGeneration(systemPrompt, fullPrompt);
     let content = res.content;
 
     // 2. Fallback
@@ -390,35 +391,53 @@ async function processFreeTextToReport(userText, previousLogs = []) {
 
     if (!content) return { success: false, error: 'Gagal memproses laporan (Semua engine AI sibuk).' };
 
-    // 3. Double Check (Refinement)
-    content = await runGroqRefinement(content, userText, previousLogs);
+    // 3. Smart Refinement: Skip separate refinement if input is short
+    //    (expansion will handle both refinement + lengthening in one call)
+    const wordCount = userText.trim().split(/\s+/).length;
+    const skipRefinement = wordCount < 50;
+
+    if (!skipRefinement) {
+        content = await runGroqRefinement(content, userText, previousLogs);
+    }
 
     console.log(chalk.yellow('[AI-DEBUG] RAW CONTENT BEFORE PARSE:\n', content));
 
     let report = parseAndClamp(content);
 
-    // --- FORCE EXPANSION IF BELOW 100 CHARS ---
+    // --- COMBINED REFINEMENT + EXPANSION if sections too short ---
     if (GROQ_API_KEY && (report.aktivitas.length < 100 || report.pembelajaran.length < 100 || report.kendala.length < 100)) {
-        console.log(chalk.cyan('[AI] Some sections too short, performing Expansion Pass...'));
+        console.log(chalk.cyan('[AI] Sections too short, running combined refinement+expansion...'));
 
-        const expansionPrompt = `Laporan ini terlalu singkat. Perpanjang bagian yang kurang agar mencapai 110-140 karakter dengan menambahkan detail profesional/faktual berdasarkan cerita: "${userText}". 
-        PENTING: JANGAN LEBAY, jangan pakai kalimat klise (seperti "tetap semangat", "mencari solusi"). Cukup jelaskan prosesnya secara natural.
-        
-        Draft:
-        AKTIVITAS: ${report.aktivitas}
-        PEMBELAJARAN: ${report.pembelajaran}
-        KENDALA: ${report.kendala}
-        
-        Kembalikan dalam format AKTIVITAS, PEMBELAJARAN, KENDALA.`;
+        // For very short user input, allow more creative elaboration
+        const isMinimalInput = wordCount < 10;
+        const expansionPrompt = `Laporan magang ini perlu diperpanjang.${isMinimalInput ? `\nUser hanya bilang: "${userText}". Elaborasi dengan detail teknis yang WAJAR dan REALISTIS untuk kegiatan tersebut.` : `\nCERITA ASLI USER: "${userText}"`}
+
+DRAFT SAAT INI:
+AKTIVITAS: ${report.aktivitas}
+PEMBELAJARAN: ${report.pembelajaran}
+KENDALA: ${report.kendala}
+
+INSTRUKSI:
+1. Perpanjang SETIAP bagian agar mencapai 110-150 karakter.
+2. Tambahkan detail teknis yang WAJAR dan REALISTIS sesuai konteks kegiatan.
+3. JANGAN pakai kalimat klise/lebay ("tetap semangat", "mencari solusi terbaik", "tidak menyurutkan").
+4. Tulis to-the-point, natural, profesional.
+5. JANGAN PERNAH mempersingkat. Hanya PERPANJANG.
+
+Format output:
+AKTIVITAS: [isi]
+PEMBELAJARAN: [isi]
+KENDALA: [isi]`;
 
         try {
             const expandRes = await axios.post(GROQ_API_URL, {
                 model: GROQ_MODEL,
                 messages: [
-                    { role: 'system', content: "Kamu adalah Senior Editor. Tugasmu memperjelas tulisan agar mencapai minimal 110 karakter tanpa tambahan kata-kata dramatis." },
+                    { role: 'system', content: "Kamu adalah Editor laporan magang. TUGASMU: perpanjang setiap bagian agar mencapai 110-150 karakter. Tambahkan detail teknis yang wajar. JANGAN PERNAH mempersingkat atau menghapus konten. Output HANYA format AKTIVITAS/PEMBELAJARAN/KENDALA." },
                     { role: 'user', content: expansionPrompt }
                 ],
-                temperature: 0.5
+                temperature: isMinimalInput ? 0.5 : 0.4,
+                max_tokens: 500
             }, {
                 headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
                 timeout: AI_CONFIG.GROQ.TIMEOUT
@@ -426,11 +445,11 @@ async function processFreeTextToReport(userText, previousLogs = []) {
 
             const expandedContent = expandRes.data.choices[0]?.message?.content;
             if (expandedContent) {
-                console.log(chalk.green('[AI] Expansion Pass Successful.'));
+                console.log(chalk.green('[AI] Combined refinement+expansion successful.'));
                 report = parseAndClamp(expandedContent);
             }
         } catch (e) {
-            console.warn(chalk.yellow('[AI] Expansion Pass failed:'), e.message);
+            console.warn(chalk.yellow('[AI] Expansion failed:'), e.message);
         }
     }
 

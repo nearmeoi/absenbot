@@ -768,7 +768,6 @@ function scheduleTask(task, timezone) {
 
     const key = `${task.id}_${timezone}`;
     activeCrons.set(key, job);
-    console.log(chalk.gray(`[SCHEDULER] Scheduled: ${task.id} at ${task.time} (${timezone})`));
 }
 
 function reloadScheduler() {

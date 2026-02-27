@@ -264,15 +264,8 @@ const SESSION_TIMEOUT_MS = parseInt(process.env.SESSION_TIMEOUT_MS) || 24 * 60 *
 // ========================================
 
 const printEnvironmentInfo = () => {
-    console.log('\n╔════════════════════════════════════════════════════════════╗');
-    console.log('║              🌍 ENVIRONMENT DETECTION                       ║');
-    console.log('╠════════════════════════════════════════════════════════════╣');
-    console.log(`║  Platform    : ${process.platform.padEnd(44)}║`);
-    console.log(`║  Environment : ${CURRENT_ENV.padEnd(44)}║`);
-    console.log(`║  Env Name    : ${ENV_CONFIG.name.padEnd(44)}║`);
-    console.log(`║  Project Root: ${PROJECT_ROOT.substring(0, 44).padEnd(44)}║`);
-    console.log(`║  Chromium    : ${getChromiumPath().substring(0, 44).padEnd(44)}║`);
-    console.log('╚════════════════════════════════════════════════════════════╝\n');
+    console.log(`\n🌍 ${ENV_CONFIG.name} | ${CURRENT_ENV} | Node ${process.version}`);
+    console.log(`   Root: ${PROJECT_ROOT} | Chromium: ${getChromiumPath()}\n`);
 };
 
 // Print on startup (can be disabled via env)
