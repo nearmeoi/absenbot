@@ -82,11 +82,14 @@ function removeHoliday(dateStr) {
  */
 function isHoliday(dateStr = null) {
     if (!dateStr) {
-        dateStr = new Date().toISOString().split('T')[0];
+        dateStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
     }
 
     // Check weekend (Saturday = 6, Sunday = 0)
-    const date = new Date(dateStr);
+    // IMPORTANT: new Date(dateStr) treats YYYY-MM-DD as UTC. 
+    // We want it to be treated as a local date for day calculation.
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
     const day = date.getDay();
     if (day === 0 || day === 6) {
         return true; // Weekend

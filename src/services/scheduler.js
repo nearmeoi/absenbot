@@ -28,7 +28,6 @@ const ramadanCrons = new Map(); // Store dynamic Ramadan tasks for the day
 
 function setBotSocket(sock) {
     botSocket = sock;
-    console.log(chalk.cyan('[SCHEDULER] Socket updated'));
 }
 
 /**
@@ -305,7 +304,7 @@ async function runEmergencyWarning(sock, task, timezone) {
                         text: `📢 *PENGINGAT DEADLINE*\n\nHalo, mohon segera lakukan absen manual sebelum jam 17:00 WITA. Jika tetap belum absen sampai jam 16:30, saya akan mencoba mengabsenkan otomatis.`
                     });
                 }
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 3000));
             } catch (e) {
                 console.error(`[EMERGENCY-WARNING] Error for ${user.email}:`, e.message);
             }
@@ -491,7 +490,7 @@ async function runGroupHidetagJapri(sock, task, timezone) {
             try {
                 // Use the list we already filtered above
                 await sock.sendMessage(user.phone, { text: getMessage(task.messageKey, user.phone) });
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 3000));
             } catch (e) {
                 console.error(`[SCHEDULER] Failed japri to ${user.email}:`, e.message);
             }
@@ -606,7 +605,7 @@ async function runEmergencySubmit(sock, task, timezone) {
                 await sock.sendMessage(user.phone, {
                     text: `🚨 *PERINGATAN DEADLINE*\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya akan membantu melakukan absen otomatis sekarang agar upah Anda tidak terpotong.`
                 });
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 3000));
             } catch (e) { }
 
             // The actual submit logic
@@ -692,7 +691,6 @@ async function executeAutoSubmit(sock, user) {
 }
 
 async function runScheduledWebReports(sock, timezone) {
-    console.log(chalk.magenta(`[SCHEDULER] Running Web Scheduled Reports (${timezone})`));
     const SCHEDULED_REPORTS_FILE = path.join(__dirname, '../../data/scheduled_reports.json');
     if (!fs.existsSync(SCHEDULED_REPORTS_FILE)) return;
 
@@ -771,7 +769,6 @@ function scheduleTask(task, timezone) {
 }
 
 function reloadScheduler() {
-    console.log(chalk.yellow('[SCHEDULER] Reloading schedules...'));
     // Stop all existing crons
     for (const [key, job] of activeCrons.entries()) {
         job.stop();
@@ -808,7 +805,7 @@ function reloadScheduler() {
     }, { timezone: 'Asia/Makassar' });
     activeCrons.set('global_info_check', infoCheckJob);
 
-    console.log(chalk.green(`[SCHEDULER] Reload complete. ${activeCrons.size} jobs active.`));
+    console.log(chalk.cyan(`[SCHEDULER] ${activeCrons.size} jobs initialized.`));
 
     // 4. Schedule Daily Ramadan Refresh (00:05 WITA)
     const ramadanJob = cron.schedule('5 0 * * *', () => {
@@ -833,7 +830,6 @@ function subtractMinutes(timeStr, mins) {
 
 async function scheduleRamadanForToday(sock) {
     if (!sock) return;
-    console.log(chalk.magenta('[RAMADAN] Scheduling daily reminders...'));
 
     // Clear existing daily jobs
     for (const [key, job] of ramadanCrons.entries()) {
@@ -933,12 +929,11 @@ async function scheduleRamadanForToday(sock) {
 
                 ramadanCrons.set(task.name, job);
             });
-        }
-
-        console.log(chalk.green(`[RAMADAN] Scheduled reminders for ${citySchedules.size} cities across ${enabledGroups.length} groups.`));
-
-    } catch (e) {
-        console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
+            }
+        
+            console.log(chalk.magenta(`[RAMADAN] ${citySchedules.size} cities | ${enabledGroups.length} groups`));
+        
+        } catch (e) {        console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
     }
 }
 

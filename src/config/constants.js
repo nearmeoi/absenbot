@@ -2,6 +2,7 @@ require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const chalk = require('chalk');
 
 // ========================================
 // ADMIN CONFIGURATION
@@ -318,13 +319,6 @@ module.exports = {
             MODEL: 'llama-3.3-70b-versatile',
             MAX_TOKENS: 1000,
             TIMEOUT: 30000
-        },
-        GIMITA: {
-            GEMINI_API_URL: 'https://api.gimita.id/api/ai/gemini',
-            DOLPHIN_API_URL: 'https://api.gimita.id/api/ai/dolphin',
-            CHATAI_API_URL: 'https://api.gimita.id/api/ai/chatai',
-            URL_LENGTH_LIMIT: 6000,
-            TIMEOUT: 45000
         },
         GEMINI: {
             API_URL_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',

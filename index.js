@@ -2,17 +2,35 @@
 require('dotenv').config();
 
 // --- CONSOLE FILTER: Suppress noisy Baileys internal logs ---
+const filterOutput = (args) => {
+    const text = args.map(arg => {
+        if (typeof arg === 'string') return arg;
+        try { return JSON.stringify(arg); } catch (e) { return String(arg); }
+    }).join(' ');
+
+    return text.includes('Closing session') ||
+           text.includes('SessionEntry') ||
+           text.includes('_chains') ||
+           text.includes('ephemeralKeyPair') ||
+           text.includes('pendingPreKey');
+};
+
 const originalLog = console.log;
 console.log = (...args) => {
-    const text = args.join(' ');
-    // Filter out noisy Baileys session logs
-    if (text.includes('Closing session') ||
-        text.includes('SessionEntry') ||
-        text.includes('_chains') ||
-        text.includes('ephemeralKeyPair')) {
-        return; // Suppress
-    }
+    if (filterOutput(args)) return;
     originalLog.apply(console, args);
+};
+
+const originalInfo = console.info;
+console.info = (...args) => {
+    if (filterOutput(args)) return;
+    originalInfo.apply(console, args);
+};
+
+const originalError = console.error;
+console.error = (...args) => {
+    if (filterOutput(args)) return;
+    originalError.apply(console, args);
 };
 
 const connectToWhatsApp = require('./src/app');

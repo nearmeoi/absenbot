@@ -558,6 +558,46 @@ router.post('/api/bot/status', requireAuth, express.json(), (req, res) => {
     res.json({ success: true, status: botState.getBotStatus() });
 });
 
+// Restart Bot Process
+router.post('/api/bot/restart', requireAuth, (req, res) => {
+    log(LOG_TYPES.WARNING, 'Bot restart triggered via dashboard');
+    res.json({ success: true, message: 'Bot sedang restart...' });
+    
+    // Use PM2 to restart itself after a short delay
+    setTimeout(() => {
+        const { exec } = require('child_process');
+        exec('pm2 restart absenbot', (err) => {
+            if (err) console.error('[DASHBOARD] Failed to restart via PM2:', err);
+        });
+    }, 1000);
+});
+
+// Reset WhatsApp Session (Logout)
+router.post('/api/bot/reset-session', requireAuth, (req, res) => {
+    log(LOG_TYPES.DANGER, 'WhatsApp session reset triggered via dashboard!');
+    res.json({ success: true, message: 'Sesi dihapus. Bot akan restart untuk pairing baru.' });
+
+    setTimeout(() => {
+        const { AUTH_STATE_DIR } = require('../config/constants');
+        try {
+            // Delete the session directory
+            if (fs.existsSync(AUTH_STATE_DIR)) {
+                // Use rmSync with recursive and force
+                fs.rmSync(AUTH_STATE_DIR, { recursive: true, force: true });
+                console.log(chalk.bgRed.white(' [SESSION] Session folder deleted via dashboard. '));
+            }
+            
+            // Restart via PM2
+            const { exec } = require('child_process');
+            exec('pm2 restart absenbot', (err) => {
+                if (err) console.error('[DASHBOARD] Failed to restart after session reset:', err);
+            });
+        } catch (e) {
+            console.error('[DASHBOARD] Error during session reset:', e.message);
+        }
+    }, 1000);
+});
+
 // Toggle Specific Command Maintenance
 router.post('/api/bot/command-maintenance', requireAuth, express.json(), (req, res) => {
     const { command } = req.body;

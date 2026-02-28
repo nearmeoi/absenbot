@@ -5,27 +5,6 @@ const util = require('util');
 const axios = require('axios');
 const execPromise = util.promisify(exec);
 
-const PLATFORM_CONFIG = [
-    { name: 'TikTok', hosts: ['tiktok.com'], endpoint: 'tiktok' },
-    { name: 'Facebook', hosts: ['facebook.com', 'fb.watch', 'fb.com'], endpoint: 'facebook' },
-    { name: 'Instagram', hosts: ['instagram.com'], endpoint: 'instagram' },
-    { name: 'Twitter', hosts: ['twitter.com', 'x.com'], endpoint: 'twitter' },
-    { name: 'YouTube', hosts: ['youtube.com', 'youtu.be'], endpoint: 'youtube' },
-    { name: 'Capcut', hosts: ['capcut.com'], endpoint: 'capcut' },
-    { name: 'Spotify', hosts: ['spotify.com'], endpoint: 'spotify' },
-    { name: 'Threads', hosts: ['threads.net'], endpoint: 'threads' },
-    { name: 'Pinterest', hosts: ['pinterest.com', 'pin.it'], endpoint: 'pinterest' },
-    { name: 'Douyin', hosts: ['douyin.com'], endpoint: 'douyin' },
-    { name: 'SnackVideo', hosts: ['snackvideo.com', 'sck.io'], endpoint: 'snackvideo' },
-    { name: 'Bilibili', hosts: ['bilibili.com', 'b.tv'], endpoint: 'bilibili' },
-    { name: 'Mediafire', hosts: ['mediafire.com'], endpoint: 'mediafire' },
-    { name: 'Terabox', hosts: ['terabox.com', 'teraboxapp.com'], endpoint: 'terabox' },
-    { name: 'SoundCloud', hosts: ['soundcloud.com'], endpoint: 'soundcloud' },
-    { name: 'Twitch', hosts: ['twitch.tv'], endpoint: 'twitchclip' },
-    { name: 'Videy', hosts: ['videy.co'], endpoint: 'videy' },
-    { name: 'PixelDrain', hosts: ['pixeldrain.com'], endpoint: 'pixeldrain' }
-];
-
 module.exports = {
     name: ['dl', 'download', 'ytdl'],
     description: 'Download media dari berbagai platform (TikTok, FB, IG, YT, dll)',
@@ -48,73 +27,6 @@ module.exports = {
         try {
             await sock.sendMessage(sender, { react: { text: '⏳', key: msg.key } });
 
-            // --- AUTO-DETECT PLATFORM & GIMITA API ---
-            const platform = PLATFORM_CONFIG.find(p => p.hosts.some(h => url.includes(h)));
-
-            if (platform) {
-                console.log(`[DL] Using Gimita API for ${platform.name}: ${url}`);
-                try {
-                    const apiKey = process.env.GIMITA_API_KEY;
-                    const response = await axios.get(`https://api.gimita.id/api/downloader/${platform.endpoint}?url=${encodeURIComponent(url)}`, {
-                        headers: { "Authorization": `Bearer ${apiKey}` },
-                        timeout: 45000
-                    });
-
-                    console.log(`[DL] Gimita Response Status: ${response.status}`);
-                    console.log(`[DL] Gimita Response Data: ${JSON.stringify(response.data)}`);
-
-                    if (response.data && response.data.success && response.data.data) {
-                        const resData = response.data.data;
-
-                        // Handle Video
-                        const videoUrl = resData.video?.hd || resData.video?.sd || resData.video?.url || (typeof resData.video === 'string' ? resData.video : null);
-
-                        // Handle Images (e.g. Instagram slides, Pinterest)
-                        const images = resData.images || resData.photo || [];
-
-                        // Handle Audio (e.g. Spotify, SoundCloud)
-                        const audioUrl = resData.audio?.url || (typeof resData.audio === 'string' ? resData.audio : null);
-
-                        const title = resData.title || `${platform.name} Media`;
-
-                        if (videoUrl) {
-                            const videoRes = await axios.get(videoUrl, { responseType: 'arraybuffer' });
-                            await sock.sendMessage(sender, {
-                                video: Buffer.from(videoRes.data),
-                                caption: `✅ *${title}*\n\nPlatform: ${platform.name}\nURL: ${url}`
-                            }, { quoted: msg });
-                            await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
-                            return;
-                        } else if (images.length > 0) {
-                            for (const img of images) {
-                                const imgUrl = typeof img === 'string' ? img : img.url;
-                                const imgRes = await axios.get(imgUrl, { responseType: 'arraybuffer' });
-                                await sock.sendMessage(sender, { image: Buffer.from(imgRes.data) });
-                            }
-                            await sock.sendMessage(sender, { text: `✅ Downloaded ${images.length} images from ${platform.name}` }, { quoted: msg });
-                            await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
-                            return;
-                        } else if (audioUrl) {
-                            const audioRes = await axios.get(audioUrl, { responseType: 'arraybuffer' });
-                            await sock.sendMessage(sender, {
-                                audio: Buffer.from(audioRes.data),
-                                mimetype: 'audio/mp4',
-                                ptt: false
-                            }, { quoted: msg });
-                            await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
-                            return;
-                        }
-                    } else {
-                        console.warn(`[DL] Gimita API returned unsuccessful response:`, response.data);
-                    }
-                } catch (apiError) {
-                    console.error(`[DL] Gimita API (${platform.name}) Error:`, apiError.message);
-                }
-            }
-
-            /**
-             * FALLBACK: yt-dlp (For generic sites or if API fails)
-             */
             const ytDlpPath = '/home/ubuntu/.local/bin/yt-dlp';
             const dlCmd = `${ytDlpPath} -4 --no-playlist --max-filesize 50M -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -o "${outputPath}" "${url}"`;
 
@@ -128,7 +40,7 @@ module.exports = {
                 }, { quoted: msg });
                 await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
             } else {
-                throw new Error('Fallback failed to produce file');
+                throw new Error('Failed to produce file');
             }
 
         } catch (error) {

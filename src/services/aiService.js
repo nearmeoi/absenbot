@@ -1,5 +1,5 @@
 /**
- * AI Service - Generate attendance reports using Groq (Primary), Gimita, or Gemini
+ * AI Service - Generate attendance reports using Groq (Primary)
  */
 
 const axios = require('axios');
@@ -14,107 +14,12 @@ const fs = require('fs');
 const GROQ_API_URL = AI_CONFIG.GROQ.API_URL;
 const GROQ_AUDIO_URL = AI_CONFIG.GROQ.AUDIO_URL;
 const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
-const GIMITA_API_URL = AI_CONFIG.GIMITA.GEMINI_API_URL;
 
 // Validate API keys on startup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 if (!GROQ_API_KEY) {
     console.error(chalk.red('[GROQ] ❌ GROQ_API_KEY not found in .env file!'));
-}
-if (!GEMINI_API_KEY) {
-    console.error(chalk.red('[GEMINI] ❌ GEMINI_API_KEY not found in .env file!'));
-}
-
-/**
- * Call Gimita API (Gemini Model)
- */
-async function callGimitaGemini(prompt) {
-    try {
-        const encodedMessage = encodeURIComponent(prompt);
-        const url = `${GIMITA_API_URL}?message=${encodedMessage}`;
-
-        if (url.length > AI_CONFIG.GIMITA.URL_LENGTH_LIMIT) {
-            console.warn(chalk.yellow(`[GIMITA] Prompt too long (${url.length} chars), skipping to fallback.`));
-            return { success: false, error: 'Prompt too long for GET request' };
-        }
-
-        console.log(chalk.cyan('[GIMITA] Sending request...'));
-        const response = await axios.get(url, { timeout: AI_CONFIG.GIMITA.TIMEOUT });
-
-        if (response.data && response.data.text) {
-            return { success: true, content: response.data.text };
-        }
-        return { success: false, error: 'Empty response from Gimita' };
-
-    } catch (error) {
-        if (error.response && error.response.status === 429) {
-            console.warn(chalk.yellow('[GIMITA] Rate limit exceeded, using fallback'));
-            return { success: false, error: 'Rate limit exceeded' };
-        }
-        console.error(chalk.red('[GIMITA] Error:'), error.message);
-        return { success: false, error: error.message };
-    }
-}
-
-/**
- * Call Gimita API (Dolphin Model)
- */
-async function callGimitaDolphin(prompt) {
-    try {
-        const encodedQuestion = encodeURIComponent(prompt);
-        const url = `${AI_CONFIG.GIMITA.DOLPHIN_API_URL}?question=${encodedQuestion}&template=logical`;
-
-        if (url.length > AI_CONFIG.GIMITA.URL_LENGTH_LIMIT) {
-            console.warn(chalk.yellow(`[DOLPHIN] Prompt too long (${url.length} chars), skipping to fallback.`));
-            return { success: false, error: 'Prompt too long for GET request' };
-        }
-
-        console.log(chalk.cyan('[DOLPHIN] Sending request...'));
-        const response = await axios.get(url, { timeout: AI_CONFIG.GIMITA.TIMEOUT });
-
-        if (response.data && response.data.success && response.data.data && response.data.data.answer) {
-            return { success: true, content: response.data.data.answer };
-        }
-        return { success: false, error: 'Empty response from Gimita Dolphin' };
-
-    } catch (error) {
-        if (error.response && error.response.status === 429) {
-            console.warn(chalk.yellow('[DOLPHIN] Rate limit exceeded, using fallback'));
-            return { success: false, error: 'Rate limit exceeded' };
-        }
-        console.error(chalk.red('[DOLPHIN] Error:'), error.message);
-        return { success: false, error: error.message };
-    }
-}
-
-async function callGimitaChatAI(prompt, model = 'deepseek-v3') {
-    try {
-        const encodedQuery = encodeURIComponent(prompt);
-        const url = `${AI_CONFIG.GIMITA.CHATAI_API_URL}?model=${model}&query=${encodedQuery}`;
-
-        if (url.length > AI_CONFIG.GIMITA.URL_LENGTH_LIMIT) {
-            console.warn(chalk.yellow(`[CHATAI] Prompt too long (${url.length} chars), skipping to fallback.`));
-            return { success: false, error: 'Prompt too long for GET request' };
-        }
-
-        console.log(chalk.cyan(`[CHATAI-${model.toUpperCase()}] Sending request...`));
-        const response = await axios.get(url, { timeout: AI_CONFIG.GIMITA.TIMEOUT });
-
-        if (response.data && response.data.success && response.data.data && response.data.data.answer) {
-            return { success: true, content: response.data.data.answer };
-        }
-        return { success: false, error: 'Empty response from Gimita ChatAI' };
-
-    } catch (error) {
-        if (error.response && error.response.status === 429) {
-            console.warn(chalk.yellow(`[CHATAI-${model.toUpperCase()}] Rate limit exceeded, using fallback`));
-            return { success: false, error: 'Rate limit exceeded' };
-        }
-        console.error(chalk.red(`[CHATAI-${model.toUpperCase()}] Error:`, error.message));
-        return { success: false, error: error.message };
-    }
 }
 
 async function transcribeAudio(filePath) {
@@ -148,7 +53,7 @@ async function transcribeAudio(filePath) {
 async function runGroqGeneration(systemPrompt, userPrompt) {
     if (!GROQ_API_KEY) return { success: false };
     try {
-        console.log(chalk.cyan('[AI] Trying Groq (Primary)...'));
+        console.log(chalk.cyan('[AI] Trying Groq...'));
         const response = await axios.post(GROQ_API_URL, {
             model: GROQ_MODEL,
             messages: [
@@ -166,27 +71,6 @@ async function runGroqGeneration(systemPrompt, userPrompt) {
         console.warn(chalk.yellow(`[GROQ] Primary engine failed: ${err.message}`));
         return { success: false };
     }
-}
-
-async function runFallbackChain(systemPrompt, userPrompt) {
-    const combinedPrompt = `${systemPrompt}\n\n${userPrompt}`;
-
-    // 1. Dolphin
-    console.log(chalk.cyan('[AI] Fallback: Trying Gimita Dolphin...'));
-    let result = await callGimitaDolphin(combinedPrompt);
-    if (result.success) return { success: true, content: result.content };
-
-    // 2. ChatAI (DeepSeek)
-    console.log(chalk.cyan('[AI] Fallback: Trying Gimita ChatAI (DeepSeek)...'));
-    result = await callGimitaChatAI(combinedPrompt, 'deepseek-v3');
-    if (result.success) return { success: true, content: result.content };
-
-    // 3. Gemini
-    console.log(chalk.cyan('[AI] Fallback: Trying Gimita Gemini...'));
-    result = await callGimitaGemini(combinedPrompt);
-    if (result.success) return { success: true, content: result.content };
-
-    return { success: false };
 }
 
 async function runGroqRefinement(content, userStory, previousLogs) {
@@ -343,15 +227,9 @@ async function generateAttendanceReport(previousLogs = []) {
     let res = await runGroqGeneration(systemPrompt, userPrompt);
     let content = res.content;
 
-    // 2. Fallback
-    if (!content) {
-        res = await runFallbackChain(systemPrompt, userPrompt);
-        content = res.content;
-    }
+    if (!content) return { success: false, error: 'Layanan AI sedang sibuk/gagal.' };
 
-    if (!content) return { success: false, error: 'Semua layanan AI sibuk/gagal.' };
-
-    // 3. Double Check
+    // 2. Double Check
     content = await runGroqRefinement(content, "(Manual Input Context)", previousLogs);
 
     return parseAndClamp(content);
@@ -383,13 +261,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     let res = await runGroqGeneration(systemPrompt, fullPrompt);
     let content = res.content;
 
-    // 2. Fallback
-    if (!content) {
-        res = await runFallbackChain(systemPrompt, fullPrompt);
-        content = res.content;
-    }
-
-    if (!content) return { success: false, error: 'Gagal memproses laporan (Semua engine AI sibuk).' };
+    if (!content) return { success: false, error: 'Gagal memproses laporan (Engine AI sibuk).' };
 
     // 3. Smart Refinement: Skip separate refinement if input is short
     //    (expansion will handle both refinement + lengthening in one call)
@@ -474,7 +346,6 @@ async function summarizeIslamicContent(text) {
     
     Teks Asli: "${text}"`;
 
-    // 1. Try Groq (Fastest)
     if (GROQ_API_KEY) {
         try {
             const res = await axios.post(GROQ_API_URL, {
@@ -488,13 +359,9 @@ async function summarizeIslamicContent(text) {
             const summary = res.data.choices[0]?.message?.content;
             if (summary) return summary.trim();
         } catch (e) {
-            console.warn(chalk.yellow('[AI-SUMMARY] Groq failed, trying fallback...'));
+            console.warn(chalk.yellow('[AI-SUMMARY] Groq failed.'));
         }
     }
-
-    // 2. Fallback to Gimita (ChatAI)
-    const res = await callGimitaChatAI(prompt, 'deepseek-v3');
-    if (res.success) return res.content;
 
     return text; // Return original if all fail
 }
@@ -505,15 +372,19 @@ module.exports = {
     processFreeTextToReport,
     summarizeIslamicContent,
     transcribeAudio,
-    callGimitaGemini,
-    callGimitaDolphin,
-    callGimitaChatAI,
     smartChat: async (prompt, systemPrompt = '') => {
-        const full = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
-        let r = await callGimitaDolphin(full);
-        if (r.success) return { success: true, content: r.content, model: 'Dolphin' };
-        r = await callGimitaChatAI(full, 'deepseek-v3');
-        if (r.success) return { success: true, content: r.content, model: 'DeepSeek' };
-        return { success: false, error: 'Busy' };
+        if (!GROQ_API_KEY) return { success: false, error: 'API key missing' };
+        try {
+            const res = await axios.post(GROQ_API_URL, {
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+                    { role: 'user', content: prompt }
+                ],
+            }, { headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` } });
+            return { success: true, content: res.data.choices[0]?.message?.content, model: 'Groq' };
+        } catch (e) {
+            return { success: false, error: 'Busy' };
+        }
     }
 };

@@ -91,12 +91,14 @@ function parseTagBasedReport(text) {
 }
 
 /**
- * Normalize phone number to standard format
+ * Normalize phone number to standard format, maintaining @lid if present
  * @param {string} phone 
- * @returns {string} Normalized phone number
+ * @returns {string} Normalized identifier
  */
 function normalizeToStandard(phone) {
     if (!phone) return '';
+    if (phone.includes('@lid')) return phone.split(':')[0]; // Maintain LID as is
+    
     let digits = phone.split('@')[0].split(':')[0].replace(/\D/g, '');
     return digits + '@s.whatsapp.net';
 }

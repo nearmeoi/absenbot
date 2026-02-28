@@ -24,7 +24,6 @@ module.exports = {
             days = Math.min(Math.max(parseInt(args), 1), 7);
         }
 
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
         const result = await getRiwayat(user.email, user.password, days);
 
         if (result.success && result.logs.length > 0) {

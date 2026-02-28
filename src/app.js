@@ -2,6 +2,8 @@ const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Disconne
 const pino = require("pino")
 const chalk = require("chalk")
 const readline = require("readline")
+const fs = require('fs');
+const path = require('path');
 const { AUTH_STATE_DIR } = require('./config/constants');
 const { initScheduler, setBotSocket } = require('./services/scheduler');
 const { initAuthServer } = require('./services/secureAuth');
@@ -56,7 +58,7 @@ async function pruneSession() {
         if (!fs.existsSync(AUTH_STATE_DIR)) return;
         
         const files = fs.readdirSync(AUTH_STATE_DIR);
-        if (files.length < 1000) return; // Only prune if it's getting very large
+        if (files.length < 100) return; // Prune earlier to keep session lean
 
         console.log(chalk.yellow(`[SESSION] Pruning ${files.length} session files to improve stability...`));
         let count = 0;
@@ -76,8 +78,12 @@ async function pruneSession() {
     }
 }
 
-async function connectToWhatsApp() {
-    await pruneSession();
+// Store reconnect attempts
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+
+async function connectToWhatsApp(isInitial = true) {
+    if (isInitial) await pruneSession();
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_STATE_DIR)
     const { version } = await fetchLatestBaileysVersion()
 
@@ -87,16 +93,19 @@ async function connectToWhatsApp() {
         logger: pino({ level: "silent" }),
         printQRInTerminal: !usePairingCode,
         auth: state,
-        browser: ['AbsenBot', 'Chrome', '1.0.0'],
+        browser: ["Ubuntu", "Chrome", "20.0.04"],
         version,
         generateHighQualityLinkPreview: false,
         syncFullHistory: false,
         markOnlineOnConnect: true,
-        shouldSyncHistoryMessage: () => false, // Don't sync history
+        shouldSyncHistoryMessage: () => false,
         retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 0, // No timeout
+        defaultQueryTimeoutMs: 0, 
         connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 15000,
+        keepAliveIntervalMs: 30000, // Increase keep-alive interval
+        getMessage: async (key) => {
+            return { conversation: "" }; // Avoid Baileys internal retry loop issues
+        }
     })
 
     // --- ANTI-LOOP WRAPPER ---
@@ -125,28 +134,75 @@ async function connectToWhatsApp() {
 
     // Pairing code logic
     if (usePairingCode && !sock.authState.creds.registered) {
-        const phoneNumber = await question(chalk.green('Nomor WA (628xxx): '))
-        const code = await sock.requestPairingCode(phoneNumber.trim())
-        console.log(chalk.green(`Kode Pairing: `) + chalk.yellow.bold(code))
+        let phoneNumber = process.env.PAIRING_NUMBER;
+        if (!phoneNumber) {
+            phoneNumber = await question(chalk.green('Nomor WA (628xxx): '))
+        } else {
+            console.log(chalk.cyan(`[PAIRING] Using phone number from ENV: ${phoneNumber}`));
+        }
+        
+        try {
+            // Wait a bit before requesting code to avoid 428
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            const code = await sock.requestPairingCode(phoneNumber.trim())
+            console.log('\n' + chalk.bgGreen.black(' 🔑 PAIRING CODE ') + ' ' + chalk.yellow.bold(code) + '\n');
+        } catch (err) {
+            console.error(chalk.red('[PAIRING] Failed to request pairing code:'), err.message);
+        }
     }
 
     sock.ev.on("creds.update", saveCreds)
 
+    // DEBUG ALL EVENTS
+    sock.ev.process(async (events) => {
+        if (events['connection.update']) {
+            // Handled separately below, but we can log it here too
+        }
+    });
+
     sock.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect } = update
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (qr) {
+            console.log(chalk.yellow('[QR] New QR Code generated.'));
+            const { setLastQR } = require('./services/botState');
+            setLastQR(qr);
+        }
+
         if (connection === "close") {
-            const reason = lastDisconnect.error?.output?.statusCode;
+            const reason = lastDisconnect?.error?.output?.statusCode;
             let failureReason = 'Unknown Error';
+            let extraInfo = '';
 
-            if (reason === DisconnectReason.badSession) failureReason = 'Bad Session File - Delete Session & Re-scan';
-            else if (reason === DisconnectReason.connectionClosed) failureReason = 'Connection Closed';
-            else if (reason === DisconnectReason.connectionLost) failureReason = 'Connection Lost from Server';
-            else if (reason === DisconnectReason.connectionReplaced) failureReason = 'Connection Replaced - Another Session Opened';
-            else if (reason === DisconnectReason.loggedOut) failureReason = 'Device Logged Out - Delete Session & Re-scan';
-            else if (reason === DisconnectReason.restartRequired) failureReason = 'Restart Required';
-            else if (reason === DisconnectReason.timedOut) failureReason = 'Connection Timed Out';
+            if (reason === DisconnectReason.badSession) {
+                failureReason = 'Bad Session File';
+                extraInfo = 'Solusi: Hapus folder SesiWA dan restart bot.';
+            } else if (reason === DisconnectReason.connectionClosed) {
+                failureReason = 'Connection Closed (428)';
+                extraInfo = 'Penyebab: Bot meminta kode pairing terlalu cepat. Bot akan mencoba menyambung ulang dengan delay otomatis.';
+            } else if (reason === DisconnectReason.connectionLost) {
+                failureReason = 'Connection Lost from Server';
+                extraInfo = 'Penyebab: Koneksi internet server tidak stabil.';
+            } else if (reason === DisconnectReason.connectionReplaced) {
+                failureReason = 'Connection Replaced';
+                extraInfo = 'Penyebab: Sesi ini dibuka di perangkat/browser lain.';
+            } else if (reason === DisconnectReason.loggedOut) {
+                failureReason = 'Device Logged Out (401)';
+                extraInfo = 'Penyebab: Sesi di folder SesiWA sudah kadaluarsa atau tidak valid lagi. Silakan hapus folder SesiWA.';
+            } else if (reason === DisconnectReason.restartRequired) {
+                failureReason = 'Restart Required';
+                extraInfo = 'Bot akan melakukan restart otomatis.';
+            } else if (reason === DisconnectReason.timedOut) {
+                failureReason = 'Connection Timed Out';
+                extraInfo = 'Mencoba menyambung ulang...';
+            }
 
-            console.log(chalk.red(`❌ Connection Closed: ${failureReason}`));
+            console.log(chalk.red(`❌ Koneksi Terputus: ${failureReason} (${reason})`));
+            if (extraInfo) console.log(chalk.yellow(`ℹ️ Info: ${extraInfo}`));
+            
+            if (lastDisconnect?.error) {
+                console.log(chalk.gray(`[DEBUG] Error Detail: ${lastDisconnect.error.message}`));
+            }
 
             // Update dashboard status
             try {
@@ -156,16 +212,24 @@ async function connectToWhatsApp() {
             } catch (e) { }
 
             const shouldReconnect = reason !== DisconnectReason.loggedOut;
-            if (shouldReconnect) {
-                console.log(chalk.yellow('🔄 Reconnecting in 5 seconds...'));
+            if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                reconnectAttempts++;
+                console.log(chalk.yellow(`🔄 Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in 5 seconds...`));
                 setTimeout(() => {
-                    connectToWhatsApp();
+                    connectToWhatsApp(false); // Not initial
                 }, 5000);
+            } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                console.log(chalk.bgRed('❌ Max reconnect attempts reached. Please check server manually.'));
+                process.exit(1); // Force exit so PM2 can try a fresh start
             } else {
                 console.log(chalk.bgRed('⛔ Session Invalid/Logged Out. Please delete session folder and restart.'));
             }
+        } else if (connection === "connecting") {
+            console.log(chalk.cyan("🔄 Sedang menyambung ke WhatsApp..."));
         } else if (connection === "open") {
+            reconnectAttempts = 0; // Reset on success
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
+            console.log(chalk.gray(`[SYSTEM] Sesi valid terdeteksi. Bot siap digunakan.`));
 
             // INIT ERROR REPORTER
             initErrorReporter(sock);
@@ -180,6 +244,13 @@ async function connectToWhatsApp() {
             const dashboardRoutes = require('./routes/dashboardRoutes');
             dashboardRoutes.setBotSocket(sock);
             dashboardRoutes.setBotConnected(true);
+
+            // SEND TEST MESSAGE TO ADMIN
+            const { ADMIN_NUMBERS } = require('./config/constants');
+            if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
+                sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 Bot baru saja restart dan terhubung. Jika Anda melihat ini, bot bisa mengirim pesan.' })
+                    .catch(err => console.error(chalk.red(`[ERROR] Failed to send test message: ${err.message}`)));
+            }
 
             // Update scheduler socket
             setBotSocket(sock);
@@ -215,6 +286,8 @@ async function connectToWhatsApp() {
             if (msg.key.remoteJid === 'status@broadcast') continue;
             if (msg.key.remoteJid.includes('@newsletter')) continue; // Ignore Channels
 
+            const text = getMessageContent(msg);
+
             // Mark as read to avoid repeated processing
             try {
                 await sock.readMessages([msg.key]);
@@ -230,7 +303,6 @@ async function connectToWhatsApp() {
                 continue;
             }
 
-            const text = getMessageContent(msg);
             if (!text) continue;
 
             const isMe = msg.key.fromMe;

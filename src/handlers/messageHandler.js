@@ -26,7 +26,7 @@ const loadMarkedUsers = () => {
     try {
         if (fs.existsSync(MARKED_USERS_FILE)) {
             const data = JSON.parse(fs.readFileSync(MARKED_USERS_FILE, 'utf8'));
-            cachedMarkedUsers = data.marked_users || [];
+            cachedMarkedUsers = (data && Array.isArray(data.marked_users)) ? data.marked_users : [];
             return cachedMarkedUsers;
         }
     } catch (e) {
@@ -67,25 +67,6 @@ const messageHandler = async (sock, msg) => {
         let senderNumber = isGroup
             ? msgObj.key.participant || msgObj.participant
             : sender;
-
-        // --- PROACTIVE LID MAPPING ---
-        if (senderNumber && senderNumber.includes('@lid')) {
-            const userByLid = getUserByPhone(senderNumber);
-            if (userByLid) {
-                senderNumber = userByLid.phone;
-            } else if (isGroup) {
-                try {
-                    const metadata = await sock.groupMetadata(sender);
-                    const participant = metadata.participants.find(p => p.id === senderNumber);
-                    if (participant && participant.phoneNumber) {
-                        const realPhone = participant.phoneNumber.split('@')[0] + '@s.whatsapp.net';
-                        console.log(chalk.blue(`[HANDLER] Mapping LID ${senderNumber} to ${realPhone}`));
-                        updateUserLid(realPhone, senderNumber);
-                        senderNumber = realPhone;
-                    }
-                } catch (e) { }
-            }
-        }
 
         senderNumber = normalizeToStandard(senderNumber);
 

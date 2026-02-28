@@ -7,6 +7,7 @@
 let schedulerEnabled = true;
 let botStatus = 'online'; // 'online' | 'offline' | 'maintenance'
 let botConnected = false;
+let lastQR = null;
 let maintenanceCommands = []; // List of commands under maintenance, e.g., ['absen', 'daftar']
 
 // Anti-Loop State
@@ -18,6 +19,7 @@ const LOOP_WINDOW_MS = 10000; // 10 seconds
 const isSchedulerEnabled = () => schedulerEnabled;
 const getBotStatus = () => botStatus;
 const isBotConnected = () => botConnected;
+const getLastQR = () => lastQR;
 const getMaintenanceCommands = () => maintenanceCommands;
 const isCommandUnderMaintenance = (cmd) => maintenanceCommands.includes(cmd.toLowerCase());
 
@@ -52,6 +54,11 @@ const setBotStatus = (status) => {
 
 const setBotConnected = (connected) => {
     botConnected = connected;
+    if (connected) lastQR = null; // Clear QR when connected
+};
+
+const setLastQR = (qr) => {
+    lastQR = qr;
 };
 
 const setMaintenanceCommands = (cmds) => {
@@ -73,12 +80,14 @@ module.exports = {
     isSchedulerEnabled,
     getBotStatus,
     isBotConnected,
+    getLastQR,
     getMaintenanceCommands,
     isCommandUnderMaintenance,
     recordSentMessage,
     setSchedulerEnabled,
     setBotStatus,
     setBotConnected,
+    setLastQR,
     setMaintenanceCommands,
     toggleCommandMaintenance
 };

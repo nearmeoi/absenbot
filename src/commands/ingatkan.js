@@ -24,8 +24,6 @@ module.exports = {
             return;
         }
 
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
-
         let belumAbsen = [];
 
         for (const user of allUsers) {

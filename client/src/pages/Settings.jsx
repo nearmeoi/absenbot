@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../utils/api';
-import { Plus, Trash2, Calendar, Info, Settings as SettingsIcon, ChevronDown, ChevronUp, ShieldAlert, Terminal } from 'lucide-react';
+import { Plus, Trash2, Calendar, Info, Settings as SettingsIcon, ChevronDown, ChevronUp, ShieldAlert, Terminal, RefreshCw, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Switch } from '@mui/material';
 
@@ -13,6 +13,8 @@ export default function Settings() {
     const [holidays, setHolidays] = useState([]);
     const [loadingHolidays, setLoadingHolidays] = useState(true);
     const [newDate, setNewDate] = useState('');
+    const [isRestarting, setIsRestarting] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
 
     useEffect(() => {
         loadStatus();
@@ -29,6 +31,36 @@ export default function Settings() {
         } catch (e) {
             toast.error('Failed to load bot status');
             setLoadingStatus(false);
+        }
+    };
+
+    const handleRestart = async () => {
+        if (!window.confirm('Apakah Anda yakin ingin me-restart bot? Dashboard akan terputus sejenak.')) return;
+        setIsRestarting(true);
+        try {
+            await api.post('/bot/restart');
+            toast.success('Bot sedang di-restart...');
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
+        } catch (e) {
+            toast.error('Gagal me-restart bot');
+            setIsRestarting(false);
+        }
+    };
+
+    const handleResetSession = async () => {
+        if (!window.confirm('PERINGATAN: Ini akan menghapus sesi login WhatsApp. Anda harus SCAN QR ULANG. Lanjutkan?')) return;
+        setIsResetting(true);
+        try {
+            await api.post('/bot/reset-session');
+            toast.success('Sesi dihapus. Menunggu bot restart...');
+            setTimeout(() => {
+                window.location.href = '/dashboard/pairing';
+            }, 5000);
+        } catch (e) {
+            toast.error('Gagal menghapus sesi');
+            setIsResetting(false);
         }
     };
 
@@ -113,6 +145,37 @@ export default function Settings() {
     return (
         <div className="max-w-4xl mx-auto pb-12">
             <h1 className="text-4xl font-black uppercase mb-8 border-b-4 border-black pb-4 inline-block">System Settings</h1>
+
+            {/* SYSTEM CONTROL */}
+            <SettingsSection title="System Control" subtitle="Restart or Reset the entire bot" icon={SettingsIcon}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="border-4 border-black p-6 rounded-xl bg-white shadow-[4px_4px_0_#000]">
+                        <h3 className="font-black uppercase mb-2">Restart Bot</h3>
+                        <p className="text-sm font-bold text-gray-500 mb-4">Mulai ulang proses bot jika merasa bot tidak merespons (freeze).</p>
+                        <button 
+                            onClick={handleRestart}
+                            disabled={isRestarting}
+                            className={`w-full flex items-center justify-center gap-2 py-3 border-4 border-black rounded-xl font-black uppercase transition-all shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${isRestarting ? 'bg-gray-200 cursor-not-allowed' : 'bg-yellow-400 hover:bg-yellow-500'}`}
+                        >
+                            <RefreshCw className={isRestarting ? 'animate-spin' : ''} size={20} strokeWidth={3} />
+                            {isRestarting ? 'Restarting...' : 'Restart Bot'}
+                        </button>
+                    </div>
+
+                    <div className="border-4 border-black p-6 rounded-xl bg-white shadow-[4px_4px_0_#000]">
+                        <h3 className="font-black uppercase mb-2 text-red-600">Reset Session</h3>
+                        <p className="text-sm font-bold text-gray-500 mb-4">Hapus sesi WhatsApp saat ini. Gunakan jika bot terkena logout atau ganti nomor.</p>
+                        <button 
+                            onClick={handleResetSession}
+                            disabled={isResetting}
+                            className={`w-full flex items-center justify-center gap-2 py-3 border-4 border-black rounded-xl font-black uppercase transition-all shadow-[4px_4px_0_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${isResetting ? 'bg-gray-200 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600'}`}
+                        >
+                            <LogOut size={20} strokeWidth={3} />
+                            {isResetting ? 'Resetting...' : 'Reset Session'}
+                        </button>
+                    </div>
+                </div>
+            </SettingsSection>
 
             {/* COMMAND MAINTENANCE */}
             <SettingsSection title="Command Controls" subtitle="Enable/Disable specific bot commands" icon={ShieldAlert}>

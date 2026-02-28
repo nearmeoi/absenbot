@@ -36,8 +36,6 @@ module.exports = {
             return;
         }
 
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_wait'), key: msgObj.key } });
-
         const status = await cekStatusHarian(user.email, user.password);
         
         // Preparation for countdowns

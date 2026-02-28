@@ -285,7 +285,7 @@ async function checkAttendanceStatus(email) {
         const logs = response.data?.data;
         if (!Array.isArray(logs)) return { success: false, needsLogin: true, pesan: "Format response tidak valid" };
 
-        const today = new Date().toISOString().split("T")[0];
+        const today = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
         const todayLog = logs.find(log => log.date === today);
 
         if (todayLog) {
@@ -302,8 +302,9 @@ async function checkAttendanceStatus(email) {
         }
 
         if (participantId) {
-            const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-            const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0];
+            const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
             const attendancesUrl = `${API_BASE_URL}/api/attendances?participant_id=${participantId}&start_date=${startOfMonth}&end_date=${endOfMonth}`;
 
             try {
@@ -339,7 +340,7 @@ async function submitAttendanceReport(email, reportData) {
 
     try {
         const client = createApiClient(session);
-        const today = new Date().toISOString().split("T")[0];
+        const today = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
         const payload = {
             date: today,
             status: "PRESENT",
