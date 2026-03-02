@@ -44,14 +44,14 @@ module.exports = {
                         getParticipantProfile(user.email),
                         getUserProfile(user.email)
                     ]);
-                    
+
                     let statusLine = `${index + 1}. *${user.name || user.email.split('@')[0]}*\n`;
-                    
+
                     const p = profileResult.success ? profileResult.data : {};
                     const u = userProfileResult.success ? userProfileResult.data : {};
-                    
+
                     const m = u.mentor_name || p.mentor?.name || p.mentor_name || '-';
-                    
+
                     statusLine += `├ Mentor: ${m}\n`;
 
                     if (statsResult.success) {
@@ -60,9 +60,9 @@ module.exports = {
                         const pending = (cal.pending || []).length;
                         const rejected = (cal.rejected || []).length;
                         const revision = (cal.revision || []).length;
-                        
+
                         const isCached = statsResult.cached ? ' (Cache)' : '';
-                        
+
                         if (pending === 0 && rejected === 0 && revision === 0) {
                             statusLine += `└ ✅ Aman${isCached} (Semua Approved)\n`;
                         } else {
@@ -75,7 +75,7 @@ module.exports = {
                     } else {
                         statusLine += `└ ❌ Error Dashboard: ${statsResult.pesan}\n`;
                     }
-                    
+
                     report += statusLine + `\n`;
 
                     // Send partial report every 10 users to avoid message length limits and give progress
@@ -121,7 +121,7 @@ module.exports = {
             // If not in DB, detect and save it automatically
             if (!cycleDay) {
                 cycleDay = await detectCycleDay(user.email, user.password);
-                
+
                 // Save to DB for future use
                 const fs = require('fs');
                 const path = require('path');
@@ -153,7 +153,7 @@ module.exports = {
                 if (monthIndex !== -1) {
                     // Set 'today' to the cycleDay of the requested month
                     today = new Date(today.getFullYear(), monthIndex, cycleDay);
-                    
+
                     const realNow = new Date();
                     if (realNow.getMonth() < 3 && monthIndex > 9) {
                         today.setFullYear(realNow.getFullYear() - 1);
@@ -182,6 +182,7 @@ module.exports = {
 
             const mentorName = userData.mentor_name || profileData.mentor?.name || profileData.mentor_name || '-';
             const positionName = userData.job_role || profileData.vacancy?.name || profileData.position || profileData.vacancy_name || '-';
+            const userName = userData.name || profileData.name || profileData.participant_name || user.name || user.email.split('@')[0];
 
             const cal = stats.calendar || { approved: [], rejected: [], revision: [], pending: [], alpha: [] };
             // Use full_attendances from API if available (contains both months)
@@ -205,7 +206,7 @@ module.exports = {
             }
             startPeriod.setHours(0, 0, 0, 0);
             displayEndPeriod.setHours(23, 59, 59, 999);
-            
+
             // For iteration, we only go up to 'today' (don't check future)
             const iterationEnd = new Date(today);
             iterationEnd.setHours(23, 59, 59, 999);
@@ -233,13 +234,13 @@ module.exports = {
             // This is the most accurate way to merge "Calendar" and "History"
             let tempDate = new Date(startPeriod);
             const realTodayStr = new Date().toISOString().split('T')[0];
-            
+
             // Map available data for fast lookup
             const logsMap = new Map();
-            
+
             // Priority 1: Full API Attendances (contains status like APPROVED)
             fullLogs.forEach(l => logsMap.set(l.date, l));
-            
+
             // Priority 2: History Logs (contains state like COMPLETED, fallback if API missing)
             historyLogs.forEach(l => {
                 if (!logsMap.has(l.date)) {
@@ -251,14 +252,14 @@ module.exports = {
                 const dStr = tempDate.toISOString().split('T')[0];
                 const isWorkDay = !isHoliday(dStr);
                 const dayLabel = `${tempDate.getDate()} ${tempDate.toLocaleString('id-ID', { month: 'short' })}`;
-                
+
                 const log = logsMap.get(dStr);
 
                 if (log && !log.missing) {
                     // Check status
                     // API uses: approval_status (APPROVED, REJECTED, REVISION) and status (PRESENT, ON_LEAVE)
                     // History uses: state (COMPLETED, PRESENT)
-                    
+
                     const approvalStatus = (log.approval_status || log.state || '').toUpperCase();
                     const attendanceStatus = (log.status || '').toUpperCase();
 
@@ -333,9 +334,9 @@ module.exports = {
 
             let reply = `*LAPORAN DASHBOARD*\n`;
             reply += `Batch: ${batchNum}\n`;
-            reply += `Nama: ${capitalize(user.name)}\n`;
+            reply += `Nama: ${capitalize(userName)}\n`;
             reply += `Mentor: ${capitalize(mentorName)}\n\n`;
-            
+
             reply += `Status Absen: ${statusAbsenToday}\n\n`;
 
             reply += `*Ringkasan:*\n`;
