@@ -128,8 +128,8 @@ async function connectToWhatsApp(isInitial = true) {
 
     console.log(chalk.cyan(`🤖 Memulai Bot (v${version.join('.')}) + SCHEDULER`))
 
-    let phoneNumberForPairing = null;
-    if (usePairingCode && !state.creds.registered) {
+    let phoneNumberForPairing = process.env.PAIRING_NUMBER ? process.env.PAIRING_NUMBER.replace(/[^0-9]/g, '') : null;
+    if (usePairingCode && !state.creds.registered && !phoneNumberForPairing) {
         console.log(chalk.cyan('📱 Silakan masukkan nomor WhatsApp Anda.'));
         phoneNumberForPairing = await question(chalk.green('Nomor WA (Contoh: 6281234xxx): '));
     }
