@@ -16,15 +16,15 @@ const DEBUG = process.env.DEBUG === 'true';
 let schedulerInitialized = false; // Prevent multiple scheduler init
 let authServerInitialized = false; // Prevent multiple auth server init
 
-const question = async (promptMsg) => {
-    process.stdout.write(promptMsg);
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    return new Promise((resolve) => {
-        rl.question("", (ans) => {
-            rl.close();
-            resolve(ans);
-        });
+const question = (query) => {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
     });
+    return new Promise(resolve => rl.question(query, ans => {
+        rl.close();
+        resolve(ans);
+    }));
 };
 
 function getMessageContent(msg) {
@@ -130,7 +130,8 @@ async function connectToWhatsApp(isInitial = true) {
 
     let phoneNumberForPairing = null;
     if (usePairingCode && !state.creds.registered) {
-        phoneNumberForPairing = await question(chalk.green('Nomor WA (628xxx): '));
+        console.log(chalk.cyan('📱 Silakan masukkan nomor WhatsApp Anda.'));
+        phoneNumberForPairing = await question(chalk.green('Nomor WA (Contoh: 6281234xxx): '));
     }
 
     const sock = makeWASocket({
