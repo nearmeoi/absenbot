@@ -16,36 +16,51 @@ const { getMessage } = require('../services/messageService');
 const { BOT_PREFIX, VALIDATION } = require('../config/constants');
 const { parseDraftFromMessage, normalizeToStandard } = require('../utils/messageUtils');
 const { reportError } = require('../services/errorReporter');
+const DEBUG = process.env.DEBUG === 'true';
 
 // In-memory cache for marked users
 let cachedMarkedUsers = null;
 const MARKED_USERS_FILE = path.join(__dirname, '../../data/marked_users.json');
 
 const loadMarkedUsers = () => {
-    if (cachedMarkedUsers) return cachedMarkedUsers;
+    if (DEBUG) console.log('[DEBUG] Entering loadMarkedUsers');
     try {
-        if (fs.existsSync(MARKED_USERS_FILE)) {
-            const data = JSON.parse(fs.readFileSync(MARKED_USERS_FILE, 'utf8'));
-            cachedMarkedUsers = (data && Array.isArray(data.marked_users)) ? data.marked_users : [];
+        if (cachedMarkedUsers !== null) {
+            if (DEBUG) console.log(`[DEBUG] Returning cached users (count: ${cachedMarkedUsers.length})`);
             return cachedMarkedUsers;
+        }
+        
+        if (fs.existsSync(MARKED_USERS_FILE)) {
+            if (DEBUG) console.log('[DEBUG] Reading marked_users.json');
+            const fileContent = fs.readFileSync(MARKED_USERS_FILE, 'utf8');
+            const data = JSON.parse(fileContent);
+            cachedMarkedUsers = (data && Array.isArray(data.marked_users)) ? data.marked_users : [];
+            if (DEBUG) console.log(`[DEBUG] Loaded users: ${cachedMarkedUsers.length}`);
+        } else {
+            if (DEBUG) console.log('[DEBUG] marked_users.json not found, using empty array');
+            cachedMarkedUsers = [];
         }
     } catch (e) {
         console.error('[HANDLER] Error loading marked users:', e.message);
+        cachedMarkedUsers = [];
     }
-    cachedMarkedUsers = [];
-    return [];
+    return cachedMarkedUsers || [];
 };
 
 /**
  * Main message handler
  */
 const messageHandler = async (sock, msg) => {
+    let msgObj = msg.messages ? msg.messages[0] : msg;
+    if (DEBUG) console.log(`[DEBUG] messageHandler called for ${msgObj.key?.remoteJid}, fromMe: ${msgObj.key?.fromMe}`);
     try {
-        let msgObj = msg.messages ? msg.messages[0] : msg;
         if (!msgObj || !msgObj.message) return;
 
         // Ignore messages from self to prevent loops
-        if (msgObj.key.fromMe) return;
+        if (msgObj.key.fromMe) {
+            if (DEBUG) console.log('[DEBUG] Ignoring message fromMe');
+            return;
+        }
 
         const botStatus = botState.getBotStatus();
         const sender = msgObj.key.remoteJid;
@@ -57,7 +72,29 @@ const messageHandler = async (sock, msg) => {
         // --- PRE-PROCESS MESSAGE CONTENT ---
         const getMsgText = (m) => {
             if (!m) return "";
-            return m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || "";
+            
+            // Basic text messages
+            if (m.conversation) return m.conversation;
+            if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
+            if (m.imageMessage?.caption) return m.imageMessage.caption;
+            if (m.videoMessage?.caption) return m.videoMessage.caption;
+
+            // Buttons & List Response (Legacy)
+            if (m.buttonsResponseMessage?.selectedButtonId) return m.buttonsResponseMessage.selectedButtonId;
+            if (m.listResponseMessage?.singleSelectReply?.selectedRowId) return m.listResponseMessage.singleSelectReply.selectedRowId;
+            if (m.templateButtonReplyMessage?.selectedId) return m.templateButtonReplyMessage.selectedId;
+
+            // Interactive Message Response (New V2)
+            if (m.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson) {
+                try {
+                    const params = JSON.parse(m.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
+                    if (params.id) return params.id;
+                } catch (e) {
+                    console.error('[HANDLER] Error parsing interactive params:', e.message);
+                }
+            }
+
+            return "";
         };
         const textMessage = getMsgText(msgObj.message);
         const isCommand = textMessage.trim().startsWith(BOT_PREFIX);
@@ -78,19 +115,20 @@ const messageHandler = async (sock, msg) => {
             const args = textMessage.trim().substring(command.length).trim();
 
             // --- SPECIAL TREATMENT FOR MARKED USERS (Only on Commands) ---
+            /*
             try {
-                const markedUsers = loadMarkedUsers();
-                if (markedUsers.length > 0) {
+                const markedUsers = loadMarkedUsers() || [];
+                if (Array.isArray(markedUsers) && markedUsers.length > 0) {
                     const originalSender = msgObj.key.participant || msgObj.participant || sender;
                     const isMarked = markedUsers.find(u =>
-                        u.lid === originalSender ||
+                        u && (u.lid === originalSender ||
                         u.phone === originalSender ||
-                        (u.phone && normalizeToStandard(u.phone) === senderNumber)
+                        (u.phone && normalizeToStandard(u.phone) === senderNumber))
                     );
 
                     if (isMarked && !msgObj.key.fromMe) {
-                        const stickerPath = path.join(__dirname, '../../', isMarked.sticker_path);
-                        if (fs.existsSync(stickerPath)) {
+                        const stickerPath = isMarked.sticker_path ? path.join(__dirname, '../../', isMarked.sticker_path) : null;
+                        if (stickerPath && fs.existsSync(stickerPath)) {
                             await sock.sendMessage(sender, {
                                 sticker: fs.readFileSync(stickerPath)
                             }, { quoted: msgObj });
@@ -103,6 +141,7 @@ const messageHandler = async (sock, msg) => {
             } catch (e) {
                 console.error('[HANDLER] Error in marked users logic:', e.message);
             }
+            */
 
             const cmdModule = getCommand(cmdName);
             if (cmdModule) {

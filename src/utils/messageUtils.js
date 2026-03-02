@@ -97,7 +97,10 @@ function parseTagBasedReport(text) {
  */
 function normalizeToStandard(phone) {
     if (!phone) return '';
-    if (phone.includes('@lid')) return phone.split(':')[0]; // Maintain LID as is
+    if (phone.includes('@lid')) {
+        // Maintain LID as is (including the @lid suffix)
+        return phone.split(':')[0];
+    }
     
     let digits = phone.split('@')[0].split(':')[0].replace(/\D/g, '');
     return digits + '@s.whatsapp.net';

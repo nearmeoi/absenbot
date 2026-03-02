@@ -12,7 +12,7 @@ let maintenanceCommands = []; // List of commands under maintenance, e.g., ['abs
 
 // Anti-Loop State
 let sentMessagesHistory = [];
-const LOOP_THRESHOLD = 10;
+const LOOP_THRESHOLD = 50; // Increased to 50
 const LOOP_WINDOW_MS = 10000; // 10 seconds
 
 // Getters

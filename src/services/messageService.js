@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getUserByPhone } = require('./database');
+const DEBUG = process.env.DEBUG === 'true';
 
 const MESSAGES_DIR = path.join(__dirname, '../config/messages');
 const LEGACY_MESSAGES_FILE = path.join(__dirname, '../config/messages.json');
@@ -66,7 +67,7 @@ function getAppUrl(phone = '') {
             }
         }
     } catch (e) {
-        console.error(`[DEBUG] DB Error in getAppUrl: ${e.message}`);
+        if (DEBUG) console.error(`[DEBUG] DB Error in getAppUrl: ${e.message}`);
     }
 
     const cleanPhone = phone.split('@')[0].split(':')[0];

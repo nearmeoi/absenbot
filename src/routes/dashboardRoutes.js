@@ -40,6 +40,41 @@ if (!DASHBOARD_PASSWORD) {
 }
 
 // ========================================
+// EXTERNAL API (No Auth or Secret Auth)
+// ========================================
+
+// Endpoint for standalone auth server to notify success
+router.post('/api/external/auth-success', express.json(), async (req, res) => {
+    const { phone, email, secret } = req.body;
+    
+    // Simple secret check
+    if (secret !== process.env.DASHBOARD_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!phone) return res.status(400).json({ error: 'Phone required' });
+
+    console.log(chalk.green(`[EXTERNAL-AUTH] Received success notification for ${phone}`));
+
+    if (botSocket) {
+        try {
+            const { getMessage } = require('../services/messageService');
+            const { normalizeToStandard } = require('../utils/messageUtils');
+            const senderNumber = normalizeToStandard(phone);
+            
+            await botSocket.sendMessage(senderNumber, { 
+                text: getMessage('!daftar_success', senderNumber) 
+            });
+            console.log(chalk.green(`[EXTERNAL-AUTH] Success message sent to ${phone}`));
+        } catch (e) {
+            console.error(`[EXTERNAL-AUTH] Failed to send message:`, e.message);
+        }
+    }
+
+    res.json({ success: true });
+});
+
+// ========================================
 // MIDDLEWARE
 // ========================================
 

@@ -17,9 +17,96 @@ const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
 
 // Validate API keys on startup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 if (!GROQ_API_KEY) {
     console.error(chalk.red('[GROQ] ❌ GROQ_API_KEY not found in .env file!'));
+}
+
+async function runGeminiGeneration(systemPrompt, userPrompt) {
+    if (!GEMINI_API_KEY) return { success: false };
+    try {
+        console.log(chalk.cyan('[AI] Trying Gemini...'));
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await axios.post(url, {
+            contents: [{
+                parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+            }],
+            generationConfig: {
+                temperature: 0.6,
+                maxOutputTokens: 800,
+            }
+        }, { timeout: 30000 });
+
+        const content = response.data.candidates[0]?.content?.parts[0]?.text;
+        return { success: !!content, content };
+    } catch (err) {
+        console.warn(chalk.yellow(`[GEMINI] Fallback engine failed: ${err.message}`));
+        return { success: false };
+    }
+}
+
+async function runBlackboxGeneration(systemPrompt, userPrompt) {
+    try {
+        console.log(chalk.cyan('[AI] Trying Blackbox...'));
+        const response = await axios.post('https://www.blackbox.ai/api/chat', {
+            messages: [{ role: 'user', content: `${systemPrompt}\n\n${userPrompt}`, id: 'absenbot_web' }],
+            id: 'absenbot_web',
+            codeModelMode: false,
+            trendingAgentMode: {},
+            isMicMode: false,
+            maxTokens: 1024,
+            isChromeExt: false,
+            githubToken: '',
+            clickedForceWebSearch: false,
+            visitFromDelta: true,
+            isMemoryEnabled: false,
+            mobileClient: true,
+            validated: 'a38f5889-8fef-46d4-8ede-bf4668b6a9bb',
+            imageGenerationMode: false,
+            webSearchModePrompt: false,
+            deepSearchMode: false,
+            vscodeClient: false,
+            codeInterpreterMode: false,
+            customProfile: {
+              name: '',
+              occupation: '',
+              traits: [],
+              additionalInfo: '',
+              enableNewChats: false
+            },
+            webSearchModeOption: {
+              autoMode: true,
+              webMode: false,
+              offlineMode: false
+            },
+            isPremium: false,
+            beastMode: false,
+            designerMode: false,
+            asyncMode: false
+        }, {
+            headers: {
+                'authority': 'www.blackbox.ai',
+                'accept': '*/*',
+                'content-type': 'application/json',
+                'origin': 'https://www.blackbox.ai',
+                'referer': 'https://www.blackbox.ai/',
+                'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36'
+            },
+            timeout: 30000
+        });
+
+        let content = response.data;
+        if (typeof content !== 'string') content = JSON.stringify(content);
+        
+        // Clean up blackbox specific markers if any
+        content = content.replace(/\$~~~\$\[.*?\]\$~~~\$/gs, '');
+        
+        return { success: true, content };
+    } catch (err) {
+        console.warn(chalk.yellow(`[BLACKBOX] Fallback engine failed: ${err.message}`));
+        return { success: false };
+    }
 }
 
 async function transcribeAudio(filePath) {
@@ -51,26 +138,35 @@ async function transcribeAudio(filePath) {
 // --- SHARED LOGIC ---
 
 async function runGroqGeneration(systemPrompt, userPrompt) {
-    if (!GROQ_API_KEY) return { success: false };
-    try {
-        console.log(chalk.cyan('[AI] Trying Groq...'));
-        const response = await axios.post(GROQ_API_URL, {
-            model: GROQ_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.6,
-            max_tokens: 600
-        }, {
-            headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-            timeout: AI_CONFIG.GROQ.TIMEOUT
-        });
-        return { success: true, content: response.data.choices[0]?.message?.content };
-    } catch (err) {
-        console.warn(chalk.yellow(`[GROQ] Primary engine failed: ${err.message}`));
-        return { success: false };
+    // 1. Try Groq (Primary)
+    if (GROQ_API_KEY) {
+        try {
+            console.log(chalk.cyan('[AI] Trying Groq...'));
+            const response = await axios.post(GROQ_API_URL, {
+                model: GROQ_MODEL,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                temperature: 0.6,
+                max_tokens: 600
+            }, {
+                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
+                timeout: AI_CONFIG.GROQ.TIMEOUT
+            });
+            const content = response.data.choices[0]?.message?.content;
+            if (content) return { success: true, content };
+        } catch (err) {
+            console.warn(chalk.yellow(`[GROQ] Primary engine failed: ${err.message}`));
+        }
     }
+
+    // 2. Try Gemini (Secondary Fallback)
+    const geminiRes = await runGeminiGeneration(systemPrompt, userPrompt);
+    if (geminiRes.success) return geminiRes;
+
+    // 3. Try Blackbox (Tertiary Fallback - No Key Needed)
+    return await runBlackboxGeneration(systemPrompt, userPrompt);
 }
 
 async function runGroqRefinement(content, userStory, previousLogs) {
@@ -302,23 +398,14 @@ PEMBELAJARAN: [isi]
 KENDALA: [isi]`;
 
         try {
-            const expandRes = await axios.post(GROQ_API_URL, {
-                model: GROQ_MODEL,
-                messages: [
-                    { role: 'system', content: "Kamu adalah Editor laporan magang. TUGASMU: perpanjang setiap bagian agar mencapai 110-150 karakter. Tambahkan detail teknis yang wajar. JANGAN PERNAH mempersingkat atau menghapus konten. Output HANYA format AKTIVITAS/PEMBELAJARAN/KENDALA." },
-                    { role: 'user', content: expansionPrompt }
-                ],
-                temperature: isMinimalInput ? 0.5 : 0.4,
-                max_tokens: 500
-            }, {
-                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-                timeout: AI_CONFIG.GROQ.TIMEOUT
-            });
+            const expandRes = await runGroqGeneration(
+                "Kamu adalah Editor laporan magang. TUGASMU: perpanjang setiap bagian agar mencapai 110-150 karakter. Tambahkan detail teknis yang wajar. JANGAN PERNAH mempersingkat atau menghapus konten. Output HANYA format AKTIVITAS/PEMBELAJARAN/KENDALA.",
+                expansionPrompt
+            );
 
-            const expandedContent = expandRes.data.choices[0]?.message?.content;
-            if (expandedContent) {
+            if (expandRes.success && expandRes.content) {
                 console.log(chalk.green('[AI] Combined refinement+expansion successful.'));
-                report = parseAndClamp(expandedContent);
+                report = parseAndClamp(expandRes.content);
             }
         } catch (e) {
             console.warn(chalk.yellow('[AI] Expansion failed:'), e.message);

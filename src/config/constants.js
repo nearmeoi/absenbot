@@ -1,8 +1,9 @@
-require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const chalk = require('chalk');
+const envPath = path.resolve(__dirname, '../../.env');
+require('dotenv').config({ path: envPath, override: true });
 
 // ========================================
 // ADMIN CONFIGURATION
@@ -289,9 +290,9 @@ module.exports = {
     PROJECT_ROOT,
     SESSION_DIR: path.join(PROJECT_ROOT, 'sessions'),
     TEMP_DIR: path.join(PROJECT_ROOT, 'temp'),
-    USERS_FILE: path.join(PROJECT_ROOT, 'users.json'),
-    GROUP_ID_FILE: path.join(PROJECT_ROOT, 'group_id.txt'),
-    AUTH_STATE_DIR: path.join(PROJECT_ROOT, 'SesiWA'),
+    USERS_FILE: '/home/ubuntu/absenbot/users.json',
+    GROUP_ID_FILE: '/home/ubuntu/absenbot/group_id.txt',
+    AUTH_STATE_DIR: '/home/ubuntu/absenbot/SesiWA',
     LOGS_DIR: path.join(PROJECT_ROOT, 'logs'), // Directory for individual user logs
 
     // Puppeteer config

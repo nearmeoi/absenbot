@@ -9,7 +9,7 @@ const { getMessage } = require('../services/messageService');
 const COVER_IMAGE = path.join(__dirname, '../../public/img/cover.png');
 
 module.exports = {
-    name: ['menu', 'hai'],
+    name: ['menu', 'hai', 'help'],
     description: 'Tampilkan menu utama',
 
     async execute(sock, msgObj, context) {
