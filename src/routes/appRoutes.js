@@ -35,7 +35,7 @@ const sendNotification = async (phone, title, body) => {
     try {
         const subsData = JSON.parse(fs.readFileSync(SUBSCRIPTIONS_FILE, 'utf8'));
         const userSub = subsData[phone];
-        
+
         if (userSub) {
             await webpush.sendNotification(userSub, JSON.stringify({ title, body, icon: '/pwa-192x192.png' }));
             return true;
@@ -77,11 +77,11 @@ router.get('/api/user-profile', (req, res) => {
             // Search by Name (Partial Match)
             const allUsers = getAllUsers();
             const searchName = name.toLowerCase();
-            
+
             user = allUsers.find(u => {
                 // 1. Check explicit name field
                 if (u.name && u.name.toLowerCase().includes(searchName)) return true;
-                
+
                 // 2. Check derived name from email
                 if (u.email) {
                     const emailName = u.email.split('@')[0].toLowerCase().replace(/[._]/g, ' ');
@@ -169,9 +169,9 @@ router.post('/api/subscribe', (req, res) => {
         const subsData = JSON.parse(fs.readFileSync(SUBSCRIPTIONS_FILE, 'utf8'));
         subsData[phone] = subscription;
         fs.writeFileSync(SUBSCRIPTIONS_FILE, JSON.stringify(subsData, null, 2));
-        
+
         res.json({ success: true });
-        
+
         // Send test notification
         sendNotification(phone, 'Notifikasi Aktif! 🔔', 'Anda akan menerima update status absensi di sini.');
     } catch (e) {
@@ -184,8 +184,8 @@ router.post('/api/subscribe', (req, res) => {
  */
 router.post('/api/submit', async (req, res) => {
     try {
-        const { phone, aktivitas, pembelajaran, kendala } = req.body;
-        
+        const { phone, aktivitas, pembelajaran, kendala, simulation } = req.body;
+
         // ... (validation logic) ...
         if (!phone || !aktivitas || !pembelajaran || !kendala) {
             return res.status(400).json({ error: 'Data tidak lengkap' });
@@ -201,7 +201,8 @@ router.post('/api/submit', async (req, res) => {
             password: user.password,
             aktivitas,
             pembelajaran,
-            kendala
+            kendala,
+            simulation
         });
 
         if (result.success) {
@@ -222,7 +223,7 @@ router.post('/api/submit', async (req, res) => {
 router.post('/api/schedule', async (req, res) => {
     try {
         const { phone, aktivitas, pembelajaran, kendala, enabled } = req.body;
-        
+
         if (!phone) {
             return res.status(400).json({ error: 'Nomor WA wajib diisi' });
         }
@@ -244,7 +245,7 @@ router.post('/api/schedule', async (req, res) => {
         if (!aktivitas || !pembelajaran || !kendala) {
             return res.status(400).json({ error: 'Lengkapi laporan sebelum mengaktifkan jadwal' });
         }
-        
+
         const reportData = {
             phone,
             date: today,

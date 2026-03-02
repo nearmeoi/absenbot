@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { 
-    Bell, 
+import {
+    Bell,
     BellOff,
-    User, 
-    PenTool, 
-    Sparkles, 
-    Activity, 
-    BookOpen, 
-    AlertTriangle, 
-    CalendarClock, 
+    User,
+    PenTool,
+    Sparkles,
+    Activity,
+    BookOpen,
+    AlertTriangle,
+    CalendarClock,
     Send,
     LayoutDashboard,
     CheckCircle,
@@ -22,31 +22,31 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import LoginModal from '../components/LoginModal';
 
 class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error: error.message };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-10 text-red-600 bg-white font-poppins">
-            <h1 className="text-2xl font-bold mb-4">Something went wrong.</h1>
-            <pre className="bg-gray-100 p-4 rounded border border-red-300 text-sm">{this.state.error}</pre>
-        </div>
-      );
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
     }
 
-    return this.props.children; 
-  }
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error: error.message };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error("ErrorBoundary caught an error", error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="p-10 text-red-600 bg-white font-poppins">
+                    <h1 className="text-2xl font-bold mb-4">Something went wrong.</h1>
+                    <pre className="bg-gray-100 p-4 rounded border border-red-300 text-sm">{this.state.error}</pre>
+                </div>
+            );
+        }
+
+        return this.props.children;
+    }
 }
 
 // Helper for VAPID Key conversion
@@ -77,7 +77,7 @@ const AttendanceAppContent = () => {
             const params = new URLSearchParams(window.location.search);
             const urlPhone = params.get('phone');
             if (urlPhone) return urlPhone.replace(/\D/g, '');
-        } catch(e) {}
+        } catch (e) { }
         return safeLocalStorage.getItem('absenbot_phone') || '';
     });
     const [userName, setUserName] = useState('');
@@ -90,6 +90,7 @@ const AttendanceAppContent = () => {
     const [notifEnabled, setNotifEnabled] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [isSimulation, setIsSimulation] = useState(true); // Default to true as user requested testing
 
     // Initial check for phone logic
     useEffect(() => {
@@ -97,10 +98,10 @@ const AttendanceAppContent = () => {
             const params = new URLSearchParams(window.location.search);
             const slug = params.get('u');
             const urlPhone = params.get('phone');
-            
+
             // If we have explicit identifiers, try to load user
             let identifier = slug ? `slug=${slug}` : (urlPhone ? `phone=${urlPhone}` : null);
-            
+
             if (identifier) {
                 // ... (Existing logic below)
             } else if (!phone) {
@@ -115,7 +116,7 @@ const AttendanceAppContent = () => {
         const initUser = async () => {
             const params = new URLSearchParams(window.location.search);
             const slug = params.get('u');
-            
+
             let userIdentifier = slug ? `slug=${slug}` : (phone ? `phone=${phone}` : null);
 
             if (userIdentifier) {
@@ -126,7 +127,7 @@ const AttendanceAppContent = () => {
                         let dbPhone = res.data.phone.split('@')[0].replace(/\D/g, '');
                         if (dbPhone.startsWith('08')) dbPhone = '628' + dbPhone.substring(2);
                         setPhone(dbPhone);
-                        
+
                         // User verified, hide modal if it was open
                         setShowLoginModal(false);
                     }
@@ -144,7 +145,7 @@ const AttendanceAppContent = () => {
             if ('Notification' in window && Notification.permission === 'granted') {
                 setNotifEnabled(true);
             }
-        } catch(e) {}
+        } catch (e) { }
     }, []);
 
     useEffect(() => {
@@ -160,7 +161,7 @@ const AttendanceAppContent = () => {
                 const newUrl = window.location.pathname;
                 window.history.replaceState({}, '', newUrl);
             }
-        } catch(e) {}
+        } catch (e) { }
     }, []);
 
     const handlePhoneChange = (e) => {
@@ -168,7 +169,7 @@ const AttendanceAppContent = () => {
         if (val.startsWith('08')) val = '628' + val.substring(2);
         setPhone(val);
     };
-    
+
     const handleLoginSuccess = (newPhone, newName) => {
         setPhone(newPhone);
         setUserName(newName);
@@ -183,7 +184,7 @@ const AttendanceAppContent = () => {
     const handleGenerateAI = async () => {
         if (!phone) return toast.error('Masukkan nomor WhatsApp dulu!');
         if (!topik || topik.length < 5) return toast.error('Ceritakan sedikit kegiatanmu hari ini!');
-        
+
         setLoading(true);
         try {
             const res = await axios.post('/app-api/api/generate-ai', { phone, story: topik });
@@ -212,7 +213,7 @@ const AttendanceAppContent = () => {
         setShowConfirm(false);
         setLoading(true);
         try {
-            const res = await axios.post('/app-api/api/submit', { phone, aktivitas, pembelajaran, kendala });
+            const res = await axios.post('/app-api/api/submit', { phone, aktivitas, pembelajaran, kendala, simulation: isSimulation });
             if (res.data.success) {
                 toast.success('BERHASIL! Laporan terkirim ke MagangHub', { duration: 5000, icon: '🚀' });
             }
@@ -225,9 +226,9 @@ const AttendanceAppContent = () => {
 
     const handleScheduleAction = async (forcedState = null) => {
         if (!phone) return toast.error('Nomor WA wajib diisi');
-        
+
         const nextState = forcedState !== null ? forcedState : !isScheduled;
-        
+
         if (nextState && (aktivitas.length < MIN_CHARS || pembelajaran.length < MIN_CHARS || kendala.length < MIN_CHARS)) {
             return toast.error(`Lengkapi semua laporan (min ${MIN_CHARS} karakter) sebelum mengaktifkan jadwal!`);
         }
@@ -235,9 +236,9 @@ const AttendanceAppContent = () => {
         setLoading(true);
         try {
             const res = await axios.post('/app-api/api/schedule', {
-                phone, 
-                aktivitas: nextState ? aktivitas : '', 
-                pembelajaran: nextState ? pembelajaran : '', 
+                phone,
+                aktivitas: nextState ? aktivitas : '',
+                pembelajaran: nextState ? pembelajaran : '',
                 kendala: nextState ? kendala : '',
                 enabled: nextState
             });
@@ -296,11 +297,11 @@ const AttendanceAppContent = () => {
         <div className="min-h-screen bg-gray-100 p-4 md:p-8 pb-32 font-poppins text-gray-800">
             <InstallPrompt />
             <NotificationPrompt phone={phone} />
-            
+
             {showLoginModal && !phone && (
                 <LoginModal onLoginSuccess={handleLoginSuccess} />
             )}
-            
+
             <div className="max-w-3xl mx-auto space-y-8">
                 {/* 1. HEADER */}
                 <header className="text-center my-8">
@@ -320,7 +321,7 @@ const AttendanceAppContent = () => {
                             <User size={18} />
                             Identitas Pengguna
                         </label>
-                        <button 
+                        <button
                             onClick={enableNotifications}
                             disabled={notifEnabled}
                             className={`text-xs font-bold px-3 py-1.5 border-2 border-black rounded-md transition-all flex items-center gap-2 ${notifEnabled ? 'bg-green-400 cursor-default' : 'bg-white hover:bg-green-200'}`}
@@ -329,7 +330,7 @@ const AttendanceAppContent = () => {
                             {notifEnabled ? 'Notif Aktif' : 'Aktifkan Notif'}
                         </button>
                     </div>
-                    
+
                     {userName && (
                         <div className="mb-4 text-center bg-black/5 p-3 rounded-md">
                             <p className="text-xs font-bold uppercase tracking-widest text-gray-600 mb-1">
@@ -341,13 +342,13 @@ const AttendanceAppContent = () => {
                         </div>
                     )}
 
-                    <input 
-                        type="text" 
-                        placeholder="Nomor WA Anda (e.g., 628...)" 
+                    <input
+                        type="text"
+                        placeholder="Nomor WA Anda (e.g., 628...)"
                         className="w-full p-3 border-2 border-black rounded-md font-bold text-lg focus:outline-none focus:ring-4 ring-cyan-400 transition-all placeholder-gray-500 text-center"
                         value={phone}
                         onChange={handlePhoneChange}
-                        // If no user is logged in, we let the modal handle it, but this input remains as fallback/display
+                    // If no user is logged in, we let the modal handle it, but this input remains as fallback/display
                     />
                     <p className="text-xs mt-3 font-semibold opacity-70 text-center flex items-center justify-center gap-1">
                         <User size={12} /> *Nomor disimpan di browser & tidak akan dibagikan.
@@ -360,15 +361,15 @@ const AttendanceAppContent = () => {
                         <PenTool size={18} />
                         1. Cerita Singkat Hari Ini
                     </label>
-                    <textarea 
+                    <textarea
                         rows="4"
-                        placeholder="Contoh: Hari ini saya meeting dengan client membahas fitur A, lalu melanjutkan koding dan berhasil memperbaiki bug di halaman login." 
+                        placeholder="Contoh: Hari ini saya meeting dengan client membahas fitur A, lalu melanjutkan koding dan berhasil memperbaiki bug di halaman login."
                         className="w-full p-3 border-2 border-black rounded-md font-medium focus:outline-none focus:ring-4 ring-yellow-400 transition-all text-base"
                         value={topik}
                         onChange={(e) => setTopik(e.target.value)}
                     />
-                    
-                    <button 
+
+                    <button
                         onClick={handleGenerateAI}
                         disabled={loading}
                         className="w-full mt-4 bg-black text-white py-3 font-black uppercase tracking-wider border-2 border-black rounded-md hover:bg-gray-800 active:translate-y-1 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
@@ -384,7 +385,7 @@ const AttendanceAppContent = () => {
                         <BookOpen size={18} />
                         2. Review & Edit Hasil Laporan
                     </h2>
-                    
+
                     {/* Aktivitas */}
                     <div className="bg-white p-5 border-black border-2 shadow-[6px_6px_0_rgba(0,0,0,0.1)] rounded-lg">
                         <div className="flex justify-between items-center mb-2">
@@ -396,7 +397,7 @@ const AttendanceAppContent = () => {
                                 {aktivitas.length} / {MIN_CHARS}
                             </span>
                         </div>
-                        <textarea 
+                        <textarea
                             rows="6"
                             className={`w-full p-3 border-2 rounded-md font-medium text-base focus:outline-none transition-all ${getBorderColor(aktivitas.length)}`}
                             placeholder="Aktivitas yang dilakukan akan muncul di sini..."
@@ -420,7 +421,7 @@ const AttendanceAppContent = () => {
                                     {pembelajaran.length}
                                 </span>
                             </div>
-                            <textarea 
+                            <textarea
                                 rows="6"
                                 className={`w-full p-3 border-2 rounded-md font-medium text-base focus:outline-none transition-all ${getBorderColor(pembelajaran.length)}`}
                                 placeholder="Poin pembelajaran akan muncul di sini..."
@@ -442,7 +443,7 @@ const AttendanceAppContent = () => {
                                     {kendala.length}
                                 </span>
                             </div>
-                            <textarea 
+                            <textarea
                                 rows="6"
                                 className={`w-full p-3 border-2 rounded-md font-medium text-base focus:outline-none transition-all ${getBorderColor(kendala.length)}`}
                                 placeholder="Kendala yang dihadapi akan muncul di sini..."
@@ -462,9 +463,9 @@ const AttendanceAppContent = () => {
                         <Send size={16} />
                         3. Kirim Laporan
                     </h3>
-                    
+
                     {/* Toggle Schedule Row */}
-                    <div 
+                    <div
                         onClick={() => handleScheduleAction()}
                         className={`mb-3 p-3 border-2 border-black rounded-md flex justify-between items-center cursor-pointer transition-colors select-none ${isScheduled ? 'bg-green-100' : 'bg-gray-50 hover:bg-gray-100'}`}
                     >
@@ -483,15 +484,35 @@ const AttendanceAppContent = () => {
                         </div>
                     </div>
 
+                    {/* Toggle Sandbox (Test Mode) Row */}
+                    <div
+                        onClick={() => setIsSimulation(!isSimulation)}
+                        className={`mb-5 p-3 border-2 border-black rounded-md flex justify-between items-center cursor-pointer transition-colors select-none ${isSimulation ? 'bg-purple-100 border-purple-800' : 'bg-gray-50 hover:bg-gray-100'}`}
+                    >
+                        <div className="flex-1 pr-4">
+                            <span className={`font-bold text-sm block uppercase tracking-tight flex items-center gap-2 ${isSimulation ? 'text-purple-900' : ''}`}>
+                                <AlertTriangle size={16} />
+                                Sandbox Mode (Hanya Tes)
+                            </span>
+                            <span className="text-[10px] text-gray-600 block leading-tight mt-0.5 ml-6">
+                                {isSimulation ? 'Laporan TIDAK akan dikirim permanen ke server Magang.' : 'Laporan ASLI akan terkirim ke server Magang.'}
+                            </span>
+                        </div>
+                        {/* Visual Switch Sandbox */}
+                        <div className={`w-12 h-6 rounded-full border-2 border-black flex items-center px-1 transition-all ${isSimulation ? 'bg-purple-500' : 'bg-gray-300'}`}>
+                            <div className={`w-3.5 h-3.5 bg-black rounded-full shadow-sm transition-all transform ${isSimulation ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                        </div>
+                    </div>
+
                     {isScheduled ? (
                         <div className="space-y-2 animate-fade-in">
                             <div className="bg-green-100 border-2 border-green-600 p-3 rounded text-center">
-                                <div className="flex justify-center mb-1"><CheckCircle className="text-green-600" size={24}/></div>
+                                <div className="flex justify-center mb-1"><CheckCircle className="text-green-600" size={24} /></div>
                                 <p className="font-black text-sm text-green-800 uppercase">Jadwal Aktif!</p>
                                 <p className="text-xs font-bold text-green-700">Anda boleh menutup aplikasi sekarang.</p>
                             </div>
-                            
-                            <button 
+
+                            <button
                                 onClick={handleDirectSubmit}
                                 disabled={loading}
                                 className="w-full p-3 bg-red-100 border-2 border-red-500 font-bold text-red-600 uppercase rounded-md shadow-[2px_2px_0_#000] active:shadow-none active:translate-y-1 transition-all text-xs flex items-center justify-center gap-2"
@@ -500,7 +521,7 @@ const AttendanceAppContent = () => {
                             </button>
                         </div>
                     ) : (
-                        <button 
+                        <button
                             onClick={handleDirectSubmit}
                             disabled={loading}
                             className="w-full p-4 bg-red-500 border-2 border-black font-black text-white uppercase rounded-md shadow-[4px_4px_0_#000] hover:bg-red-600 active:shadow-none active:translate-y-1 transition-all disabled:opacity-50 text-base md:text-lg tracking-wider flex items-center justify-center gap-2"
@@ -517,7 +538,7 @@ const AttendanceAppContent = () => {
                 </div>
             </div>
 
-            <ConfirmationModal 
+            <ConfirmationModal
                 isOpen={showConfirm}
                 onClose={() => setShowConfirm(false)}
                 onConfirm={confirmSubmit}

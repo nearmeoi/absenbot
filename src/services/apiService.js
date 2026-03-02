@@ -333,8 +333,15 @@ async function checkAttendanceStatus(email) {
     }
 }
 
-async function submitAttendanceReport(email, reportData) {
+async function submitAttendanceReport(email, reportData, isSimulation = false) {
     console.log(chalk.cyan(`[API] Submitting attendance for ${email}...`));
+
+    if (isSimulation) {
+        console.log(chalk.magenta(`[API-SIMULATION] Simulated submission success for ${email}`));
+        await new Promise(r => setTimeout(r, 1500)); // Simulate network delay
+        return { success: true, pesan: "SIMULASI BERHASIL! (Laporan TIDAK dikirim ke server asli)", pesan_tambahan: "(Simulation Mode)" };
+    }
+
     const session = loadSession(email);
     if (!session) return { success: false, needsLogin: true, pesan: "Session tidak ditemukan" };
 
