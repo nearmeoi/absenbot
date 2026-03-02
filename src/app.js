@@ -2,6 +2,7 @@ const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion, Disconne
 const pino = require("pino")
 const chalk = require("chalk")
 const readline = require("readline")
+const { Boom } = require("@hapi/boom")
 const fs = require('fs');
 const path = require('path');
 const { AUTH_STATE_DIR } = require('./config/constants');
@@ -178,8 +179,11 @@ async function connectToWhatsApp(isInitial = true) {
         const { connection, lastDisconnect } = update;
 
         if (connection === "close") {
-            const reason = lastDisconnect?.error?.output?.statusCode;
-            console.log(chalk.red("❌  Koneksi Terputus, Mencoba Menyambung Ulang"))
+            // Safe extraction of the disconnect reason
+            let reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+            if (!reason) reason = lastDisconnect?.error?.output?.statusCode;
+
+            console.log(chalk.red(`❌  Koneksi Terputus (Reason: ${reason}), Mencoba Menyambung Ulang`))
 
             // Delete session if we are forcefully logged out to prevent infinite auth error loops
             if (reason === DisconnectReason.loggedOut) {
@@ -197,10 +201,16 @@ async function connectToWhatsApp(isInitial = true) {
                 dashboardRoutes.setBotConnected(false);
             } catch (e) { }
 
-            // Sambungkan Ulang
-            setTimeout(() => {
-                connectToWhatsApp(false);
-            }, 5000);
+            // Reconnect only if not logged out, otherwise wait for manual intervention or PM2 restart
+            if (reason !== DisconnectReason.loggedOut) {
+                setTimeout(() => {
+                    console.log(chalk.yellow("🔄 Reconnecting after disconnect..."));
+                    connectToWhatsApp(false);
+                }, 5000 + Math.random() * 5000); // 5-10s random backoff delay
+            } else {
+                console.log(chalk.bgRed.white(" [FATAL] Client logged out. Please restart and scan QR / pair again. "));
+                process.exit(1); // Exit so PM2 can restart cleanly and request new pairing
+            }
 
         } else if (connection === "connecting") {
             console.log(chalk.cyan("🔄 Sedang menyambung ke WhatsApp..."));
