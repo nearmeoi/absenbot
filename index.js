@@ -1,45 +1,15 @@
 // Load environment variables first
 require('dotenv').config();
-
-// --- CONSOLE FILTER: Suppress noisy Baileys internal logs ---
-const filterOutput = (args) => {
-    const text = args.map(arg => {
-        if (typeof arg === 'string') return arg;
-        try { return JSON.stringify(arg); } catch (e) { return String(arg); }
-    }).join(' ');
-
-    return text.includes('Closing session') ||
-           text.includes('SessionEntry') ||
-           text.includes('_chains') ||
-           text.includes('ephemeralKeyPair') ||
-           text.includes('pendingPreKey');
-};
-
-const originalLog = console.log;
-console.log = (...args) => {
-    if (filterOutput(args)) return;
-    originalLog.apply(console, args);
-};
-
-const originalInfo = console.info;
-console.info = (...args) => {
-    if (filterOutput(args)) return;
-    originalInfo.apply(console, args);
-};
-
-const originalError = console.error;
-console.error = (...args) => {
-    if (filterOutput(args)) return;
-    originalError.apply(console, args);
-};
+const chalk = require('chalk');
+const figlet = require('figlet');
+const { promisify } = require('util');
 
 const connectToWhatsApp = require('./src/app');
-
 const { reportError } = require('./src/services/errorReporter');
 
 // Graceful Shutdown Handler (important for VPS with limited resources)
 const gracefulShutdown = (signal) => {
-    console.log(`\n[SHUTDOWN] Received ${signal}. Cleaning up...`);
+    console.log(chalk.yellow(`\n[SHUTDOWN] Received ${signal}. Cleaning up...`));
 
     // Attempt to close auth server
     try {
@@ -47,7 +17,7 @@ const gracefulShutdown = (signal) => {
         shutdownAuthServer();
     } catch (e) { }
 
-    console.log('[SHUTDOWN] Cleanup complete. Exiting.');
+    console.log(chalk.green('[SHUTDOWN] Cleanup complete. Exiting.'));
     process.exit(0);
 };
 
@@ -56,14 +26,14 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught exceptions to prevent silent crashes
 process.on('uncaughtException', (err) => {
-    console.error('[FATAL] Uncaught Exception:', err);
+    console.error(chalk.bgRed.white('[FATAL] Uncaught Exception:'), err);
     reportError(err, 'UncaughtException').finally(() => {
         gracefulShutdown('UNCAUGHT_EXCEPTION');
     });
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
+    console.error(chalk.bgRed.white('[FATAL] Unhandled Rejection at:'), promise, 'reason:', reason);
     reportError(reason, 'UnhandledRejection');
 });
 
@@ -80,16 +50,42 @@ setInterval(() => {
                 const stats = fs.statSync(filePath);
                 if (stats.size > 10 * 1024 * 1024) { // 10MB limit
                     fs.writeFileSync(filePath, ''); // Clear it
-                    console.log(`[CLEANUP] Cleared large log file: ${file}`);
+                    console.log(chalk.cyan(`[CLEANUP] Cleared large log file: ${file}`));
                 }
             }
         }
     }
 }, 24 * 60 * 60 * 1000);
 
-// Start Application
-try {
-    connectToWhatsApp();
-} catch (error) {
-    console.error("Critical Error starting application:", error);
-}
+// --- STARTUP SEQUENCE ---
+(async () => {
+    try {
+        const terminalWidth = process.stdout.columns || 80;
+        const maxWidth = Math.min(terminalWidth, 50);
+
+        const asyncFiglet = promisify(figlet.text);
+        const logo = await asyncFiglet('ABSENBOT', {
+            font: 'ANSI Shadow',
+            horizontalLayout: 'default',
+            verticalLayout: 'default',
+            width: maxWidth,
+            whitespaceBreak: false
+        });
+
+        console.log(chalk.blue.bold(logo));
+
+        console.log(chalk.white.bold(`${chalk.green.bold("📃  Informasi :")}         
+✉️  Bot Auto Absen & Rekapan MagangHub
+✉️  Versi : 2.0 (Stable)
+✉️  Fitur : Auto-schedule, Dashboard, API Sync
+🎁  Base Refactor : OmniBot Style
+
+${chalk.cyan.bold("🚀  Memulai Proses Booting... Ditunggu Bosqu!")}\n`));
+
+        console.log(chalk.green.bold('\n🎁  Menjalankan AbsenBot WhatsApp'));
+        await connectToWhatsApp();
+
+    } catch (err) {
+        console.error(chalk.red.bold('\n⚠️  Terjadi Kesalahan saat startup : ' + err.message + '\n'));
+    }
+})();

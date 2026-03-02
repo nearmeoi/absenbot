@@ -16,23 +16,29 @@ const DEBUG = process.env.DEBUG === 'true';
 let schedulerInitialized = false; // Prevent multiple scheduler init
 let authServerInitialized = false; // Prevent multiple auth server init
 
-const question = (text) => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-    return new Promise((resolve) => rl.question(text, (ans) => { rl.close(); resolve(ans) }))
-}
+const question = async (promptMsg) => {
+    process.stdout.write(promptMsg);
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    return new Promise((resolve) => {
+        rl.question("", (ans) => {
+            rl.close();
+            resolve(ans);
+        });
+    });
+};
 
 function getMessageContent(msg) {
     if (!msg.message) return "";
     const m = msg.message;
-    
+
     // Basic text messages
     if (m.conversation) return m.conversation;
     if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
-    
+
     // Media captions
     if (m.imageMessage?.caption) return m.imageMessage.caption;
     if (m.videoMessage?.caption) return m.videoMessage.caption;
-    
+
     // Ephemeral messages
     if (m.ephemeralMessage?.message) {
         const sub = m.ephemeralMessage.message;
@@ -40,7 +46,7 @@ function getMessageContent(msg) {
         if (sub.extendedTextMessage?.text) return sub.extendedTextMessage.text;
         if (sub.imageMessage?.caption) return sub.imageMessage.caption;
     }
-    
+
     // ViewOnce messages
     if (m.viewOnceMessageV2?.message) {
         const sub = m.viewOnceMessageV2.message;
@@ -59,7 +65,7 @@ function getMessageContent(msg) {
         try {
             const params = JSON.parse(m.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
             if (params.id) return params.id;
-        } catch (e) {}
+        } catch (e) { }
     }
 
     return "";
@@ -87,21 +93,21 @@ async function getGroupMetadata(sock, jid) {
 async function pruneSession() {
     try {
         if (!fs.existsSync(AUTH_STATE_DIR)) return;
-        
+
         const files = fs.readdirSync(AUTH_STATE_DIR);
         if (files.length < 100) return; // Prune earlier to keep session lean
 
         console.log(chalk.yellow(`[SESSION] Pruning ${files.length} session files to improve stability...`));
         let count = 0;
-        
+
         for (const file of files) {
             // ONLY keep creds.json - everything else is recreatable junk
             if (file === 'creds.json') continue;
-            
+
             try {
                 fs.unlinkSync(path.join(AUTH_STATE_DIR, file));
                 count++;
-            } catch (e) {}
+            } catch (e) { }
         }
         console.log(chalk.green(`[SESSION] Deleted ${count} junk files. Session is now lean.`));
     } catch (e) {
@@ -133,7 +139,7 @@ async function connectToWhatsApp(isInitial = true) {
         markOnlineOnConnect: true,
         shouldSyncHistoryMessage: () => true,
         retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 0, 
+        defaultQueryTimeoutMs: 0,
         connectTimeoutMs: 60000,
         keepAliveIntervalMs: 30000,
         getMessage: async (key) => {
@@ -144,21 +150,21 @@ async function connectToWhatsApp(isInitial = true) {
     // --- ANTI-LOOP WRAPPER ---
     const originalSendMessage = sock.sendMessage.bind(sock);
     const { recordSentMessage } = require('./services/botState');
-    
+
     sock.sendMessage = async (...args) => {
         const isLoop = recordSentMessage();
         if (isLoop) {
             console.error(chalk.bgRed.white(" [ANTI-LOOP] CRITICAL: Too many outgoing messages! Shutting down to prevent spam. "));
-            
+
             // Try to notify admin before crashing if possible (one last shot)
             try {
                 const { ADMIN_NUMBERS } = require('./config/constants');
                 if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
-                    await originalSendMessage(ADMIN_NUMBERS[0], { 
-                        text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan." 
+                    await originalSendMessage(ADMIN_NUMBERS[0], {
+                        text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan."
                     });
                 }
-            } catch (e) {}
+            } catch (e) { }
 
             process.exit(1); // Force exit, PM2 will handle restart
         }
@@ -173,14 +179,14 @@ async function connectToWhatsApp(isInitial = true) {
         } else {
             console.log(chalk.cyan(`[PAIRING] Using phone number from ENV: ${phoneNumber}`));
         }
-        
+
         try {
             // Wait a bit before requesting code to avoid 428
             await new Promise(resolve => setTimeout(resolve, 3000));
             const code = await sock.requestPairingCode(phoneNumber.trim())
-            console.log('\n' + chalk.bgGreen.black(' 🔑 PAIRING CODE ') + ' ' + chalk.yellow.bold(code) + '\n');
+            console.log(`🎁 Pairing Code : ${code}`)
         } catch (err) {
-            console.error(chalk.red('[PAIRING] Failed to request pairing code:'), err.message);
+            console.error(chalk.red('[PAIRING] Failed to get pairing code:'), err.message);
         }
     }
 
@@ -195,7 +201,7 @@ async function connectToWhatsApp(isInitial = true) {
 
     sock.ev.on("connection.update", (update) => {
         const { connection, lastDisconnect, qr } = update;
-        
+
         if (qr) {
             console.log(chalk.yellow('[QR] New QR Code generated.'));
             const { setLastQR } = require('./services/botState');
@@ -210,7 +216,7 @@ async function connectToWhatsApp(isInitial = true) {
             if (reason === DisconnectReason.badSession) {
                 failureReason = 'Bad Session File';
                 extraInfo = 'Solusi: Hapus folder SesiWA dan restart bot.';
-                
+
                 // --- AUTO RECOVERY ---
                 console.log(chalk.bgRed.white(' [AUTO-RECOVERY] Bad Session detected! Cleaning up and restarting... '));
                 try {
@@ -250,7 +256,7 @@ async function connectToWhatsApp(isInitial = true) {
 
             console.log(chalk.red(`❌ Koneksi Terputus: ${failureReason} (${reason})`));
             if (extraInfo) console.log(chalk.yellow(`ℹ️ Info: ${extraInfo}`));
-            
+
             if (lastDisconnect?.error) {
                 if (DEBUG) console.log(chalk.gray(`[DEBUG] Error Detail: ${lastDisconnect.error.message}`));
             }
@@ -346,14 +352,14 @@ async function connectToWhatsApp(isInitial = true) {
         try {
             for (const msg of m.messages) {
                 if (!msg.message) continue;
-                
+
                 const msgId = msg.key.id;
                 if (processedMessages.has(msgId)) {
                     if (DEBUG) console.log(chalk.gray(`[DEBUG] Ignoring already processed message: ${msgId}`));
                     continue;
                 }
                 processedMessages.add(msgId);
-                
+
                 // Clean up cache if too large
                 if (processedMessages.size > 1000) {
                     const first = processedMessages.values().next().value;
@@ -401,14 +407,33 @@ async function connectToWhatsApp(isInitial = true) {
                     }
                 }
 
-                // Format Timestamp
-                const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const messageType = Object.keys(msg.message || {})[0];
+                let mediaType = null;
 
-                // Log Format: [TIME] [Group] Sender: Message
-                const prefix = chalk.gray(`[${time}]`);
-                const sender = isMe ? chalk.blue.bold('ME') : chalk.green.bold(senderName);
+                if (messageType === 'imageMessage') mediaType = 'Image';
+                else if (messageType === 'videoMessage') mediaType = 'Video';
+                else if (messageType === 'stickerMessage') mediaType = 'Sticker';
+                else if (messageType === 'audioMessage') mediaType = 'Audio';
+                else if (messageType === 'documentMessage') mediaType = 'Document';
 
-                console.log(`${prefix} ${contextInfo}${sender}: ${text}`);
+                // Log Format matching lenwy-bot
+                const listColor = ["red", "green", "yellow", "magenta", "cyan", "white", "blue"];
+                const randomColor = listColor[Math.floor(Math.random() * listColor.length)];
+                const logTag = mediaType ? `[${mediaType}] ` : "";
+
+                let logContext = senderName;
+                if (isGroup && contextInfo) {
+                    logContext = `${contextInfo.replace(/[[\]]/g, '').trim()} | ${senderName}`;
+                }
+
+                console.log(
+                    chalk.yellow.bold("Credit : AbsenBot"),
+                    chalk.green.bold("[ WhatsApp]"),
+                    chalk[randomColor](logContext),
+                    chalk[randomColor](" : "),
+                    chalk.magenta.bold(`${logTag}`),
+                    chalk.white(`${text}`)
+                );
 
                 try {
                     msg.bodyTeks = text;
@@ -416,8 +441,8 @@ async function connectToWhatsApp(isInitial = true) {
                 } catch (e) {
                     console.error(chalk.bgRed(" HANDLER ERROR "), e);
                     if (e.stack) console.error(e.stack);
-                    reportError(e, 'messageHandler', { 
-                        sender: remoteJid, 
+                    reportError(e, 'messageHandler', {
+                        sender: remoteJid,
                         text: text,
                         isGroup: isGroup
                     });
@@ -431,7 +456,7 @@ async function connectToWhatsApp(isInitial = true) {
                     const path = require('path');
                     const sessionDir = path.join(__dirname, '../SesiWA');
                     fs.rmSync(sessionDir, { recursive: true, force: true });
-                } catch (e) {}
+                } catch (e) { }
                 process.exit(1);
             }
             console.error(chalk.red('[ERROR] Upsert Handler Error:'), err);
