@@ -128,9 +128,14 @@ async function connectToWhatsApp(isInitial = true) {
 
     console.log(chalk.cyan(`🤖 Memulai Bot (v${version.join('.')}) + SCHEDULER`))
 
+    let phoneNumberForPairing = null;
+    if (usePairingCode && !state.creds.registered) {
+        phoneNumberForPairing = await question(chalk.green('Nomor WA (628xxx): '));
+    }
+
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
-        printQRInTerminal: !usePairingCode,
+        printQRInTerminal: false,
         auth: state,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
         version,
@@ -147,20 +152,12 @@ async function connectToWhatsApp(isInitial = true) {
         }
     })
 
-
     // Pairing code logic
-    if (usePairingCode && !sock.authState.creds.registered) {
-        let phoneNumber = process.env.PAIRING_NUMBER;
-        if (!phoneNumber) {
-            phoneNumber = await question(chalk.green('Nomor WA (628xxx): '))
-        } else {
-            console.log(chalk.cyan(`[PAIRING] Using phone number from ENV: ${phoneNumber}`));
-        }
-
+    if (usePairingCode && !sock.authState.creds.registered && phoneNumberForPairing) {
         try {
             // Wait a bit before requesting code to avoid 428
             await new Promise(resolve => setTimeout(resolve, 3000));
-            const code = await sock.requestPairingCode(phoneNumber.trim())
+            const code = await sock.requestPairingCode(phoneNumberForPairing.trim())
             console.log(`🎁 Pairing Code : ${code}`)
         } catch (err) {
             console.error(chalk.red('[PAIRING] Failed to get pairing code:'), err.message);
@@ -177,13 +174,7 @@ async function connectToWhatsApp(isInitial = true) {
     });
 
     sock.ev.on("connection.update", (update) => {
-        const { connection, lastDisconnect, qr } = update;
-
-        if (qr) {
-            console.log(chalk.yellow('[QR] New QR Code generated.'));
-            const { setLastQR } = require('./services/botState');
-            setLastQR(qr);
-        }
+        const { connection, lastDisconnect } = update;
 
         if (connection === "close") {
             const reason = lastDisconnect?.error?.output?.statusCode;
