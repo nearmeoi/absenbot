@@ -2,8 +2,12 @@ const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
+const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
+    exec(cmd, opts, (err, stdout, stderr) => {
+        if (err) return reject(err);
+        resolve({ stdout, stderr });
+    });
+});
 
 const { reportError } = require('../services/errorReporter');
 
@@ -45,7 +49,7 @@ module.exports = {
             const timestamp = Date.now();
             const fileName = docMsg.fileName || `document_${timestamp}.docx`;
             const inputPath = path.join(tempDir, `in_${timestamp}_${fileName}`);
-            
+
             fs.writeFileSync(inputPath, buffer);
 
             // 3. Convert using LibreOffice (soffice)
@@ -53,7 +57,7 @@ module.exports = {
             // --convert-to pdf: target format
             // --outdir: where to save
             const convertCommand = `soffice --headless --convert-to pdf --outdir "${tempDir}" "${inputPath}"`;
-            
+
             await execPromise(convertCommand);
 
             // LibreOffice names the output file same as input but with .pdf extension

@@ -3,7 +3,12 @@ const path = require('path');
 const fs = require('fs');
 const util = require('util');
 const axios = require('axios');
-const execPromise = util.promisify(exec);
+const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
+    exec(cmd, opts, (err, stdout, stderr) => {
+        if (err) return reject(err);
+        resolve({ stdout, stderr });
+    });
+});
 
 module.exports = {
     name: ['dl', 'download', 'ytdl'],

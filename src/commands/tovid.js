@@ -3,8 +3,12 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 const { exec } = require('child_process');
-const util = require('util');
-const execPromise = util.promisify(exec);
+const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
+    exec(cmd, opts, (err, stdout, stderr) => {
+        if (err) return reject(err);
+        resolve({ stdout, stderr });
+    });
+});
 
 module.exports = {
     name: ['tovid', 'tovideo', 'vid'],
@@ -22,8 +26,8 @@ module.exports = {
 
             const sticker = quotedMsg.stickerMessage;
             const msgToDownload = {
-                key: { 
-                    ...msg.key, 
+                key: {
+                    ...msg.key,
                     id: msg.message.extendedTextMessage.contextInfo.stanzaId,
                     participant: msg.message.extendedTextMessage.contextInfo.participant || msg.key.participant
                 },
@@ -48,7 +52,7 @@ module.exports = {
              * 4. Direct conversion from webp to mp4 if ffmpeg supports it (it should if it has libwebp).
              */
             const ffmpegCmd = `ffmpeg -y -probesize 32k -analyzeduration 0 -i "${inputPath}" -vf "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black" -c:v libx264 -preset ultrafast -crf 28 -pix_fmt yuv420p -movflags +faststart -threads 0 "${outputPath}"`;
-            
+
             try {
                 await execPromise(ffmpegCmd);
             } catch (err) {

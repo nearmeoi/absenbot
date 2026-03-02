@@ -4,8 +4,12 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
+const execAsync = (cmd, opts) => new Promise((resolve, reject) => {
+    exec(cmd, opts, (err, stdout, stderr) => {
+        if (err) return reject(err);
+        resolve({ stdout, stderr });
+    });
+});
 const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
 
 // Load Apple Color Emoji font once at startup (if available)

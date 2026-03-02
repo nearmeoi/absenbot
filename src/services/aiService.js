@@ -19,10 +19,6 @@ const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-if (!GROQ_API_KEY) {
-    console.error(chalk.red('[GROQ] ❌ GROQ_API_KEY not found in .env file!'));
-}
-
 async function runGeminiGeneration(systemPrompt, userPrompt) {
     if (!GEMINI_API_KEY) return { success: false };
     try {
@@ -69,16 +65,16 @@ async function runBlackboxGeneration(systemPrompt, userPrompt) {
             vscodeClient: false,
             codeInterpreterMode: false,
             customProfile: {
-              name: '',
-              occupation: '',
-              traits: [],
-              additionalInfo: '',
-              enableNewChats: false
+                name: '',
+                occupation: '',
+                traits: [],
+                additionalInfo: '',
+                enableNewChats: false
             },
             webSearchModeOption: {
-              autoMode: true,
-              webMode: false,
-              offlineMode: false
+                autoMode: true,
+                webMode: false,
+                offlineMode: false
             },
             isPremium: false,
             beastMode: false,
@@ -98,10 +94,10 @@ async function runBlackboxGeneration(systemPrompt, userPrompt) {
 
         let content = response.data;
         if (typeof content !== 'string') content = JSON.stringify(content);
-        
+
         // Clean up blackbox specific markers if any
         content = content.replace(/\$~~~\$\[.*?\]\$~~~\$/gs, '');
-        
+
         return { success: true, content };
     } catch (err) {
         console.warn(chalk.yellow(`[BLACKBOX] Fallback engine failed: ${err.message}`));
