@@ -305,17 +305,14 @@ async function connectToWhatsApp(isInitial = true) {
                     await sock.readMessages([msg.key]);
                 } catch (e) { }
 
-                // Ignore old messages (only if older than 30 minutes before startup)
+                // Ignore old messages (temporarily disabled due to timezone/drift issues dropping live messages)
                 const msgTime = (typeof msg.messageTimestamp === 'number')
                     ? msg.messageTimestamp
                     : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
 
-                const TOLERANCE = 86400; // 24 hours tolerance
-                if (msgTime < (STARTUP_TIME - TOLERANCE)) {
-                    continue;
-                }
+                // Note: The TOLERANCE drop check was removed because VPS clock drift caused it to drop incoming LIVE messages.
 
-                if (!text) continue;
+                if (!text && !msg.message) continue;
 
                 const isMe = msg.key.fromMe;
                 const remoteJid = msg.key.remoteJid;
