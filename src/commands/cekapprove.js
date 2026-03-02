@@ -182,7 +182,6 @@ module.exports = {
 
             const mentorName = userData.mentor_name || profileData.mentor?.name || profileData.mentor_name || '-';
             const positionName = userData.job_role || profileData.vacancy?.name || profileData.position || profileData.vacancy_name || '-';
-            const userName = userData.name || profileData.name || profileData.participant_name || user.name || user.email.split('@')[0];
 
             const cal = stats.calendar || { approved: [], rejected: [], revision: [], pending: [], alpha: [] };
             // Use full_attendances from API if available (contains both months)
@@ -334,7 +333,8 @@ module.exports = {
 
             let reply = `*LAPORAN DASHBOARD*\n`;
             reply += `Batch: ${batchNum}\n`;
-            reply += `Nama: ${capitalize(userName)}\n`;
+            const userNameDisplay = userData.name || profileData.name || profileData.participant_name || user.name || user.email.split('@')[0];
+            reply += `Nama: ${capitalize(userNameDisplay)}\n`;
             reply += `Mentor: ${capitalize(mentorName)}\n\n`;
 
             reply += `Status Absen: ${statusAbsenToday}\n\n`;
