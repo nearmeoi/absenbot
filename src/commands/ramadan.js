@@ -1,4 +1,5 @@
 const chalk = require('chalk');
+const { getPrayerTimes, getRandomContent } = require('../services/ramadanService');
 
 module.exports = {
     name: 'ramadan',
