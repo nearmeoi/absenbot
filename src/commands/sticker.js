@@ -19,8 +19,6 @@ try {
     if (fontFs.existsSync(EMOJI_FONT_PATH)) {
         GlobalFonts.registerFromPath(EMOJI_FONT_PATH, 'AppleEmoji');
         console.log('[STICKER] Apple Color Emoji font loaded ✅');
-    } else {
-        console.warn('[STICKER] Apple Color Emoji not found at', EMOJI_FONT_PATH, '- using system emoji');
     }
 } catch (e) {
     console.warn('[STICKER] Could not load emoji font:', e.message);

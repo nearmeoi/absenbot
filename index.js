@@ -2,7 +2,6 @@
 require('dotenv').config();
 const chalk = require('chalk');
 const figlet = require('figlet');
-const { promisify } = require('util');
 
 const connectToWhatsApp = require('./src/app');
 const { reportError } = require('./src/services/errorReporter');
@@ -63,7 +62,12 @@ setInterval(() => {
         const terminalWidth = process.stdout.columns || 80;
         const maxWidth = Math.min(terminalWidth, 50);
 
-        const asyncFiglet = promisify(figlet.text);
+        const asyncFiglet = (txt, opts) => new Promise((resolve, reject) => {
+            figlet.text(txt, opts, (err, res) => {
+                if (err) return reject(err);
+                resolve(res);
+            });
+        });
         const logo = await asyncFiglet('ABSENBOT', {
             font: 'ANSI Shadow',
             horizontalLayout: 'default',
