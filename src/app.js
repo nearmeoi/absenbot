@@ -11,7 +11,7 @@ const messageHandler = require('./handlers/messageHandler');
 
 const { initErrorReporter, reportError } = require('./services/errorReporter');
 
-const usePairingCode = process.env.PAIRING_NUMBER ? true : false;
+const usePairingCode = true;
 const DEBUG = process.env.DEBUG === 'true';
 let schedulerInitialized = false; // Prevent multiple scheduler init
 let authServerInitialized = false; // Prevent multiple auth server init
@@ -147,29 +147,6 @@ async function connectToWhatsApp(isInitial = true) {
         }
     })
 
-    // --- ANTI-LOOP WRAPPER ---
-    const originalSendMessage = sock.sendMessage.bind(sock);
-    const { recordSentMessage } = require('./services/botState');
-
-    sock.sendMessage = async (...args) => {
-        const isLoop = recordSentMessage();
-        if (isLoop) {
-            console.error(chalk.bgRed.white(" [ANTI-LOOP] CRITICAL: Too many outgoing messages! Shutting down to prevent spam. "));
-
-            // Try to notify admin before crashing if possible (one last shot)
-            try {
-                const { ADMIN_NUMBERS } = require('./config/constants');
-                if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
-                    await originalSendMessage(ADMIN_NUMBERS[0], {
-                        text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan."
-                    });
-                }
-            } catch (e) { }
-
-            process.exit(1); // Force exit, PM2 will handle restart
-        }
-        return originalSendMessage(...args);
-    };
 
     // Pairing code logic
     if (usePairingCode && !sock.authState.creds.registered) {
@@ -210,83 +187,33 @@ async function connectToWhatsApp(isInitial = true) {
 
         if (connection === "close") {
             const reason = lastDisconnect?.error?.output?.statusCode;
-            let failureReason = 'Unknown Error';
-            let extraInfo = '';
+            console.log(chalk.red("❌  Koneksi Terputus, Mencoba Menyambung Ulang"))
 
-            if (reason === DisconnectReason.badSession) {
-                failureReason = 'Bad Session File';
-                extraInfo = 'Solusi: Hapus folder SesiWA dan restart bot.';
-
-                // --- AUTO RECOVERY ---
-                console.log(chalk.bgRed.white(' [AUTO-RECOVERY] Bad Session detected! Cleaning up and restarting... '));
+            // Delete session if we are forcefully logged out to prevent infinite auth error loops
+            if (reason === DisconnectReason.loggedOut) {
+                console.log(chalk.red("⛔  Sesi Invalid/Logged Out. Menghapus sesi lama..."));
                 try {
                     const fs = require('fs');
-                    const path = require('path');
                     const sessionPath = path.join(__dirname, '../SesiWA');
-                    if (fs.existsSync(sessionPath)) {
-                        // Delete all files EXCEPT creds.json backup if we want to be safe, 
-                        // but here we clear all to ensure a fresh state.
-                        fs.rmSync(sessionPath, { recursive: true, force: true });
-                        console.log(chalk.green(' [AUTO-RECOVERY] SesiWA cleared successfully. '));
-                    }
-                } catch (e) {
-                    console.error(' [AUTO-RECOVERY] Failed to clear session:', e.message);
-                }
-                process.exit(1); // PM2 will restart the bot
-
-            } else if (reason === DisconnectReason.connectionClosed) {
-                failureReason = 'Connection Closed (428)';
-                extraInfo = 'Penyebab: Bot meminta kode pairing terlalu cepat. Bot akan mencoba menyambung ulang dengan delay otomatis.';
-            } else if (reason === DisconnectReason.connectionLost) {
-                failureReason = 'Connection Lost from Server';
-                extraInfo = 'Penyebab: Koneksi internet server tidak stabil.';
-            } else if (reason === DisconnectReason.connectionReplaced) {
-                failureReason = 'Connection Replaced';
-                extraInfo = 'Penyebab: Sesi ini dibuka di perangkat/browser lain.';
-            } else if (reason === DisconnectReason.loggedOut) {
-                failureReason = 'Device Logged Out (401)';
-                extraInfo = 'Penyebab: Sesi di folder SesiWA sudah kadaluarsa atau tidak valid lagi. Silakan hapus folder SesiWA.';
-            } else if (reason === DisconnectReason.restartRequired) {
-                failureReason = 'Restart Required';
-                extraInfo = 'Bot akan melakukan restart otomatis.';
-            } else if (reason === DisconnectReason.timedOut) {
-                failureReason = 'Connection Timed Out';
-                extraInfo = 'Mencoba menyambung ulang...';
-            }
-
-            console.log(chalk.red(`❌ Koneksi Terputus: ${failureReason} (${reason})`));
-            if (extraInfo) console.log(chalk.yellow(`ℹ️ Info: ${extraInfo}`));
-
-            if (lastDisconnect?.error) {
-                if (DEBUG) console.log(chalk.gray(`[DEBUG] Error Detail: ${lastDisconnect.error.message}`));
+                    fs.rmSync(sessionPath, { recursive: true, force: true });
+                } catch (e) { }
             }
 
             // Update dashboard status
             try {
                 const dashboardRoutes = require('./routes/dashboardRoutes');
                 dashboardRoutes.setBotConnected(false);
-                // FUTURE: We could pass the failureReason to the dashboard here
             } catch (e) { }
 
-            const shouldReconnect = reason !== DisconnectReason.loggedOut;
-            if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-                reconnectAttempts++;
-                console.log(chalk.yellow(`🔄 Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in 5 seconds...`));
-                setTimeout(() => {
-                    connectToWhatsApp(false); // Not initial
-                }, 5000);
-            } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-                console.log(chalk.bgRed('❌ Max reconnect attempts reached. Please check server manually.'));
-                process.exit(1); // Force exit so PM2 can try a fresh start
-            } else {
-                console.log(chalk.bgRed('⛔ Session Invalid/Logged Out. Please delete session folder and restart.'));
-            }
+            // Sambungkan Ulang
+            setTimeout(() => {
+                connectToWhatsApp(false);
+            }, 5000);
+
         } else if (connection === "connecting") {
             console.log(chalk.cyan("🔄 Sedang menyambung ke WhatsApp..."));
         } else if (connection === "open") {
-            reconnectAttempts = 0; // Reset on success
-            console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
-            console.log(chalk.gray(`[SYSTEM] Sesi valid terdeteksi. Bot siap digunakan.`));
+            console.log(chalk.green("✔  Bot Berhasil Terhubung Ke WhatsApp"))
 
             // INIT ERROR REPORTER
             initErrorReporter(sock);
