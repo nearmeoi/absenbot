@@ -1,4 +1,3 @@
-const { getPrayerTimes, getRandomContent } = require('../services/ramadanService');
 const chalk = require('chalk');
 
 module.exports = {
@@ -10,6 +9,33 @@ module.exports = {
         const { args, BOT_PREFIX } = context;
         const command = message.message.conversation || message.message.extendedTextMessage?.text || '';
         const cmdName = command.split(' ')[0].replace(BOT_PREFIX, '').toLowerCase();
+
+        // --- COMMAND: !sahur-on / !sahur-off ---
+        if (['sahur-on', 'sahur-off'].includes(cmdName)) {
+            const { updateSahurPreference, getUserByPhone } = require('../services/database');
+            const { resolveLocation } = require('../services/ramadanService');
+            const senderNumber = context.senderNumber;
+
+            if (cmdName === 'sahur-off') {
+                updateSahurPreference(senderNumber, false);
+                await sock.sendMessage(remoteJid, { text: '📴 *Pengingat Sahur Dinonaktifkan*\n\nAnda tidak akan menerima lagi pesan bangun sahur otomatis.' }, { quoted: message });
+                return;
+            }
+
+            let searchCity = args && args.length > 0 ? args.join(' ') : 'Makassar';
+            const loc = await resolveLocation(searchCity);
+            const user = getUserByPhone(senderNumber);
+            if (!user) {
+                await sock.sendMessage(remoteJid, { text: '⚠️ Anda harus terdaftar terlebih dahulu untuk menggunakan fitur ini. Silakan ketik *!daftar*.' }, { quoted: message });
+                return;
+            }
+
+            updateSahurPreference(senderNumber, true, loc.kabkota);
+            await sock.sendMessage(remoteJid, {
+                text: `✅ *Pengingat Sahur Aktif!*\n📍 Kota: *${loc.kabkota}*\n⏰ Waktu: *30 menit sebelum Imsak*\n\nBot akan mengirimkan pesan bangun sahur otomatis setiap hari selama Ramadhan. ✨`
+            }, { quoted: message });
+            return;
+        }
 
         // --- COMMAND: !doa ---
         if (cmdName === 'doa') {
@@ -60,7 +86,7 @@ module.exports = {
             // --- COMMAND: !jadwal / !imsakiyah / !jadwalsholat ---
             if (['jadwal', 'imsakiyah', 'jadwalsholat'].includes(cmdName)) {
                 let text = `📅 *Jadwal Imsakiyah & Sholat*\n📍 *${city}*\n\n`;
-                
+
                 prayerList.forEach(p => {
                     text += `• ${p.name.padEnd(8)} : *${p.time}*\n`;
                 });
@@ -83,7 +109,7 @@ module.exports = {
                 if (nextEvent) {
                     const hours = Math.floor(minDiff / (1000 * 60 * 60));
                     const mins = Math.floor((minDiff % (1000 * 60 * 60)) / (1000 * 60));
-                    
+
                     let timeStr = '';
                     if (hours > 0) timeStr += `${hours} jam `;
                     if (mins > 0 || hours === 0) timeStr += `${mins} menit`;
@@ -119,7 +145,7 @@ module.exports = {
             // --- COMMAND: !imsak ---
             else if (['imsak'].includes(cmdName)) {
                 const imsakDate = timeToDate(t.Imsak, timezone);
-                
+
                 if (imsakDate < nowInCity) {
                     await sock.sendMessage(remoteJid, {
                         text: `⚠️ Waktu Imsak untuk *${city}* (${t.Imsak}) sudah lewat.\nSelamat menjalankan ibadah puasa!`
@@ -142,7 +168,7 @@ module.exports = {
             else if (['sahur'].includes(cmdName)) {
                 // For Sahur, we target the Imsak time as the limit
                 const imsakDate = timeToDate(t.Imsak, timezone);
-                
+
                 if (imsakDate < nowInCity) {
                     await sock.sendMessage(remoteJid, {
                         text: `🥣 Waktu sahur untuk *${city}* sudah lewat (Imsak: ${t.Imsak}).\nSelamat berpuasa!`
@@ -157,7 +183,7 @@ module.exports = {
                     if (mins > 0 || hours === 0) timeStr += `${mins} menit`;
 
                     let text = `🥣 *Persiapan Sahur (${city})*\nBatas Imsak: *${t.Imsak}*\n\nWaktu sahur tersisa:\n*${timeStr.trim()} lagi*.\n\n`;
-                    
+
                     // Add random content for encouragement
                     const contentRes = await getRandomContent();
                     if (contentRes.success) {
@@ -197,18 +223,18 @@ module.exports = {
                     }
                 }
 
-                                if (nextP) {
-                                    const hours = Math.floor(minD / (1000 * 60 * 60));
-                                    const mins = Math.floor((minD % (1000 * 60 * 60)) / (1000 * 60));
-                
-                                    let timeStr = '';
-                                    if (hours > 0) timeStr += `${hours} jam `;
-                                    if (mins > 0 || hours === 0) timeStr += `${mins} menit`;
-                
-                                    const text = `🕌 *Jadwal Sholat Berikutnya*\n📍 *${city}*\n\n*${nextP.name}* : ${nextP.time}\nDalam: *${timeStr.trim()} lagi*.\n\n"Sesungguhnya sholat itu adalah fardhu yang ditentukan waktunya atas orang-orang yang beriman." (QS. An-Nisa: 103)`;
-                                    await sock.sendMessage(remoteJid, { text }, { quoted: message });
-                                }
-                 else {
+                if (nextP) {
+                    const hours = Math.floor(minD / (1000 * 60 * 60));
+                    const mins = Math.floor((minD % (1000 * 60 * 60)) / (1000 * 60));
+
+                    let timeStr = '';
+                    if (hours > 0) timeStr += `${hours} jam `;
+                    if (mins > 0 || hours === 0) timeStr += `${mins} menit`;
+
+                    const text = `🕌 *Jadwal Sholat Berikutnya*\n📍 *${city}*\n\n*${nextP.name}* : ${nextP.time}\nDalam: *${timeStr.trim()} lagi*.\n\n"Sesungguhnya sholat itu adalah fardhu yang ditentukan waktunya atas orang-orang yang beriman." (QS. An-Nisa: 103)`;
+                    await sock.sendMessage(remoteJid, { text }, { quoted: message });
+                }
+                else {
                     await sock.sendMessage(remoteJid, { text: `✅ Semua jadwal sholat hari ini di *${city}* sudah selesai.` }, { quoted: message });
                 }
             }

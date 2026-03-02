@@ -97,6 +97,7 @@ const ENVIRONMENT_CONFIGS = {
         chromiumPaths: [
             'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
             'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+            'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
             path.join(os.homedir(), 'AppData\\Local\\Google\\Chrome\\Application\\chrome.exe'),
             'C:\\Program Files\\Chromium\\Application\\chromium.exe'
         ],

@@ -231,4 +231,38 @@ const saveUserTemplate = (phoneNumber, templateData) => {
     return false;
 };
 
-module.exports = { getUserByPhone, getUserByEmail, getUserBySlug, saveUser, updateUserLid, getAllUsers, deleteUser, saveUserTemplate };
+/**
+ * Update Sahur Reminder preference
+ */
+const updateSahurPreference = (phoneNumber, enabled, location = null) => {
+    const users = loadUsers();
+    const normalizedPhone = normalizePhone(phoneNumber);
+    const index = users.findIndex(u => {
+        if (normalizePhone(u.phone) === normalizedPhone) return true;
+        if (u.lid && normalizePhone(u.lid) === normalizedPhone) return true;
+        if (u.identifiers) {
+            return u.identifiers.some(id => normalizePhone(id) === normalizedPhone);
+        }
+        return false;
+    });
+
+    if (index !== -1) {
+        users[index].remindSahur = enabled;
+        if (location) users[index].sahurLocation = location;
+        updateUsers(users);
+        return true;
+    }
+    return false;
+};
+
+module.exports = {
+    getUserByPhone,
+    getUserByEmail,
+    getUserBySlug,
+    saveUser,
+    updateUserLid,
+    getAllUsers,
+    deleteUser,
+    saveUserTemplate,
+    updateSahurPreference
+};

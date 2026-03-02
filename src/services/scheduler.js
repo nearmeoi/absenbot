@@ -741,6 +741,84 @@ async function runScheduledWebReports(sock, timezone) {
     }
 }
 
+// --- RAMADAN SAHUR LOGIC ---
+const prayerCache = new Map(); // { 'city_date': timings }
+
+async function runSahurReminders(sock) {
+    const allUsers = getAllUsers().filter(u => u.remindSahur);
+    if (allUsers.length === 0) return;
+
+    const now = new Date();
+    const today = now.getDate();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
+    // Group users by location to optimize API calls
+    const locationMap = {};
+    allUsers.forEach(u => {
+        const loc = u.sahurLocation || 'Makassar';
+        if (!locationMap[loc]) locationMap[loc] = [];
+        locationMap[loc].push(u);
+    });
+
+    for (const [location, users] of Object.entries(locationMap)) {
+        try {
+            const cacheKey = `${location}_${today}`;
+            let timings = prayerCache.get(cacheKey);
+
+            if (!timings) {
+                const res = await getPrayerTimes(location);
+                if (res.success) {
+                    timings = res.timings;
+                    prayerCache.set(cacheKey, timings);
+                }
+            }
+
+            if (timings && timings.Imsak) {
+                // Parse Imsak (HH:mm)
+                const [imsakH, imsakM] = timings.Imsak.split(':').map(Number);
+
+                // Calculate target time (30 minutes before Imsak)
+                let targetH = imsakH;
+                let targetM = imsakM - 30;
+                if (targetM < 0) {
+                    targetM += 60;
+                    targetH -= 1;
+                }
+
+                // Check if current time matches target
+                if (currentHour === targetH && currentMinute === targetM) {
+                    console.log(chalk.green(`[SAHUR] Sending wake-up call to ${users.length} users in ${location}`));
+
+                    for (const user of users) {
+                        try {
+                            const contentRes = await getRandomContent();
+                            let contentText = "";
+                            if (contentRes.success) {
+                                const c = contentRes.content;
+                                if (contentRes.type === 'ayat') {
+                                    contentText = `\n\n📖 *QS. ${c.surah}: ${c.ayat}*\n"${c.terjemahan}"`;
+                                } else {
+                                    contentText = `\n\n📜 *HR. ${c.perawi}*\n"${c.terjemahan}"`;
+                                }
+                            }
+
+                            const wakeUpMsg = `🥣 *BANGUN SAHUR!* 🥣\n📍 Lokasi: *${location}*\n⏰ Imsak: *${timings.Imsak}*\n\nAssalamu'alaikum ${user.name || 'Sahabat Bot'}, ayo bangun untuk santap sahur! Masih ada waktu sekitar 30 menit sebelum Imsak.${contentText}\n\nSemangat berpuasa ya! ✨`;
+
+                            await sock.sendMessage(user.phone, { text: wakeUpMsg });
+                            await new Promise(r => setTimeout(r, 1000));
+                        } catch (sendErr) {
+                            console.error(`[SAHUR] Failed to send to ${user.phone}:`, sendErr.message);
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error(`[SAHUR] Error processing location ${location}:`, err.message);
+        }
+    }
+}
+
 // --- CORE SCHEDULER LOGIC ---
 
 function scheduleTask(task, timezone) {
@@ -812,6 +890,12 @@ function reloadScheduler() {
         if (botSocket) scheduleRamadanForToday(botSocket);
     }, { timezone: 'Asia/Makassar' });
     activeCrons.set('global_ramadan_refresh', ramadanJob);
+
+    // 5. Schedule Sahur Reminders (Runs every minute)
+    const sahurJob = cron.schedule('* * * * *', () => {
+        if (botSocket) runSahurReminders(botSocket);
+    });
+    activeCrons.set('global_sahur_reminders', sahurJob);
 
     // Initial run for today (if bot starts mid-day)
     if (botSocket) scheduleRamadanForToday(botSocket);
@@ -929,11 +1013,12 @@ async function scheduleRamadanForToday(sock) {
 
                 ramadanCrons.set(task.name, job);
             });
-            }
-        
-            console.log(chalk.magenta(`[RAMADAN] ${citySchedules.size} cities | ${enabledGroups.length} groups`));
-        
-        } catch (e) {        console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
+        }
+
+        console.log(chalk.magenta(`[RAMADAN] ${citySchedules.size} cities | ${enabledGroups.length} groups`));
+
+    } catch (e) {
+        console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
     }
 }
 
@@ -973,6 +1058,7 @@ module.exports = {
     deleteSchedule,
     runTestScheduler,
     runScheduledWebReports,
+    runSahurReminders, // Exported for manual testing if needed
     // Exports for compatibility if needed elsewhere
     runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'),
     runAfternoonReminder: async (sock) => runTestScheduler(sock, 'afternoon_reminder'),
