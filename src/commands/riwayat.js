@@ -59,6 +59,23 @@ module.exports = {
                     params: JSON.stringify({ display_text: 'CEK APPROVAL', id: '!cekapprove' })
                 },
                 {
+                    name: 'single_select',
+                    params: JSON.stringify({
+                        title: 'PILIH HARI',
+                        sections: [
+                            {
+                                title: 'OPSI RIWAYAT',
+                                rows: [
+                                    { title: 'Riwayat 1 Hari', id: '!riwayat 1' },
+                                    { title: 'Riwayat 3 Hari', id: '!riwayat 3' },
+                                    { title: 'Riwayat 5 Hari', id: '!riwayat 5' },
+                                    { title: 'Riwayat 7 Hari', id: '!riwayat 7' }
+                                ]
+                            }
+                        ]
+                    })
+                },
+                {
                     name: 'quick_reply',
                     params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
                 }
