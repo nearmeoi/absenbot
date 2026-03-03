@@ -5,6 +5,7 @@
 const { getUserByPhone } = require('../services/database');
 const { cekStatusHarian } = require('../services/magang');
 const { getMessage } = require('../services/messageService');
+const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 
 module.exports = {
     name: 'cek',
@@ -19,12 +20,12 @@ module.exports = {
             const year = now.getFullYear();
             const month = now.getMonth();
             const todayDate = now.getDate();
-            
+
             let target = new Date(year, month, targetDay);
             if (todayDate > targetDay) {
                 target = new Date(year, month + 1, targetDay);
             }
-            
+
             const diff = target - new Date(year, month, todayDate);
             return Math.floor(diff / (1000 * 60 * 60 * 24));
         };
@@ -37,14 +38,38 @@ module.exports = {
         }
 
         const status = await cekStatusHarian(user.email, user.password);
-        
+
         // Preparation for countdowns
         const daysToBatch3 = calculateCountdown(15);
         const daysToBatch2 = calculateCountdown(24);
-        
+
         const countdownText = getMessage('cek_payout_info')
             .replace('{days3}', daysToBatch3)
             .replace('{days2}', daysToBatch2);
+
+        const sendInteractiveButtons = async (text, footer, buttons) => {
+            const msg = generateWAMessageFromContent(sender, {
+                viewOnceMessage: {
+                    message: {
+                        interactiveMessage: proto.Message.InteractiveMessage.create({
+                            body: proto.Message.InteractiveMessage.Body.create({ text: text }),
+                            footer: proto.Message.InteractiveMessage.Footer.create({ text: footer }),
+                            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
+                                buttons: buttons.map(btn => ({
+                                    name: "quick_reply",
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: btn.displayText,
+                                        id: btn.id
+                                    })
+                                }))
+                            })
+                        })
+                    }
+                }
+            }, { quoted: msgObj });
+
+            await sock.relayMessage(sender, msg.message, { messageId: msg.key.id });
+        };
 
         if (status.success && status.sudahAbsen) {
             await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
@@ -53,12 +78,23 @@ module.exports = {
                 .replace('{date}', log.date || 'Hari ini')
                 .replace('{activity}', log.activity_log || '-');
 
-            await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+            await sendInteractiveButtons(reply, "AbsenBot Interactive 🪄", [
+                { displayText: "📜 Lihat Rapor", id: "!rapor" },
+                { displayText: "📊 Dashboard", id: "!dashboard" }
+            ]);
         } else if (status.success && !status.sudahAbsen) {
-            await sock.sendMessage(sender, { text: getMessage('!cek_pending', senderNumber) + countdownText }, { quoted: msgObj });
+            const reply = getMessage('!cek_pending', senderNumber) + countdownText;
+            await sendInteractiveButtons(reply, "AbsenBot Interactive 🪄", [
+                { displayText: "✅ Absen Sekarang", id: "!absen" },
+                { displayText: "🔄 Refresh Status", id: "!cek" }
+            ]);
         } else {
             await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
-            await sock.sendMessage(sender, { text: getMessage('!cek_error', senderNumber).replace('{error}', status.pesan) + countdownText }, { quoted: msgObj });
+            const reply = getMessage('!cek_error', senderNumber).replace('{error}', status.pesan) + countdownText;
+            await sendInteractiveButtons(reply, "AbsenBot Interactive 🪄", [
+                { displayText: "🔄 Coba Lagi (!cek)", id: "!cek" },
+                { displayText: "⚙️ Pengaturan Panel", id: "!panel" }
+            ]);
         }
     }
 };
