@@ -135,6 +135,9 @@ async function connectToWhatsApp(isInitial = true) {
         phoneNumberForPairing = await question(chalk.green('Nomor WA (Contoh: 6281234xxx): '));
     }
 
+    const NodeCache = require("node-cache");
+    const msgRetryCounterCache = new NodeCache();
+
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
         printQRInTerminal: false,
@@ -142,8 +145,31 @@ async function connectToWhatsApp(isInitial = true) {
         browser: ["Ubuntu", "Chrome", "20.0.04"],
         version,
         generateHighQualityLinkPreview: true,
+        msgRetryCounterCache,
+        defaultQueryTimeoutMs: undefined,
         getMessage: async (key) => {
-            return { conversation: "pesan" };
+            return { conversation: "" };
+        },
+        patchMessageBeforeSending: (message) => {
+            const requiresPatch = !!(
+                message.buttonsMessage ||
+                message.templateMessage ||
+                message.listMessage
+            );
+            if (requiresPatch) {
+                message = {
+                    viewOnceMessage: {
+                        message: {
+                            messageContextInfo: {
+                                deviceListMetadataVersion: 2,
+                                deviceListMetadata: {},
+                            },
+                            ...message,
+                        },
+                    },
+                };
+            }
+            return message;
         }
     });
 
