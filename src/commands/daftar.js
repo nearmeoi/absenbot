@@ -34,11 +34,40 @@ module.exports = {
             }
         });
 
+        const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+        const buttons = [
+            {
+                name: 'cta_url',
+                params: JSON.stringify({
+                    display_text: 'DAFTAR SEKARANG',
+                    url: authUrl,
+                    merchant_url: authUrl
+                })
+            },
+            {
+                name: 'quick_reply',
+                params: JSON.stringify({
+                    display_text: 'BANTUAN',
+                    id: '!help'
+                })
+            }
+        ];
+
         if (isGroup) {
             await sock.sendMessage(sender, { text: getMessage('!daftar_link_group', senderNumber) }, { quoted: msgObj, ephemeralExpiration: 86400 });
-            await sock.sendMessage(originalSenderId, { text: getMessage('!daftar_link_private', senderNumber).replace('{url}', authUrl) });
+            await sendInteractiveMessage(sock, originalSenderId, {
+                title: "",
+                body: "Klik tombol di bawah untuk menautkan akun MagangHub Anda secara aman.",
+                footer: "app.monev-absenbot.my.id",
+                buttons: buttons
+            });
         } else {
-            await sock.sendMessage(sender, { text: getMessage('!daftar_link_private', senderNumber).replace('{url}', authUrl) }, { quoted: msgObj });
+            await sendInteractiveMessage(sock, sender, {
+                title: "",
+                body: "Klik tombol di bawah untuk menautkan akun MagangHub Anda secara aman.",
+                footer: "app.monev-absenbot.my.id",
+                buttons: buttons
+            }, { quoted: msgObj });
         }
     }
 };

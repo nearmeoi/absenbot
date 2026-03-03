@@ -11,6 +11,8 @@ const { isHoliday } = require('../config/holidays');
 const { loadGroupSettings } = require('../services/groupSettings');
 const { getMessage } = require('../services/messageService');
 const { parseTagBasedReport } = require('../utils/messageUtils');
+const { setUserState, clearUserState } = require('../services/stateService');
+const { sendInteractiveMessage } = require('../utils/interactiveMessage');
 
 module.exports = {
     name: 'absen',
@@ -20,25 +22,36 @@ module.exports = {
         const { sender, senderNumber, args, isGroup, originalSenderId } = context;
         let contentToProcess = args ? args.trim() : '';
 
-        // 2. Check if user is registered
+        // 1. Check if user is registered
         const user = getUserByPhone(senderNumber);
         if (!user) {
             await sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') }, { quoted: msgObj });
             return;
         }
 
-        // 1. Logic: If empty args, check for template
+        // 2. Logic: If empty args, check for template
         if (!contentToProcess) {
             if (user.template) {
                 contentToProcess = user.template;
+                console.log(`[DEBUG:ABSEN] No args, using template for ${senderNumber}`);
             } else {
-                const hint = getMessage('!absen_hint', senderNumber);
-                await sock.sendMessage(sender, { text: hint }, { quoted: msgObj });
+                // Enter interactive state
+                setUserState(senderNumber, 'AWAITING_ACTIVITY', { originalMsg: msgObj.key });
+                
+                const prompt = "*INPUT AKTIVITAS*\n\nSilakan langsung balas pesan ini dengan rincian aktivitas Anda hari ini (Tanpa perlu ketik !absen).\n\n_Bot akan menunggu selama 10 menit._";
+                
+                if (isGroup) {
+                    await sock.sendMessage(sender, { text: "✅ Instruksi pengisian laporan telah dikirim ke Chat Pribadi Anda." }, { quoted: msgObj });
+                    await sock.sendMessage(originalSenderId, { text: prompt });
+                } else {
+                    await sock.sendMessage(sender, { text: prompt }, { quoted: msgObj });
+                }
                 return;
             }
         }
 
-        // 3. Pre-check + History fetch IN PARALLEL (saves ~2-3s)
+        // 3. Pre-check + History fetch IN PARALLEL
+        console.log(`[DEBUG:ABSEN] Starting parallel check/history for ${senderNumber}`);
         const [statusCheck, history] = await Promise.all([
             cekStatusHarian(user.email, user.password).catch(e => {
                 console.error("[CMD:ABSEN] Error pre-check:", e.message);
@@ -56,13 +69,15 @@ module.exports = {
             return;
         }
 
-        // With args: Process report
+        // 4. Process report
         let reportData = { aktivitas: '', pembelajaran: '', kendala: '', type: '' };
+        console.log(`[DEBUG:ABSEN] Processing content: "${contentToProcess.substring(0, 30)}..."`);
 
         // Try parsing tags first (Manual Mode)
         const parsedTags = parseTagBasedReport(contentToProcess);
 
         if (parsedTags) {
+            console.log(`[DEBUG:ABSEN] Manual tag-based report detected`);
             reportData = parsedTags;
             const MIN_CHARS = 100;
             const errors = [];
@@ -83,10 +98,12 @@ module.exports = {
                 return;
             }
         } else {
-            // AI mode — history already fetched in parallel above
+            // AI mode
+            console.log(`[DEBUG:ABSEN] Sending to AI service...`);
             const aiResult = await processFreeTextToReport(contentToProcess, history.success ? history.logs : []);
 
             if (!aiResult.success) {
+                console.error(`[DEBUG:ABSEN] AI processing failed: ${aiResult.error}`);
                 await sock.sendMessage(sender, { text: getMessage('!absen_failed_ai', senderNumber).replace('{error}', aiResult.error) }, { quoted: msgObj });
                 return;
             }
@@ -97,22 +114,41 @@ module.exports = {
                 kendala: aiResult.kendala,
                 type: 'ai'
             };
+            console.log(`[DEBUG:ABSEN] AI result generated successfully`);
         }
 
+        // 5. Generate Preview & Send
+        console.log(`[DEBUG:ABSEN] Setting draft in previewService...`);
         setDraft(senderNumber, reportData);
 
         let previewText = formatDraftPreview(reportData);
-
-        // Add info footer if template was used
         if (!args || args.trim() === '') {
             previewText += `\n\n_💡 Menggunakan template tersimpan. Ketik *!absen [teks]* jika ingin laporan berbeda._`;
         }
 
-        if (isGroup) {
-            await sock.sendMessage(sender, { text: getMessage('draft_redirect_pc') }, { quoted: msgObj });
-            await sock.sendMessage(originalSenderId, { text: previewText });
-        } else {
-            await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
+        const buttons = [
+            { name: 'quick_reply', params: JSON.stringify({ display_text: 'KIRIM SEKARANG', id: 'ya' }) },
+            { name: 'quick_reply', params: JSON.stringify({ display_text: 'REVISI LAPORAN', id: '!help' }) }
+        ];
+
+        const draftMessage = { title: "", body: previewText, footer: "Balas 'ya' atau klik tombol di bawah.", buttons };
+
+        try {
+            if (isGroup) {
+                console.log(`[DEBUG:ABSEN] Sending interactive draft to private ${originalSenderId}`);
+                await sock.sendMessage(sender, { text: getMessage('draft_redirect_pc') }, { quoted: msgObj });
+                const sentMsg = await sendInteractiveMessage(sock, originalSenderId, draftMessage);
+                setUserState(senderNumber, 'AWAITING_CONFIRMATION', { draftId: sentMsg.key.id, draft: reportData });
+            } else {
+                console.log(`[DEBUG:ABSEN] Sending interactive draft to private ${sender}`);
+                const sentMsg = await sendInteractiveMessage(sock, sender, draftMessage, { quoted: msgObj });
+                setUserState(senderNumber, 'AWAITING_CONFIRMATION', { draftId: sentMsg.key.id, draft: reportData });
+            }
+            console.log(`[DEBUG:ABSEN] SUCCESS: Draft sent and state saved for ${senderNumber}`);
+        } catch (sendErr) {
+            console.error(`[DEBUG:ABSEN] Critical Error sending draft:`, sendErr);
+            // Fallback to text
+            await sock.sendMessage(isGroup ? originalSenderId : sender, { text: previewText });
         }
     }
 };

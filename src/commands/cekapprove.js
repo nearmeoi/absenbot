@@ -28,7 +28,7 @@ module.exports = {
                 return;
             }
 
-            await sock.sendMessage(sender, { react: { text: '⏳', key: msgObj.key } });
+            
             await sock.sendMessage(sender, { text: `🔍 *CEK SEMUA USER*\nMulai mengecek ${users.length} user...` });
 
             let report = `*STATUS APPROVAL SEMUA USER*\n`;
@@ -93,14 +93,14 @@ module.exports = {
             }
 
             await sock.sendMessage(sender, { text: report });
-            await sock.sendMessage(sender, { react: { text: '✅', key: msgObj.key } });
+            
             return;
         }
 
         // --- ORIGINAL Logic ---
         // 0. Check Concurrency Lock
         if (processingUsers.has(sender)) {
-            await sock.sendMessage(sender, { react: { text: '✋', key: msgObj.key } });
+            
             return;
         }
 
@@ -112,7 +112,6 @@ module.exports = {
         }
 
         processingUsers.add(sender);
-        await sock.sendMessage(sender, { react: { text: '⏳', key: msgObj.key } });
 
         // Cycle Day Detection Logic
         let cycleDay = user.cycle_day;
@@ -171,7 +170,6 @@ module.exports = {
             ]);
 
             if (!statsResult.success) {
-                await sock.sendMessage(sender, { react: { text: '❌', key: msgObj.key } });
                 await sock.sendMessage(sender, { text: `Gagal mengambil data dashboard: ${statsResult.pesan}` }, { quoted: msgObj });
                 return;
             }
@@ -307,6 +305,7 @@ module.exports = {
             };
 
             // 5. Construct Message
+            const { sendInteractiveMessage } = require('../utils/interactiveMessage');
             const formatDate = (d) => `${d.getDate()} ${d.toLocaleString('id-ID', { month: 'short' })} ${d.getFullYear()}`;
             const rangeStr = `${formatDate(startPeriod)} - ${formatDate(displayEndPeriod)}`;
             const batchNum = cycleDay === 16 ? '3' : (cycleDay === 24 ? '2' : '-');
@@ -331,31 +330,65 @@ module.exports = {
                 statusAbsenToday = 'Libur';
             }
 
-            let reply = `*LAPORAN DASHBOARD*\n`;
-            reply += `Batch: ${batchNum}\n`;
             const userNameDisplay = userData.name || profileData.name || profileData.participant_name || user.name || user.email.split('@')[0];
-            reply += `Nama: ${capitalize(userNameDisplay)}\n`;
-            reply += `Mentor: ${capitalize(mentorName)}\n\n`;
+            
+            let body = `*CEK APPROVAL*\n\n`;
+            body += `👤 *${capitalize(userNameDisplay).toUpperCase()}*\n`;
+            body += `Mentor: ${capitalize(mentorName)}\n`;
+            body += `Batch: ${batchNum}\n\n`;
+            
+            body += `*STATUS HARI INI*\n${statusAbsenToday}\n\n`;
 
-            reply += `Status Absen: ${statusAbsenToday}\n\n`;
+            body += `*RINGKASAN SIKLUS*\n`;
+            body += `Approve: ${totalApprove || '0'}\n`;
+            body += `Pending: ${formatLine(totalPending, lists.pending)}\n`;
+            body += `Revisi: ${formatLine(totalRevisi, lists.revision)}\n`;
+            body += `Ditolak: ${formatLine(totalRejected, lists.rejected)}\n`;
+            body += `Izin: ${formatLine(totalPermission, lists.permission)}\n`;
+            body += `Alpa: ${formatLine(totalAlpha, lists.alpha)}\n\n`;
+            
+            body += `Rapor: *${stats.rapor || '-'}*`;
 
-            reply += `*Ringkasan:*\n`;
-            reply += `Approve: ${totalApprove || '-'}\n`;
-            reply += `Izin: ${formatLine(totalPermission, lists.permission)}\n`;
-            reply += `Belum di Approve: ${formatLine(totalPending, lists.pending)}\n`;
-            reply += `Revisi: ${formatLine(totalRevisi, lists.revision)}\n`;
-            reply += `Ditolak: ${formatLine(totalRejected, lists.rejected)}\n`;
-            reply += `Alpa: ${formatLine(totalAlpha, lists.alpha)}\n\n`;
-            reply += `Rapor bulanan: ${stats.rapor || '-'}`;
+            const buttons = [
+                {
+                    name: 'quick_reply',
+                    params: JSON.stringify({ display_text: 'RIWAYAT 7 HARI', id: '!riwayat' })
+                },
+                {
+                    name: 'quick_reply',
+                    params: JSON.stringify({ display_text: 'REFRESH DATA', id: '!cekapprove' })
+                },
+                {
+                    name: 'single_select',
+                    params: JSON.stringify({
+                        title: 'PILIH BULAN',
+                        sections: [
+                            {
+                                title: 'CEK BULAN LAIN',
+                                rows: [
+                                    { title: 'Januari', id: '!cekapprove januari' },
+                                    { title: 'Februari', id: '!cekapprove februari' },
+                                    { title: 'Maret', id: '!cekapprove maret' },
+                                    { title: 'April', id: '!cekapprove april' },
+                                    { title: 'Mei', id: '!cekapprove mei' },
+                                    { title: 'Juni', id: '!cekapprove juni' }
+                                ]
+                            }
+                        ]
+                    })
+                }
+            ];
 
-            // 6. Send Response
-            await sock.sendMessage(sender, { react: { text: '✅', key: msgObj.key } });
-            await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+            await sendInteractiveMessage(sock, sender, {
+                title: "",
+                body: body,
+                footer: "Periode: " + rangeStr,
+                buttons: buttons
+            }, { quoted: msgObj });
 
         } catch (error) {
             console.error('[CEKAPPROVE] Error:', error);
-            await sock.sendMessage(sender, { react: { text: '❌', key: msgObj.key } });
-            await sock.sendMessage(sender, { text: 'Terjadi kesalahan sistem.' }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: 'Terjadi kesalahan sistem saat mengecek approval.' }, { quoted: msgObj });
         } finally {
             processingUsers.delete(sender);
         }

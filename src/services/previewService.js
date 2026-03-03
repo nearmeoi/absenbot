@@ -17,7 +17,7 @@ const pendingPreviews = new Map();
 function setDraft(sender, draft) {
     // Normalization for LID/standard consistency
     const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
-    console.log(chalk.cyan(`[PREVIEW] Saving draft for ${cleanSender} (Type: ${draft.type || 'ai'})`));
+    console.log(chalk.cyan(`[PREVIEW SERVICE] 💾 Saving draft for ${cleanSender}`));
     pendingPreviews.set(cleanSender, {
         ...draft,
         timestamp: Date.now()
@@ -32,15 +32,21 @@ function setDraft(sender, draft) {
 function getDraft(sender) {
     const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
     const draft = pendingPreviews.get(cleanSender);
-    if (!draft) return null;
-
-    // 30-minute timeout (updated from 5)
-    const expiry = 30 * 60 * 1000;
-    if (Date.now() - draft.timestamp > expiry) {
-        pendingPreviews.delete(sender);
+    
+    if (!draft) {
+        console.log(chalk.yellow(`[PREVIEW SERVICE] 🔍 No draft found for ${cleanSender}`));
         return null;
     }
 
+    // 30-minute timeout
+    const expiry = 30 * 60 * 1000;
+    if (Date.now() - draft.timestamp > expiry) {
+        console.log(chalk.red(`[PREVIEW SERVICE] ⚠️ Draft expired for ${cleanSender}`));
+        pendingPreviews.delete(cleanSender);
+        return null;
+    }
+
+    console.log(chalk.green(`[PREVIEW SERVICE] ✅ Draft retrieved for ${cleanSender}`));
     return draft;
 }
 

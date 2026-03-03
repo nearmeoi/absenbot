@@ -5,6 +5,7 @@
 const { getUserByPhone } = require('../services/database');
 const { cekStatusHarian } = require('../services/magang');
 const { getMessage } = require('../services/messageService');
+const chalk = require('chalk');
 
 module.exports = {
     name: 'cek',
@@ -46,45 +47,73 @@ module.exports = {
             .replace('{days3}', daysToBatch3)
             .replace('{days2}', daysToBatch2);
 
-        const sendButtons = async (text, footerText, buttonsData) => {
-            const buttons = buttonsData.map(btn => ({
-                buttonId: btn.id,
-                buttonText: { displayText: btn.displayText },
-                type: 1
-            }));
+        const { getAppUrl } = require('../services/messageService');
+        const webUrl = getAppUrl(senderNumber);
 
-            await sock.sendMessage(sender, {
-                text: text,
-                footer: footerText,
-                buttons: buttons,
-                headerType: 1
-            }, { quoted: msgObj });
-        };
+        const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+
+        const buttonsData = [];
+        let footerText = "app.monev-absenbot.my.id";
 
         if (status.success && status.sudahAbsen) {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
             const log = status.data;
-            let reply = getMessage('!cek_done', senderNumber)
+            const reply = getMessage('!cek_done', senderNumber)
                 .replace('{date}', log.date || 'Hari ini')
                 .replace('{activity}', log.activity_log || '-');
 
-            await sendButtons(reply, "AbsenBot Interactive 🪄", [
-                { displayText: "📜 Lihat Rapor", id: "!rapor" },
-                { displayText: "📊 Dashboard", id: "!dashboard" }
-            ]);
+            buttonsData.push({
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'RIWAYAT 7 HARI', id: '!riwayat' })
+            });
+            buttonsData.push({
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'CEK APPROVE', id: '!cekapprove' })
+            });
+
+            await sendInteractiveMessage(sock, sender, {
+                title: "",
+                body: reply + "\n\n" + countdownText,
+                footer: footerText,
+                buttons: buttonsData
+            }, { quoted: msgObj });
+
         } else if (status.success && !status.sudahAbsen) {
-            const reply = getMessage('!cek_pending', senderNumber) + countdownText;
-            await sendButtons(reply, "AbsenBot Interactive 🪄", [
-                { displayText: "✅ Absen Sekarang", id: "!absen" },
-                { displayText: "🔄 Refresh Status", id: "!cek" }
-            ]);
+            const reply = getMessage('!cek_pending', senderNumber);
+            
+            buttonsData.push({
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'ABSEN SEKARANG', id: '!absen' })
+            });
+            buttonsData.push({
+                name: 'cta_url',
+                params: JSON.stringify({ display_text: 'BUKA DASHBOARD', url: webUrl, merchant_url: webUrl })
+            });
+
+            await sendInteractiveMessage(sock, sender, {
+                title: "",
+                body: reply + "\n\n" + countdownText,
+                footer: footerText,
+                buttons: buttonsData
+            }, { quoted: msgObj });
+
         } else {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
-            const reply = getMessage('!cek_error', senderNumber).replace('{error}', status.pesan) + countdownText;
-            await sendButtons(reply, "AbsenBot Interactive 🪄", [
-                { displayText: "🔄 Coba Lagi (!cek)", id: "!cek" },
-                { displayText: "⚙️ Pengaturan Panel", id: "!panel" }
-            ]);
+            const reply = getMessage('!cek_error', senderNumber).replace('{error}', status.pesan);
+            
+            buttonsData.push({
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'COBA LAGI', id: '!cek' })
+            });
+            buttonsData.push({
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
+            });
+
+            await sendInteractiveMessage(sock, sender, {
+                title: "",
+                body: reply + "\n\n" + countdownText,
+                footer: footerText,
+                buttons: buttonsData
+            }, { quoted: msgObj });
         }
     }
 };

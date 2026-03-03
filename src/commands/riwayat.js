@@ -50,9 +50,28 @@ module.exports = {
                 }
             });
 
+            const { sendInteractiveMessage } = require('../utils/interactiveMessage');
             const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+            
             if (isGroup) await sock.sendMessage(sender, { text: getMessage('!riwayat_sent_private') }, { quoted: msgObj });
-            await sock.sendMessage(targetJid, { text: historyText });
+            
+            const buttons = [
+                {
+                    name: 'quick_reply',
+                    params: JSON.stringify({ display_text: 'CEK APPROVAL', id: '!cekapprove' })
+                },
+                {
+                    name: 'quick_reply',
+                    params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
+                }
+            ];
+
+            await sendInteractiveMessage(sock, targetJid, {
+                title: "",
+                body: historyText,
+                footer: "app.monev-absenbot.my.id",
+                buttons: buttons
+            });
         } else {
             await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
             await sock.sendMessage(sender, { text: getMessage('!riwayat_failed') }, { quoted: msgObj });
