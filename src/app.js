@@ -287,9 +287,8 @@ async function connectToWhatsApp(isInitial = true) {
     const processedMessages = new Set();
 
     sock.ev.on("messages.upsert", async (m) => {
-        console.log(chalk.gray(`[RAW INCOMING] type=${m.type}, count=${m.messages?.length || 0}`));
-
-        if (DEBUG || true) { // Force print for debugging
+        if (DEBUG) {
+            console.log(chalk.gray(`[DEBUG] RECEIVED UPSERT: type=${m.type}, count=${m.messages?.length || 0}`));
             if (m.messages) {
                 for (const msg of m.messages) {
                     console.log(chalk.gray(`[DEBUG]   - ID: ${msg.key.id}, Remote: ${msg.key.remoteJid}, fromMe: ${msg.key.fromMe}, type: ${Object.keys(msg.message || {})[0]}`));
