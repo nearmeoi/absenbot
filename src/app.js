@@ -171,16 +171,28 @@ async function connectToWhatsApp(isInitial = true) {
 
             if (footer && footer.length > 0) fallbackText += `\n\n_${footer}_`;
 
-            if (!content.image && !content.video && !content.document) {
+            // If it has media (image/video/doc)
+            if (content.image || content.video || content.document) {
+                const mediaType = content.image ? 'image' : (content.video ? 'video' : 'document');
                 return await originalSendMessage(jid, {
-                    text: fallbackText,
-                    footer: footer || "",
+                    [mediaType]: content[mediaType],
+                    caption: fallbackText,
                     buttons: wButtons,
-                    headerType: 1,
+                    headerType: mediaType === 'image' ? 4 : (mediaType === 'video' ? 5 : 3),
                     viewOnce: true,
                     contextInfo: { mentionedJid: options.mentions || [], ...content.contextInfo }
                 }, options);
             }
+
+            // Text only fallback
+            return await originalSendMessage(jid, {
+                text: fallbackText,
+                footer: footer || "",
+                buttons: wButtons,
+                headerType: 1,
+                viewOnce: true,
+                contextInfo: { mentionedJid: options.mentions || [], ...content.contextInfo }
+            }, options);
         }
         return await originalSendMessage(jid, content, options);
     };

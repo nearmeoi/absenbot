@@ -31,6 +31,7 @@ async function sendInteractiveMessage(sock, jid, content, options = {}) {
 
     // Add media if present
     if (image) {
+        // If it's already a prepared media object or a URL/Path
         messageContent.image = image.url || image;
         messageContent.caption = body;
         delete messageContent.text;

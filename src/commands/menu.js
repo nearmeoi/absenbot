@@ -6,7 +6,6 @@ const fs = require('fs');
 const path = require('path');
 const { getMessage } = require('../services/messageService');
 const { sendInteractiveMessage } = require('../utils/interactiveMessage');
-const { prepareWAMessageMedia } = require('@whiskeysockets/baileys');
 
 const COVER_IMAGE = path.join(__dirname, '../../public/img/cover.png');
 
@@ -88,18 +87,12 @@ Pilih menu di bawah atau ketik perintahnya langsung.`;
         const targetJid = sender;
 
         try {
-            let imageMsg;
-            if (fs.existsSync(COVER_IMAGE)) {
-                const media = await prepareWAMessageMedia({ image: fs.readFileSync(COVER_IMAGE) }, { upload: sock.waUploadToServer });
-                imageMsg = media.imageMessage;
-            }
-
             await sendInteractiveMessage(sock, targetJid, {
                 title: "",
                 body: body,
                 footer: "app.monev-absenbot.my.id",
                 buttons: buttons,
-                image: imageMsg
+                image: fs.existsSync(COVER_IMAGE) ? COVER_IMAGE : null
             }, { quoted: msgObj });
 
         } catch (menuError) {
