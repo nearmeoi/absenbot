@@ -5,6 +5,13 @@
 const express = require('express');
 const crypto = require('crypto');
 const chalk = require('chalk');
+const path = require('path');
+const fs = require('fs');
+
+// Load environment variables with absolute path
+const envPath = path.resolve(__dirname, '../../.env');
+require('dotenv').config({ path: envPath, override: true });
+
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // Port standalone auth server

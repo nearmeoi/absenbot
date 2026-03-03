@@ -31,12 +31,13 @@ async function sendInteractiveMessage(sock, jid, content, options = {}) {
 
     // Add media if present
     if (image) {
-        // If it's already a prepared media object or a URL/Path
-        messageContent.image = image.url || image;
+        // Ensure image is in a format Baileys expects (object with url or Buffer)
+        messageContent.image = (typeof image === 'string') ? { url: image } : image;
         messageContent.caption = body;
         delete messageContent.text;
     } else if (video) {
-        messageContent.video = video.url || video;
+        // Ensure video is in a format Baileys expects (object with url or Buffer)
+        messageContent.video = (typeof video === 'string') ? { url: video } : video;
         messageContent.caption = body;
         delete messageContent.text;
     }

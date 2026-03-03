@@ -12,7 +12,10 @@ require('dotenv').config({ path: envPath, override: true });
 // Admin phone numbers (add your number here)
 // Format: '628xxxxxxxxxx@s.whatsapp.net'
 const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
-    ? process.env.ADMIN_NUMBERS.split(',').map(n => n.trim())
+    ? process.env.ADMIN_NUMBERS.split(',').map(n => {
+        const num = n.trim();
+        return num.includes('@') ? num : num + '@s.whatsapp.net';
+    })
     : [];
 
 const APP_URL = process.env.APP_URL || 'https://app.monev-absenbot.my.id';

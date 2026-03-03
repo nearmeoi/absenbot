@@ -41,14 +41,8 @@ module.exports = {
                 params: JSON.stringify({
                     display_text: 'DAFTAR SEKARANG',
                     url: authUrl,
-                    merchant_url: authUrl
-                })
-            },
-            {
-                name: 'quick_reply',
-                params: JSON.stringify({
-                    display_text: 'BANTUAN',
-                    id: '!help'
+                    merchant_url: authUrl,
+                    id: '!daftar'
                 })
             }
         ];
@@ -56,15 +50,13 @@ module.exports = {
         if (isGroup) {
             await sock.sendMessage(sender, { text: getMessage('!daftar_link_group', senderNumber) }, { quoted: msgObj, ephemeralExpiration: 86400 });
             await sendInteractiveMessage(sock, originalSenderId, {
-                title: "",
-                body: "Klik tombol di bawah untuk menautkan akun MagangHub Anda secara aman.",
+                body: getMessage('!daftar_link_private', senderNumber).replace('{url}', authUrl),
                 footer: "app.monev-absenbot.my.id",
                 buttons: buttons
             });
         } else {
             await sendInteractiveMessage(sock, sender, {
-                title: "",
-                body: "Klik tombol di bawah untuk menautkan akun MagangHub Anda secara aman.",
+                body: getMessage('!daftar_link_private', senderNumber).replace('{url}', authUrl),
                 footer: "app.monev-absenbot.my.id",
                 buttons: buttons
             }, { quoted: msgObj });

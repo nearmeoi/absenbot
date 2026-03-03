@@ -657,5 +657,6 @@ module.exports = {
     getParticipantProfile,
     getUserProfile,
     directLogin,
-    createApiClient
+    createApiClient,
+    slugify
 };

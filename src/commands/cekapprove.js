@@ -150,6 +150,15 @@ module.exports = {
                 const monthIndex = monthNames.indexOf(requestedMonth);
 
                 if (monthIndex !== -1) {
+                    // Validation: Only allow Februari (as requested by user)
+                    if (requestedMonth !== 'februari') {
+                        await sock.sendMessage(sender, { 
+                            text: `⚠️ *DATA TIDAK TERSEDIA*\n\nMaaf, rekap siklus untuk bulan *${requestedMonth.toUpperCase()}* belum tersedia di sistem baru ini.\n\nSaat ini data hanya tersedia mulai bulan *Februari*.` 
+                        }, { quoted: msgObj });
+                        processingUsers.delete(sender);
+                        return;
+                    }
+
                     // Set 'today' to the cycleDay of the requested month
                     today = new Date(today.getFullYear(), monthIndex, cycleDay);
 
@@ -332,31 +341,26 @@ module.exports = {
 
             const userNameDisplay = userData.name || profileData.name || profileData.participant_name || user.name || user.email.split('@')[0];
             
-            let body = `*CEK APPROVAL*\n\n`;
+            let body = `*CEK APPROVAL*\n`;
             body += `👤 *${capitalize(userNameDisplay).toUpperCase()}*\n`;
             body += `Mentor: ${capitalize(mentorName)}\n`;
-            body += `Batch: ${batchNum}\n\n`;
-            
-            body += `*STATUS HARI INI*\n${statusAbsenToday}\n\n`;
+            body += `Status: ${statusAbsenToday}\n`;
+            body += `Periode: ${rangeStr}\n\n`;
 
             body += `*RINGKASAN SIKLUS*\n`;
             body += `Approve: ${totalApprove || '0'}\n`;
-            body += `Pending: ${formatLine(totalPending, lists.pending)}\n`;
-            body += `Revisi: ${formatLine(totalRevisi, lists.revision)}\n`;
-            body += `Ditolak: ${formatLine(totalRejected, lists.rejected)}\n`;
-            body += `Izin: ${formatLine(totalPermission, lists.permission)}\n`;
-            body += `Alpa: ${formatLine(totalAlpha, lists.alpha)}\n\n`;
+            if (totalPending > 0) body += `Belum di Approve: ${formatLine(totalPending, lists.pending)}\n`;
+            if (totalRevisi > 0) body += `Revisi: ${formatLine(totalRevisi, lists.revision)}\n`;
+            if (totalRejected > 0) body += `Ditolak: ${formatLine(totalRejected, lists.rejected)}\n`;
+            if (totalPermission > 0) body += `Izin: ${formatLine(totalPermission, lists.permission)}\n`;
+            if (totalAlpha > 0) body += `Alpa: ${formatLine(totalAlpha, lists.alpha)}\n`;
             
-            body += `Rapor: *${stats.rapor || '-'}*`;
+            body += `\nRapor: *${stats.rapor || '-'}*`;
 
             const buttons = [
                 {
                     name: 'quick_reply',
-                    params: JSON.stringify({ display_text: 'RIWAYAT 7 HARI', id: '!riwayat' })
-                },
-                {
-                    name: 'quick_reply',
-                    params: JSON.stringify({ display_text: 'REFRESH DATA', id: '!cekapprove' })
+                    params: JSON.stringify({ display_text: 'CEK APPROVE LAGI', id: '!cekapprove' })
                 },
                 {
                     name: 'single_select',
@@ -364,14 +368,15 @@ module.exports = {
                         title: 'PILIH BULAN',
                         sections: [
                             {
-                                title: 'CEK BULAN LAIN',
+                                title: 'CEK SIKLUS BULAN LAIN',
                                 rows: [
+                                    { title: 'November', id: '!cekapprove november' },
+                                    { title: 'Desember', id: '!cekapprove desember' },
                                     { title: 'Januari', id: '!cekapprove januari' },
                                     { title: 'Februari', id: '!cekapprove februari' },
                                     { title: 'Maret', id: '!cekapprove maret' },
                                     { title: 'April', id: '!cekapprove april' },
-                                    { title: 'Mei', id: '!cekapprove mei' },
-                                    { title: 'Juni', id: '!cekapprove juni' }
+                                    { title: 'Mei', id: '!cekapprove mei' }
                                 ]
                             }
                         ]
@@ -384,7 +389,7 @@ module.exports = {
             await sendInteractiveMessage(sock, targetJid, {
                 title: "",
                 body: body,
-                footer: "Periode: " + rangeStr,
+                footer: "",
                 buttons: buttons
             }, { quoted: msgObj });
 

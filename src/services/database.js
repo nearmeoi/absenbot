@@ -120,6 +120,7 @@ const getAllUsers = () => {
 
 // Simpan atau update user
 const saveUser = (phoneNumber, email, password) => {
+    const { slugify } = require('./apiService');
     const users = loadUsers();
 
     // Normalisasi phone
@@ -135,6 +136,13 @@ const saveUser = (phoneNumber, email, password) => {
     if (existingByEmail !== -1) {
         // Email sudah ada - tambahkan identifier baru
         const user = users[existingByEmail];
+        
+        // Ensure user has a slug even if they were registered before slug feature
+        if (!user.slug && user.name) {
+            user.slug = slugify(user.name);
+        } else if (!user.slug) {
+            user.slug = slugify(user.email.split('@')[0]);
+        }
 
         // Inisialisasi identifiers jika belum ada
         if (!user.identifiers) {
@@ -166,10 +174,12 @@ const saveUser = (phoneNumber, email, password) => {
 
     } else {
         // User baru
+        const defaultName = email.split('@')[0];
         users.push({
             phone: phoneNumber,
             email,
             password,
+            slug: slugify(defaultName),
             identifiers: [phoneNumber],
             registeredAt: new Date().toISOString(),
             lastLogin: new Date().toISOString()

@@ -15,8 +15,8 @@ const pendingPreviews = new Map();
  * @param {Object} draft { aktivitas, pembelajaran, kendala, type }
  */
 function setDraft(sender, draft) {
-    // Normalization for LID/standard consistency
-    const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
+    // Normalization: Keep LID as is, but normalize standard JIDs
+    const cleanSender = sender.includes('@lid') ? sender.split(':')[0] : (sender.split('@')[0].split(':')[0] + '@s.whatsapp.net');
     console.log(chalk.cyan(`[PREVIEW SERVICE] 💾 Saving draft for ${cleanSender}`));
     pendingPreviews.set(cleanSender, {
         ...draft,
@@ -30,7 +30,7 @@ function setDraft(sender, draft) {
  * @returns {Object|null}
  */
 function getDraft(sender) {
-    const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
+    const cleanSender = sender.includes('@lid') ? sender.split(':')[0] : (sender.split('@')[0].split(':')[0] + '@s.whatsapp.net');
     const draft = pendingPreviews.get(cleanSender);
     
     if (!draft) return null;
@@ -51,7 +51,7 @@ function getDraft(sender) {
  * @param {string} sender 
  */
 function deleteDraft(sender) {
-    const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
+    const cleanSender = sender.includes('@lid') ? sender.split(':')[0] : (sender.split('@')[0].split(':')[0] + '@s.whatsapp.net');
     pendingPreviews.delete(cleanSender);
 }
 

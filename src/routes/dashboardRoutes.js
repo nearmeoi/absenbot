@@ -774,6 +774,35 @@ router.get('/api/groups/active', requireAuth, async (req, res) => {
     }
 });
 
+// Internal Broadcast (Bypasses session auth, for AI/System use)
+router.post('/api/internal/broadcast', express.json(), async (req, res) => {
+    const { message, secret } = req.body;
+    
+    if (secret !== process.env.DASHBOARD_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!message) return res.status(400).json({ error: 'Message required' });
+    if (!botSocket) return res.status(503).json({ error: 'Bot not connected' });
+
+    try {
+        const users = getAllUsers();
+        let sent = 0;
+        for (const user of users) {
+            try {
+                await botSocket.sendMessage(user.phone, { text: message });
+                sent++;
+                await new Promise(r => setTimeout(r, 1000));
+            } catch (e) {
+                console.error(`Broadcast failed for ${user.phone}:`, e.message);
+            }
+        }
+        res.json({ success: true, sent });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Broadcast message
 router.post('/api/broadcast', requireAuth, express.json(), async (req, res) => {
     const { message, target } = req.body; // target: 'all' | 'groups' | array of phones

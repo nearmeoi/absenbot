@@ -1,4 +1,4 @@
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('wileys');
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
 const sharp = require('sharp');
 const fs = require('fs');

@@ -108,8 +108,42 @@ function normalizeToStandard(phone) {
     return digits + '@s.whatsapp.net';
 }
 
+/**
+ * Extract message content from various WhatsApp message types
+ * @param {Object} m - The message object
+ * @returns {string} The text content
+ */
+function getMessageContent(m) {
+    if (!m || !m.message) return '';
+    
+    const message = m.message;
+    const type = Object.keys(message)[0];
+
+    // Handle standard text messages
+    if (type === 'conversation') return message.conversation;
+    if (type === 'extendedTextMessage') return message.extendedTextMessage.text;
+    
+    // Handle interactive messages (buttons/list)
+    if (type === 'buttonsResponseMessage') return message.buttonsResponseMessage.selectedButtonId;
+    if (type === 'listResponseMessage') return message.listResponseMessage.singleSelectReply.selectedRowId;
+    if (type === 'templateButtonReplyMessage') return message.templateButtonReplyMessage.selectedId;
+
+    // Handle media captions
+    if (type === 'imageMessage') return message.imageMessage.caption || '';
+    if (type === 'videoMessage') return message.videoMessage.caption || '';
+    if (type === 'documentMessage') return message.documentMessage.caption || '';
+    
+    // Handle edited messages (protocolMessage)
+    if (type === 'protocolMessage' && message.protocolMessage.editedMessage) {
+        return getMessageContent({ message: message.protocolMessage.editedMessage });
+    }
+
+    return '';
+}
+
 module.exports = {
     parseDraftFromMessage,
     parseTagBasedReport,
-    normalizeToStandard
+    normalizeToStandard,
+    getMessageContent
 };

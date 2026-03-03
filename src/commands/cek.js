@@ -51,8 +51,9 @@ module.exports = {
         const { sendInteractiveMessage } = require('../utils/interactiveMessage');
         const userUrl = getAppUrl(senderNumber);
         const buttonsData = [];
-        let footerText = "app.monev-absenbot.my.id";
+        let footerText = "";
         const targetJid = sender; 
+        const MONEV_REAL_URL = 'https://monev.maganghub.kemnaker.go.id/dashboard';
 
         if (status.success && status.sudahAbsen) {
             const reply = "*SUDAH ABSEN*\n\nAnda telah absen hari ini.";
@@ -63,16 +64,16 @@ module.exports = {
             });
             buttonsData.push({
                 name: 'quick_reply',
-                params: JSON.stringify({ display_text: 'RIWAYAT 7 HARI', id: '!riwayat' })
+                params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
             });
             buttonsData.push({
                 name: 'quick_reply',
-                params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
+                params: JSON.stringify({ display_text: 'MONEV WEB', id: '!webapp' })
             });
 
             await sendInteractiveMessage(sock, targetJid, {
                 title: "",
-                body: reply + "\n" + countdownText.trim(),
+                body: reply + "\n\n" + countdownText.trim(),
                 footer: footerText,
                 buttons: buttonsData
             }, { quoted: msgObj });
@@ -85,13 +86,17 @@ module.exports = {
                 params: JSON.stringify({ display_text: 'ABSEN SEKARANG', id: '!absen' })
             });
             buttonsData.push({
-                name: 'cta_url',
-                params: JSON.stringify({ display_text: 'ABSEN WEB', url: userUrl, merchant_url: userUrl })
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
+            });
+            buttonsData.push({
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'ABSEN WEB', id: '!webapp' })
             });
 
             await sendInteractiveMessage(sock, targetJid, {
                 title: "",
-                body: reply + "\n" + countdownText.trim(),
+                body: reply + "\n\n" + countdownText.trim(),
                 footer: footerText,
                 buttons: buttonsData
             }, { quoted: msgObj });
@@ -110,7 +115,7 @@ module.exports = {
 
             await sendInteractiveMessage(sock, targetJid, {
                 title: "",
-                body: reply + "\n" + (countdownText ? countdownText.trim() : ""),
+                body: reply + "\n\n" + (countdownText ? countdownText.trim() : ""),
                 footer: footerText,
                 buttons: buttonsData
             }, { quoted: msgObj });

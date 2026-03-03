@@ -34,7 +34,6 @@ module.exports = {
                 contentToProcess = user.template;
             } else {
                 // Enter interactive state
-                setUserState(senderNumber, 'AWAITING_ACTIVITY', { originalMsg: msgObj.key });
                 const prompt = "*INPUT AKTIVITAS*\n\nSilakan langsung balas pesan ini dengan rincian aktivitas Anda hari ini (Tanpa perlu ketik !absen).\n\n_Bot akan menunggu selama 10 menit._";
                 
                 if (isGroup) {
@@ -43,6 +42,8 @@ module.exports = {
                 } else {
                     await sock.sendMessage(sender, { text: prompt }, { quoted: msgObj });
                 }
+                
+                setUserState(senderNumber, 'AWAITING_ACTIVITY', { originalMsg: msgObj.key });
                 return;
             }
         }
@@ -96,36 +97,43 @@ module.exports = {
             previewText += `\n\n_💡 Menggunakan template tersimpan._`;
         }
 
+        console.log(chalk.cyan(`[CMD:ABSEN] Preview Text Length: ${previewText.length}`));
+        if (previewText.length < 10) {
+            console.error(chalk.red(`[CMD:ABSEN] CRITICAL: Preview text is too short!`), reportData);
+        }
+
+        const MONEV_URL = 'https://monev.maganghub.kemnaker.go.id/dashboard';
+
         const buttons = [
             { name: 'quick_reply', params: JSON.stringify({ display_text: 'KIRIM SEKARANG', id: 'ya' }) },
-            { name: 'quick_reply', params: JSON.stringify({ display_text: 'REVISI LAPORAN', id: '!help' }) }
+            { name: 'quick_reply', params: JSON.stringify({ display_text: 'REVISI LAGI', id: '!absen' }) },
+            { name: 'cta_url', params: JSON.stringify({ display_text: 'BUKA MONEV WEB', url: MONEV_URL, merchant_url: MONEV_URL }) }
         ];
 
         try {
             const targetJid = isGroup ? originalSenderId : sender;
-            if (isGroup) await sock.sendMessage(sender, { text: getMessage('draft_redirect_pc') }, { quoted: msgObj });
-
-            // SPLIT FLOW: Send full text as regular message first to avoid truncation
-            const sentTextMsg = await sock.sendMessage(targetJid, { text: previewText });
             
-            // Then send small interactive buttons message
-            const sentBtnMsg = await sendInteractiveMessage(sock, targetJid, {
-                title: "",
-                body: "Konfirmasi laporan di atas?",
-                footer: "Klik tombol atau balas 'ya'",
-                buttons: buttons
-            });
+            if (isGroup) {
+                await sock.sendMessage(sender, { text: "✅ Draf laporan telah dikirim ke Chat Pribadi Anda." }, { quoted: msgObj });
+            }
 
-            // Store both IDs for detection
+            // Combine Preview Text + Buttons in ONE message
+            const sentMsg = await sendInteractiveMessage(sock, targetJid, {
+                body: previewText,
+                footer: "Balas 'ya' untuk kirim atau klik tombol",
+                buttons: buttons
+            }, isGroup ? {} : { quoted: msgObj });
+
+            // Store ID for detection
             setUserState(senderNumber, 'AWAITING_CONFIRMATION', { 
-                draftId: sentBtnMsg.key.id,
-                textMsgId: sentTextMsg.key.id,
+                draftId: sentMsg.key.id,
                 draft: reportData 
             });
 
         } catch (sendErr) {
             console.error(`[CMD:ABSEN] Error:`, sendErr);
-            await sock.sendMessage(isGroup ? originalSenderId : sender, { text: previewText });
+            const targetJid = isGroup ? originalSenderId : sender;
+            await sock.sendMessage(targetJid, { text: previewText });
         }
     }
 };

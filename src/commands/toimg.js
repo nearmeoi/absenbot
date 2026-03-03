@@ -1,4 +1,4 @@
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadMediaMessage } = require('wileys');
 const path = require('path');
 const fs = require('fs');
 const sharp = require('sharp');

@@ -1,10 +1,10 @@
 {
-  "!cek_done": "*SUDAH ABSEN*\nAnda telah absen hari ini.",
-  "!cek_pending": "*BELUM ABSEN*\nAnda belum mengirim laporan hari ini.",
-  "!cek_error": "Terjadi kesalahan saat mengecek status: {error}",
-  "cek_payout_info": "\n\n*Info Gajian:* \n- Batch 3: {days3} hari lagi\n- Batch 2: {days2} hari lagi \n\nJangan lupa absen biar gaji aman!",
+  "!cek_done": "✅ *SUDAH ABSEN*\nLaporan terdata untuk hari ini.",
+  "!cek_pending": "⚠️ *BELUM ABSEN*\nBelum ada laporan hari ini.",
+  "!cek_error": "Kesalahan cek status: {error}",
+  "cek_payout_info": "\n\n*INFO PEMBAYARAN*\n• Batch 3: {days3} Hari lagi (Tgl 15)\n• Batch 2: {days2} Hari lagi (Tgl 24)",
   "!riwayat_header": "*RIWAYAT ABSENSI*",
-  "!riwayat_empty": "_(Tidak ada data absen)_",
-  "!riwayat_failed": "Gagal mengambil riwayat atau data kosong.",
-  "!riwayat_sent_private": "Riwayat dikirim ke Chat Pribadi."
+  "!riwayat_empty": "_(Data kosong)_",
+  "!riwayat_failed": "Gagal ambil riwayat.",
+  "!riwayat_sent_private": "Riwayat dikirim ke Japri."
 }

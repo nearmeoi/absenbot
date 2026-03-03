@@ -43,6 +43,14 @@ const messageHandler = async (sock, msg) => {
             if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message;
             if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message;
 
+            // PRIORITIZE ID FROM INTERACTIVE BUTTONS
+            if (m.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson) {
+                try {
+                    const params = JSON.parse(m.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
+                    if (params.id) return params.id;
+                } catch (e) { }
+            }
+
             if (m.conversation) return m.conversation;
             if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
             if (m.imageMessage?.caption) return m.imageMessage.caption;
@@ -55,13 +63,6 @@ const messageHandler = async (sock, msg) => {
             if (m.listResponseMessage?.singleSelectReply?.selectedRowId) return m.listResponseMessage.singleSelectReply.selectedRowId;
             if (m.templateButtonReplyMessage?.selectedId) return m.templateButtonReplyMessage.selectedId;
 
-            const interactiveResponse = m.interactiveResponseMessage;
-            if (interactiveResponse?.nativeFlowResponseMessage?.paramsJson) {
-                try {
-                    const params = JSON.parse(interactiveResponse.nativeFlowResponseMessage.paramsJson);
-                    if (params.id) return params.id;
-                } catch (e) { }
-            }
             return "";
         };
 
@@ -76,19 +77,24 @@ const messageHandler = async (sock, msg) => {
 
         const originalSenderId = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
         const senderNumber = normalizeToStandard(originalSenderId);
-        const state = getUserState(senderNumber);
+
+        // --- USER IDENTIFICATION ---
+        // Always try to find the registered user first (handles LID mapping)
+        let user = getUserByPhone(senderNumber);
+        
+        // Use a consistent internal identifier for states and drafts
+        // If user found, use their primary phone, otherwise fallback to senderNumber
+        const internalId = user ? user.phone : senderNumber;
+        const state = getUserState(internalId);
 
         // --- PRIORITIZE COMMANDS ---
         if (isCommand && state) {
-            clearUserState(senderNumber);
+            clearUserState(internalId);
         }
 
-        // --- USER IDENTIFICATION ---
-        let user = getUserByPhone(senderNumber);
-        
         // --- Handle AWAITING_ACTIVITY ---
         if (state?.state === 'AWAITING_ACTIVITY' && textMessage && !isCommand) {
-            clearUserState(senderNumber);
+            clearUserState(internalId);
             const context = { sender, senderNumber, isGroup, args: textMessage, textMessage, originalSenderId, BOT_PREFIX, user, msgObj };
             const cmdModule = getCommand('absen');
             if (cmdModule) {
@@ -119,9 +125,8 @@ const messageHandler = async (sock, msg) => {
 
         // --- CONFIRMATION FLOW ---
         if (isConfirmation) {
-            const draft = getDraft(senderNumber);
+            const draft = getDraft(internalId);
             if (draft || state?.state === 'AWAITING_CONFIRMATION') {
-                // Use the 'user' variable already defined at line 87
                 if (!user) return;
 
                 const draftData = state?.data?.draft || draft;
@@ -134,10 +139,23 @@ const messageHandler = async (sock, msg) => {
 
                 if (loginResult.success) {
                     const reply = getMessage('!absen_submit_success', senderNumber);
-                    await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+                    const MONEV_REAL_URL = 'https://monev.maganghub.kemnaker.go.id/dashboard';
+
+                    const successButtons = [
+                        { name: 'quick_reply', params: JSON.stringify({ display_text: 'CEK STATUS', id: '!cek' }) },
+                        { name: 'quick_reply', params: JSON.stringify({ display_text: 'CEK APPROVE', id: '!cekapprove' }) },
+                        { name: 'quick_reply', params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' }) },
+                        { name: 'cta_url', params: JSON.stringify({ display_text: 'MONEV WEB', url: MONEV_REAL_URL, merchant_url: MONEV_REAL_URL }) }
+                    ];
+
+                    await sendInteractiveMessage(sock, sender, {
+                        body: reply,
+                        buttons: successButtons
+                    }, { quoted: msgObj });
+
                     console.log(chalk.blue.bold("BOT"), chalk.gray("->"), chalk.cyan(senderNumber), chalk.gray(":"), chalk.white(reply));
-                    deleteDraft(senderNumber);
-                    clearUserState(senderNumber);
+                    deleteDraft(internalId);
+                    clearUserState(internalId);
                 } else {
                     const reply = getMessage('!absen_submit_failed', senderNumber).replace('{error}', loginResult.pesan);
                     await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
@@ -162,7 +180,7 @@ const messageHandler = async (sock, msg) => {
         const isTemplate = evaluationText.includes("Aktivitas pada hari ini adalah") || evaluationText.includes("Isi dan kirim balik pesan ini");
 
         if ((isDraftContent || isReplyToDraft) && !isCommand && !isTemplate && textMessage) {
-            const draft = getDraft(senderNumber);
+            const draft = getDraft(internalId);
             const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
             const isReplyToBot = contextInfo?.participant === botJid || contextInfo?.participant === sock.user.id;
 
@@ -183,49 +201,48 @@ const messageHandler = async (sock, msg) => {
                         return;
                     }
 
-                    if (state?.state === 'AWAITING_CONFIRMATION') clearUserState(senderNumber);
-                    setDraft(senderNumber, parsedEdit);
+                    if (state?.state === 'AWAITING_CONFIRMATION') clearUserState(internalId);
+                    setDraft(internalId, parsedEdit);
                     const previewText = formatDraftPreview(parsedEdit, 'draft_updated');
 
                     const buttons = [
                         { name: 'quick_reply', params: JSON.stringify({ display_text: 'KIRIM SEKARANG', id: 'ya' }) },
-                        { name: 'quick_reply', params: JSON.stringify({ display_text: 'REVISI LAGI', id: '!help' }) }
+                        { name: 'quick_reply', params: JSON.stringify({ display_text: 'REVISI LAGI', id: '!absen' }) }
                     ];
 
                     if (isGroup) {
                         await sock.sendMessage(sender, { text: "✅ Draft diperbarui. Cek Chat Pribadi." }, { quoted: msgObj });
                         const sentTextMsg = await sock.sendMessage(originalSenderId, { text: previewText });
                         const sentBtnMsg = await sendInteractiveMessage(sock, originalSenderId, { body: "Konfirmasi draft terbaru?", buttons });
-                        setUserState(senderNumber, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: parsedEdit });
+                        setUserState(internalId, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: parsedEdit });
                     } else {
                         const sentTextMsg = await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                         const sentBtnMsg = await sendInteractiveMessage(sock, sender, { body: "Konfirmasi draft terbaru?", buttons }, { quoted: msgObj });
-                        setUserState(senderNumber, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: parsedEdit });
+                        setUserState(internalId, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: parsedEdit });
                     }
                 } else if (!isGroup || isReplyToBot || isReplyToDraft) {
-                    const user = getUserByPhone(senderNumber);
                     if (!user) return;
                     const history = await getRiwayat(user.email, user.password, 3);
                     const aiResult = await processFreeTextToReport(textMessage, history.success ? history.logs : []);
 
                     if (aiResult.success) {
                         const reportData = { ...aiResult, type: 'ai' };
-                        setDraft(senderNumber, reportData);
+                        setDraft(internalId, reportData);
                         const previewText = formatDraftPreview(reportData, 'draft_updated');
                         const buttons = [
                             { name: 'quick_reply', params: JSON.stringify({ display_text: 'KIRIM SEKARANG', id: 'ya' }) },
-                            { name: 'quick_reply', params: JSON.stringify({ display_text: 'REVISI LAGI', id: '!help' }) }
+                            { name: 'quick_reply', params: JSON.stringify({ display_text: 'REVISI LAGI', id: '!absen' }) }
                         ];
 
                         if (isGroup) {
                             await sock.sendMessage(sender, { text: "✅ Draft diperbarui (AI). Cek Chat Pribadi." }, { quoted: msgObj });
                             const sentTextMsg = await sock.sendMessage(originalSenderId, { text: previewText });
                             const sentBtnMsg = await sendInteractiveMessage(sock, originalSenderId, { body: "Konfirmasi draf AI di atas?", buttons });
-                            setUserState(senderNumber, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: reportData });
+                            setUserState(internalId, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: reportData });
                         } else {
                             const sentTextMsg = await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
                             const sentBtnMsg = await sendInteractiveMessage(sock, sender, { body: "Konfirmasi draf AI di atas?", buttons }, { quoted: msgObj });
-                            setUserState(senderNumber, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: reportData });
+                            setUserState(internalId, 'AWAITING_CONFIRMATION', { draftId: sentBtnMsg.key.id, textMsgId: sentTextMsg.key.id, draft: reportData });
                         }
                     }
                 }

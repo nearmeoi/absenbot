@@ -8,112 +8,26 @@ const {
     prepareWAMessageMedia
 } = require("wileys")
 const pino = require("pino")
-const chalk = require("chalk")
-const readline = require("readline")
 const { Boom } = require("@hapi/boom")
-const fs = require('fs');
-const path = require('path');
-const { AUTH_STATE_DIR } = require('./config/constants');
-const { initScheduler, setBotSocket } = require('./services/scheduler');
-const { initAuthServer } = require('./services/secureAuth');
-const messageHandler = require('./handlers/messageHandler');
+const fs = require("fs")
+const chalk = require("chalk")
+const path = require("path")
+const { initAuthServer } = require('./services/secureAuth')
+const { initScheduler, setBotSocket } = require('./services/scheduler')
+const { setBotConnected } = require('./services/botState')
+const { initErrorReporter } = require('./services/errorReporter')
+const messageHandler = require('./handlers/messageHandler')
+const { getMessageContent } = require('./utils/messageUtils')
 
-const { initErrorReporter, reportError } = require('./services/errorReporter');
+const usePairingCode = process.env.USE_PAIRING_CODE === 'true';
+const phoneNumberForPairing = process.env.PHONE_NUMBER;
+const DEBUG = process.env.DEBUG === 'true';
 
-const usePairingCode = true;
-const DEBUG = true; // Paksa debug aktif
-let schedulerInitialized = false; 
-let authServerInitialized = false; 
+async function connectToWhatsApp(isFirstStart = true) {
+    const { state, saveCreds } = await useMultiFileAuthState('SesiWA')
+    const { version, isLatest } = await fetchLatestBaileysVersion()
 
-const question = (query) => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    return new Promise(resolve => rl.question(query, ans => {
-        rl.close();
-        resolve(ans);
-    }));
-};
-
-function getMessageContent(msg) {
-    if (!msg.message) return "";
-    const m = msg.message;
-
-    if (m.conversation) return m.conversation;
-    if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
-    if (m.imageMessage?.caption) return m.imageMessage.caption;
-    if (m.videoMessage?.caption) return m.videoMessage.caption;
-
-    if (m.ephemeralMessage?.message) {
-        const sub = m.ephemeralMessage.message;
-        if (sub.conversation) return sub.conversation;
-        if (sub.extendedTextMessage?.text) return sub.extendedTextMessage.text;
-        if (sub.imageMessage?.caption) return sub.imageMessage.caption;
-    }
-
-    if (m.viewOnceMessageV2?.message) {
-        const sub = m.viewOnceMessageV2.message;
-        if (sub.conversation) return sub.conversation;
-        if (sub.extendedTextMessage?.text) return sub.extendedTextMessage.text;
-        if (sub.imageMessage?.caption) return sub.imageMessage.caption;
-    }
-
-    if (m.buttonsResponseMessage?.selectedButtonId) return m.buttonsResponseMessage.selectedButtonId;
-    if (m.listResponseMessage?.singleSelectReply?.selectedRowId) return m.listResponseMessage.singleSelectReply.selectedRowId;
-    if (m.templateButtonReplyMessage?.selectedId) return m.templateButtonReplyMessage.selectedId;
-
-    if (m.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson) {
-        try {
-            const params = JSON.parse(m.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
-            if (params.id) return params.id;
-        } catch (e) { }
-    }
-
-    return "";
-}
-
-const groupCache = new Map();
-async function getGroupMetadata(sock, jid) {
-    if (groupCache.has(jid)) {
-        const cached = groupCache.get(jid);
-        if (Date.now() - cached.timestamp < 3600000) return cached.metadata;
-    }
-    try {
-        const metadata = await sock.groupMetadata(jid);
-        groupCache.set(jid, { metadata, timestamp: Date.now() });
-        return metadata;
-    } catch (e) { return null; }
-}
-
-async function pruneSession() {
-    try {
-        if (!fs.existsSync(AUTH_STATE_DIR)) return;
-        const files = fs.readdirSync(AUTH_STATE_DIR);
-        if (files.length < 100) return;
-        let count = 0;
-        for (const file of files) {
-            if (file === 'creds.json') continue;
-            try { fs.unlinkSync(path.join(AUTH_STATE_DIR, file)); count++; } catch (e) { }
-        }
-        console.log(chalk.green(`[SESSION] Deleted ${count} junk files.`));
-    } catch (e) { }
-}
-
-async function connectToWhatsApp(isInitial = true) {
-    if (isInitial) await pruneSession();
-    const { state, saveCreds } = await useMultiFileAuthState(AUTH_STATE_DIR)
-    const { version } = await fetchLatestBaileysVersion()
-
-    console.log(chalk.cyan(`🤖 Memulai Bot (v${version.join('.')}) [WILEYS-DEBUG] + SCHEDULER`))
-
-    let phoneNumberForPairing = process.env.PAIRING_NUMBER ? process.env.PAIRING_NUMBER.replace(/[^0-9]/g, '') : null;
-    if (usePairingCode && !state.creds.registered && !phoneNumberForPairing) {
-        phoneNumberForPairing = await question(chalk.green('Nomor WA: '));
-    }
-
-    const NodeCache = require("node-cache");
-    const msgRetryCounterCache = new NodeCache();
+    const msgRetryCounterCache = new (require("node-cache"))()
 
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
@@ -128,72 +42,82 @@ async function connectToWhatsApp(isInitial = true) {
         patchMessageBeforeSending: (message) => { return message; }
     });
 
-    // --- SMART SEND MESSAGE OVERRIDE ---
+    // --- UNIVERSAL MESSAGE OVERRIDE ---
     const originalSendMessage = sock.sendMessage.bind(sock);
     sock.sendMessage = async (jid, content, options = {}) => {
         if (content.interactiveButtons && Array.isArray(content.interactiveButtons)) {
-            let { text, footer, interactiveButtons } = content;
-            
-            // 1. Paksa Hapus URL Footer
-            if (footer) footer = footer.replace(/app\.monev-absenbot\.my\.id/g, '').trim();
-            if (text) text = text.replace(/app\.monev-absenbot\.my\.id/g, '').trim();
+            let { text, footer, interactiveButtons, caption } = content;
+            let displayTeks = (text || caption || "").replace(/app\.monev-absenbot\.my\.id/g, '').trim();
+            let cleanFooter = (footer || "").replace(/app\.monev-absenbot\.my\.id/g, '').trim();
 
             let wButtons = [];
-            let fallbackText = (text || "") + "\n";
+            let listMsg = null;
+            let bodyWithFallback = displayTeks;
 
             interactiveButtons.forEach((btn, i) => {
                 try {
-                    let btnLabel = "";
-                    let btnId = "";
-
                     let p = {};
                     if (typeof btn.params === 'string') { try { p = JSON.parse(btn.params); } catch (e) {} }
                     else if (typeof btn.buttonParamsJson === 'string') { try { p = JSON.parse(btn.buttonParamsJson); } catch (e) {} }
                     else { p = btn.params || btn.buttonParamsJson || {}; }
 
-                    btnLabel = p.display_text || p.title || btn.displayText || btn.text || "";
-                    btnId = p.id || btn.id || btn.buttonId || "";
+                    const label = p.display_text || p.title || btn.displayText || btn.text || `Opsi ${i+1}`;
+                    const btnId = p.id || btn.id || btn.buttonId || "";
 
-                    if (!btnLabel) btnLabel = `Opsi ${i+1}`;
-                    if (!btnId) btnId = `cmd-${i+1}`;
-                    
-                    wButtons.push({
-                        buttonId: btnId,
-                        buttonText: { displayText: btnLabel },
-                        type: 1
-                    });
-
-                    fallbackText += `\n*• ${btnLabel}* (Ketik: ${btnId})`;
-                } catch (e) {
-                    fallbackText += `\n*• Opsi ${i+1}*`;
-                }
+                    if (btn.name === 'single_select') {
+                        listMsg = {
+                            title: label,
+                            buttonText: label,
+                            sections: (p.sections || []).map(s => ({
+                                title: s.title,
+                                rows: (s.rows || []).map(r => ({ title: r.title, rowId: r.id, description: r.description || "" }))
+                            }))
+                        };
+                    } else {
+                        let finalId = btnId;
+                        if (!finalId) {
+                            if (label.startsWith('!')) finalId = label.split(' ')[0];
+                            else finalId = label.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 20) || `opt_${i+1}`;
+                        }
+                        
+                        wButtons.push({
+                            buttonId: finalId,
+                            buttonText: { displayText: label },
+                            type: 1
+                        });
+                    }
+                } catch (e) { }
             });
 
-            if (footer && footer.length > 0) fallbackText += `\n\n_${footer}_`;
+            if (cleanFooter) bodyWithFallback += `\n\n_${cleanFooter}_`;
+            bodyWithFallback = bodyWithFallback.trim();
 
-            // If it has media (image/video/doc)
-            if (content.image || content.video || content.document) {
-                const mediaType = content.image ? 'image' : (content.video ? 'video' : 'document');
-                return await originalSendMessage(jid, {
-                    [mediaType]: content[mediaType],
-                    caption: fallbackText,
-                    buttons: wButtons,
-                    headerType: mediaType === 'image' ? 4 : (mediaType === 'video' ? 5 : 3),
-                    viewOnce: true,
-                    contextInfo: { mentionedJid: options.mentions || [], ...content.contextInfo }
-                }, options);
+            // Set global group ephemeral (24h)
+            if (jid.endsWith('@g.us') && !options.ephemeralExpiration) {
+                options.ephemeralExpiration = 86400;
             }
 
-            // Text only fallback
-            return await originalSendMessage(jid, {
-                text: fallbackText,
-                footer: footer || "",
-                buttons: wButtons,
-                headerType: 1,
+            // Construct Final Message Payload
+            const messagePayload = {
+                [content.image ? 'image' : (content.video ? 'video' : (content.document ? 'document' : 'text'))]: 
+                    content.image || content.video || content.document || displayTeks,
+                caption: (content.image || content.video || content.document) ? displayTeks : undefined,
+                footer: cleanFooter || undefined,
+                buttons: wButtons.length > 0 ? wButtons : undefined,
+                listMessage: listMsg,
+                headerType: content.image ? 4 : (content.video ? 'video' : (content.document ? 3 : 1)),
                 viewOnce: true,
                 contextInfo: { mentionedJid: options.mentions || [], ...content.contextInfo }
-            }, options);
+            };
+
+            return await originalSendMessage(jid, messagePayload, options);
         }
+
+        // Apply global ephemeral for groups
+        if (jid.endsWith('@g.us') && !options.ephemeralExpiration) {
+            options.ephemeralExpiration = 86400;
+        }
+
         return await originalSendMessage(jid, content, options);
     };
 
@@ -210,17 +134,30 @@ async function connectToWhatsApp(isInitial = true) {
     sock.ev.on("connection.update", (update) => {
         const { connection, lastDisconnect } = update;
         if (connection === "close") {
-            let reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
+            setBotConnected(false);
+            const error = lastDisconnect?.error;
+            let reason = new Boom(error)?.output?.statusCode;
             console.log(chalk.red(`❌ Koneksi Terputus (${reason})`));
+            if (error) {
+                console.log(chalk.red(`   Detail: ${error.message || error}`));
+                if (error.stack) console.log(chalk.gray(`   Stack: ${error.stack.split('\n')[0]}`));
+            }
+            
             if (reason !== DisconnectReason.loggedOut) {
                 setTimeout(() => connectToWhatsApp(false), 5000);
             } else { process.exit(1); }
         } else if (connection === "open") {
+            setBotConnected(true);
             console.log(chalk.green("✔ Bot Terhubung"));
             initErrorReporter(sock);
-            if (!authServerInitialized) { initAuthServer(); authServerInitialized = true; }
+            if (!isFirstStart === false) { 
+                // Do nothing
+            }
+            // Check if auth server or scheduler already running
+            initAuthServer();
             setBotSocket(sock);
-            if (!schedulerInitialized) { initScheduler(sock); schedulerInitialized = true; }
+            require('./routes/dashboardRoutes').setBotSocket(sock);
+            initScheduler(sock);
         }
     })
 
@@ -244,7 +181,8 @@ async function connectToWhatsApp(isInitial = true) {
             // JID Decoder
             const decodeJid = (jid) => {
                 if (!jid) return jid;
-                return jid.split(':')[0] + '@' + jid.split('@')[1];
+                const [id, domain] = jid.split('@');
+                return id.split(':')[0] + (domain ? '@' + domain : '');
             };
             const senderId = decodeJid(originalSenderId);
             const text = getMessageContent(msg);
@@ -253,25 +191,33 @@ async function connectToWhatsApp(isInitial = true) {
             const pushName = msg.pushName || "Unknown";
             let groupName = "";
             if (isGroup) {
-                const metadata = await getGroupMetadata(sock, remoteJid);
-                groupName = metadata ? `[${metadata.subject}] ` : "[Group] ";
+                try {
+                    const groupMetadata = await sock.groupMetadata(remoteJid).catch(() => null);
+                    groupName = groupMetadata ? groupMetadata.subject : "Grup";
+                } catch (e) {}
             }
-            
-            // The "WA ->" format from your logs (simulated here for consistency)
-            console.log(chalk.green(`WA -> ${groupName}${pushName} (${senderId.split('@')[0]}) : ${text || "[Media/Other]"}`));
-            
+
+            const fromLabel = isGroup ? `[${groupName}] ${pushName} (${senderId})` : `${pushName} (${senderId})`;
+            console.log(chalk.gray(`WA -> ${fromLabel} : ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}`));
+
             if (DEBUG) {
-                console.log(chalk.yellow(`[DEBUG-MSG] Type: ${Object.keys(msg.message)[0]} | ID: ${msgId}`));
-                if (isGroup && (text.startsWith("!") || text.startsWith("/"))) {
-                    // Log full message for commands in groups to see structure
-                    console.log(chalk.gray(`[RAW] ${JSON.stringify(msg.message).substring(0, 500)}`));
-                }
+                console.log(chalk.gray(`[DEBUG-MSG] Type: ${Object.keys(msg.message)[0]} | ID: ${msgId}`));
+                // console.log(chalk.gray(`[RAW] ${JSON.stringify(msg.message)}`));
             }
 
-            if (remoteJid === 'status@broadcast' || remoteJid.includes('@newsletter')) continue;
-
+            // Main Message Handling
             try {
-                msg.sender = senderId;
+                // Ensure context has all necessary fields
+                const context = {
+                    sender: remoteJid,
+                    senderNumber: senderId,
+                    isGroup,
+                    originalSenderId,
+                    textMessage: text,
+                    msgObj: msg
+                };
+
+                // Add bodyTeks for compatibility with some legacy handlers
                 msg.bodyTeks = text;
                 await messageHandler(sock, msg);
             } catch (e) {
@@ -280,5 +226,8 @@ async function connectToWhatsApp(isInitial = true) {
         }
     })
 }
+
+let authServerInitialized = false;
+let schedulerInitialized = false;
 
 module.exports = connectToWhatsApp;

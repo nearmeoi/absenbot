@@ -14,83 +14,52 @@ module.exports = {
     description: 'Tampilkan menu utama',
 
     async execute(sock, msgObj, context) {
-        const { sender, senderNumber, isGroup, originalSenderId } = context;
-        
-        // Concise menu content
-        const body = `*BOT MAGANGHUB*
+        const { sender, senderNumber } = context;
 
-Halo! Saya asisten absensi MagangHub Anda.
+        // 1. Check Status for Dynamic Button
+        const { getUserByPhone } = require('../services/database');
+        const { cekStatusHarian } = require('../services/magang');
+        const user = getUserByPhone(senderNumber);
+        
+        let isAttended = false;
+        if (user) {
+            const status = await cekStatusHarian(user.email, user.password).catch(() => ({ success: false }));
+            isAttended = status.success && status.sudahAbsen;
+        }
+
+        const body = `*MAGANGHUB ASSISTANT*
+Asisten pintar absensi Kemnaker.
 
 *FITUR UTAMA*
-!absen - Kirim Lapor
-!cek - Status Hari Ini
-!riwayat - Log 7 Hari
-!cekapprove - Status Siklus
-
-*LAINNYA*
+!absen - Lapor harian (AI)
+!cek - Status hari ini
+!cekapprove - Siklus bulanan
+!riwayat - Log 7 hari
 !ai - Tanya AI
-!s - Buat Sticker
-!all - Tag Semua
+!s - Sticker
 
-Pilih menu di bawah atau ketik perintahnya langsung.`;
+_Silakan klik tombol di bawah:_`;
+
+        const { getAppUrl } = require('../services/messageService');
+        const userUrl = getAppUrl(senderNumber);
+        const MONEV_REAL_URL = 'https://monev.maganghub.kemnaker.go.id/dashboard';
 
         const buttons = [
-            {
-                name: 'quick_reply',
-                params: JSON.stringify({
-                    display_text: 'ABSEN SEKARANG',
-                    id: '!absen'
-                })
-            },
-            {
-                name: 'quick_reply',
-                params: JSON.stringify({
-                    display_text: 'CEK STATUS',
-                    id: '!cek'
-                })
-            },
-            {
-                name: 'single_select',
-                params: JSON.stringify({
-                    title: 'PILIH MENU',
-                    sections: [
-                        {
-                            title: 'MENU ABSENSI',
-                            rows: [
-                                { title: 'Lapor (Semi-Auto)', description: 'Kirim laporan dengan bantuan AI', id: '!absen' },
-                                { title: 'Cek Status', description: 'Cek status kehadiran hari ini', id: '!cek' },
-                                { title: 'Riwayat Absen', description: 'Lihat riwayat laporan 7 hari terakhir', id: '!riwayat' },
-                                { title: 'Cek Approve', description: 'Cek status siklus bulanan', id: '!cekapprove' }
-                            ]
-                        },
-                        {
-                            title: 'MENU TOOLS',
-                            rows: [
-                                { title: 'Buat Sticker', description: 'Ubah gambar/video jadi sticker', id: '!s' },
-                                { title: 'Tanya AI', description: 'Tanya asisten AI apa saja', id: '!ai' },
-                                { title: 'Ekstrak MP3', description: 'Ambil audio dari video', id: '!mp3' },
-                                { title: 'Tag All', description: 'Tag semua anggota grup', id: '!all' }
-                            ]
-                        },
-                        {
-                            title: 'PANDUAN',
-                            rows: [
-                                { title: 'Cara Pakai', description: 'Panduan lengkap penggunaan bot', id: '!help' },
-                                { title: 'Daftar Akun', description: 'Registrasi akun MagangHub', id: '!daftar' }
-                            ]
-                        }
-                    ]
-                })
-            }
+            { name: 'quick_reply', params: JSON.stringify({ display_text: 'ABSEN SEKARANG', id: '!absen' }) },
+            { name: 'quick_reply', params: JSON.stringify({ display_text: 'CEK ABSEN', id: '!cek' }) },
+            { name: 'quick_reply', params: JSON.stringify({ display_text: 'CEK APPROVE', id: '!cekapprove' }) }
         ];
 
-        const targetJid = sender;
+        // Dynamic URL Button
+        if (isAttended) {
+            buttons.push({ name: 'cta_url', params: JSON.stringify({ display_text: 'MONEV WEB', url: MONEV_REAL_URL, merchant_url: MONEV_REAL_URL }) });
+        } else {
+            buttons.push({ name: 'cta_url', params: JSON.stringify({ display_text: 'ABSEN WEB', url: userUrl, merchant_url: userUrl }) });
+        }
 
         try {
-            await sendInteractiveMessage(sock, targetJid, {
-                title: "",
+            await sendInteractiveMessage(sock, sender, {
                 body: body,
-                footer: "app.monev-absenbot.my.id",
                 buttons: buttons,
                 image: fs.existsSync(COVER_IMAGE) ? COVER_IMAGE : null
             }, { quoted: msgObj });
@@ -99,7 +68,7 @@ Pilih menu di bawah atau ketik perintahnya langsung.`;
             console.error('[CMD:MENU] Error sending interactive menu:', menuError.message);
             // Fallback to simple text menu
             const info = getMessage('!menu', senderNumber);
-            await sock.sendMessage(targetJid, { text: info }, { quoted: msgObj });
+            await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
         }
     }
 };
