@@ -114,8 +114,6 @@ function createApiClient(session) {
 
     const headers = {
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36",
-        "Origin": "https://monev.maganghub.kemnaker.go.id",
-        "Referer": "https://monev.maganghub.kemnaker.go.id/dashboard",
         "Accept": "application/json",
         "Content-Type": "application/json",
         "X-CSRF-TOKEN": session.csrfToken || "",
@@ -129,12 +127,27 @@ function createApiClient(session) {
         headers["Authorization"] = `Bearer ${session.accessToken}`;
     }
 
-    return wrapper(axios.create({
+    const client = wrapper(axios.create({
         jar,
         withCredentials: true,
         headers,
         timeout: 30000
     }));
+
+    // Dynamic origin/referer based on URL
+    client.interceptors.request.use(config => {
+        const url = config.url || "";
+        if (url.includes('maganghub.kemnaker.go.id') && !url.includes('monev.')) {
+            config.headers['Origin'] = 'https://maganghub.kemnaker.go.id';
+            config.headers['Referer'] = 'https://maganghub.kemnaker.go.id/my/profil?tab=tentang';
+        } else {
+            config.headers['Origin'] = 'https://monev.maganghub.kemnaker.go.id';
+            config.headers['Referer'] = 'https://monev.maganghub.kemnaker.go.id/dashboard';
+        }
+        return config;
+    });
+
+    return client;
 }
 
 /**
@@ -151,6 +164,56 @@ async function ensureParticipantId(email, client, session) {
         return session.participantId;
     }
     throw new Error("Could not find participant_id");
+}
+
+/**
+ * Get simple slug from name
+ */
+function slugify(text) {
+    if (!text) return '';
+    return text.toString().toLowerCase()
+        .replace(/\s+/g, '-')           // Replace spaces with -
+        .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+        .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+        .replace(/^-+/, '')             // Trim - from start of text
+        .replace(/-+$/, '');            // Trim - from end of text
+}
+
+/**
+ * Sync user profile data (name, slug) to database
+ */
+async function syncProfileToDb(email) {
+    try {
+        const { getAllUsers, updateUsers } = require('./database');
+        
+        // Use getUserProfile function exported from this file
+        const profileRes = await getUserProfile(email);
+        if (profileRes.success && profileRes.data) {
+            const data = Array.isArray(profileRes.data) ? profileRes.data[0] : profileRes.data;
+            if (data && data.nama) {
+                const allUsers = getAllUsers();
+                const uIdx = allUsers.findIndex(u => u.email === email);
+                if (uIdx !== -1) {
+                    let changed = false;
+                    if (!allUsers[uIdx].name || allUsers[uIdx].name !== data.nama) {
+                        allUsers[uIdx].name = data.nama;
+                        changed = true;
+                    }
+                    const newSlug = slugify(data.nama);
+                    if (!allUsers[uIdx].slug || allUsers[uIdx].slug !== newSlug) {
+                        allUsers[uIdx].slug = newSlug;
+                        changed = true;
+                    }
+                    if (changed) {
+                        await updateUsers(allUsers);
+                        console.log(chalk.green(`[API:SYNC] Profile synced for ${email}: ${data.nama} (Slug: ${newSlug})`));
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error(chalk.red(`[API:SYNC] Failed to sync profile for ${email}:`), e.message);
+    }
 }
 
 /**
@@ -249,6 +312,9 @@ async function directLogin(email, password) {
             }
 
             saveSession(email, allCookies, csrfToken, accessToken, refreshToken);
+
+            // Sync profile data asynchronously
+            syncProfileToDb(email).catch(() => {});
 
             return {
                 success: true,
@@ -530,11 +596,49 @@ async function getUserProfile(email) {
         const response = await client.get(API_ENDPOINTS.USER_ME);
 
         if (response.status === 200 && response.data?.data) {
+            const profileData = Array.isArray(response.data.data) ? response.data.data[0] : response.data.data;
+            if (profileData && profileData.nama) {
+                // Inline sync to avoid circular dependency or missing calls
+                syncProfileToDbFromData(email, profileData).catch(() => {});
+            }
             return { success: true, data: response.data.data };
         }
         return { success: false, pesan: "Gagal mengambil profil user" };
     } catch (error) {
         return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+    }
+}
+
+/**
+ * Internal helper to sync profile without re-fetching
+ */
+async function syncProfileToDbFromData(email, data) {
+    try {
+        const { getAllUsers, updateUsers } = require('./database');
+        const nameCandidate = data?.name || data?.nama;
+        
+        if (nameCandidate) {
+            const allUsers = getAllUsers();
+            const uIdx = allUsers.findIndex(u => u.email === email);
+            if (uIdx !== -1) {
+                let changed = false;
+                if (!allUsers[uIdx].name || allUsers[uIdx].name !== nameCandidate) {
+                    allUsers[uIdx].name = nameCandidate;
+                    changed = true;
+                }
+                const newSlug = slugify(nameCandidate);
+                if (!allUsers[uIdx].slug || allUsers[uIdx].slug !== newSlug) {
+                    allUsers[uIdx].slug = newSlug;
+                    changed = true;
+                }
+                if (changed) {
+                    await updateUsers(allUsers);
+                    console.log(chalk.green(`[API:SYNC] Profile updated for ${email}: ${nameCandidate}`));
+                }
+            }
+        }
+    } catch (e) {
+        console.error(`[API:SYNC] Error in syncProfileToDbFromData:`, e.message);
     }
 }
 

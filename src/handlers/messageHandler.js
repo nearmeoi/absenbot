@@ -213,11 +213,15 @@ const messageHandler = async (sock, msg) => {
             });
 
             if (loginResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('!absen_submit_success', senderNumber) }, { quoted: msgObj });
+                const reply = getMessage('!absen_submit_success', senderNumber);
+                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+                console.log(chalk.blue.bold("BOT"), chalk.gray("->"), chalk.cyan(senderNumber), chalk.gray(":"), chalk.white(reply));
                 deleteDraft(senderNumber);
                 clearUserState(senderNumber);
             } else {
-                await sock.sendMessage(sender, { text: getMessage('!absen_submit_failed', senderNumber).replace('{error}', loginResult.pesan) }, { quoted: msgObj });
+                const reply = getMessage('!absen_submit_failed', senderNumber).replace('{error}', loginResult.pesan);
+                await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
+                console.log(chalk.blue.bold("BOT"), chalk.gray("->"), chalk.cyan(senderNumber), chalk.gray(":"), chalk.white(reply));
             }
             return;
         }

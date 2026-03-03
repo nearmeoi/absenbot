@@ -62,21 +62,26 @@ const normalizePhone = (phone) => {
 
 // Cari user berdasarkan phone, LID, atau identifiers lainnya
 const getUserByPhone = (id) => {
+    if (!id) return null;
     const users = loadUsers();
-    const normalizedId = normalizePhone(id);
+    
+    // Normalize if it's a standard JID, but keep LID as is for exact matching
+    const normalizedId = id.includes('@lid') ? id : normalizePhone(id);
 
     return users.find(u => {
-        // Cek phone utama
-        if (normalizePhone(u.phone) === normalizedId) return true;
+        // 1. Check main phone
         if (u.phone === id) return true;
+        if (u.phone && !u.phone.includes('@lid') && normalizePhone(u.phone) === normalizedId) return true;
+        if (u.phone && u.phone.includes('@lid') && u.phone === id) return true;
 
-        // Cek LID
-        if (u.lid && (normalizePhone(u.lid) === normalizedId || u.lid === id)) return true;
+        // 2. Check LID
+        if (u.lid && (u.lid === id || (u.lid.includes('@lid') && u.lid === id))) return true;
 
-        // Cek identifiers array
+        // 3. Check identifiers array
         if (u.identifiers && Array.isArray(u.identifiers)) {
             for (const identifier of u.identifiers) {
-                if (normalizePhone(identifier) === normalizedId || identifier === id) return true;
+                if (identifier === id) return true;
+                if (!identifier.includes('@lid') && normalizePhone(identifier) === normalizedId) return true;
             }
         }
 
@@ -139,8 +144,13 @@ const saveUser = (phoneNumber, email, password) => {
         }
 
         // Tambahkan phone baru ke identifiers jika belum ada
-        const normalizedNew = normalizePhone(phoneNumber);
-        const alreadyExists = user.identifiers.some(id => normalizePhone(id) === normalizedNew);
+        const isNewLid = phoneNumber.includes('@lid');
+        const normalizedNew = isNewLid ? phoneNumber : normalizePhone(phoneNumber);
+        
+        const alreadyExists = user.identifiers.some(id => {
+            if (isNewLid) return id === phoneNumber;
+            return !id.includes('@lid') && normalizePhone(id) === normalizedNew;
+        });
 
         if (!alreadyExists) {
             user.identifiers.push(phoneNumber);
@@ -262,6 +272,7 @@ module.exports = {
     saveUser,
     updateUserLid,
     getAllUsers,
+    updateUsers,
     deleteUser,
     saveUserTemplate,
     updateSahurPreference

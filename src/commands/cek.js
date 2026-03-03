@@ -54,31 +54,33 @@ module.exports = {
 
         const buttonsData = [];
         let footerText = "app.monev-absenbot.my.id";
+        const userUrl = getAppUrl(senderNumber);
 
         if (status.success && status.sudahAbsen) {
-            const log = status.data;
-            const reply = getMessage('!cek_done', senderNumber)
-                .replace('{date}', log.date || 'Hari ini')
-                .replace('{activity}', log.activity_log || '-');
+            const reply = "*SUDAH ABSEN*\n\nAnda telah absen hari ini.";
 
+            buttonsData.push({
+                name: 'quick_reply',
+                params: JSON.stringify({ display_text: 'CEK APPROVE', id: '!cekapprove' })
+            });
             buttonsData.push({
                 name: 'quick_reply',
                 params: JSON.stringify({ display_text: 'RIWAYAT 7 HARI', id: '!riwayat' })
             });
             buttonsData.push({
                 name: 'quick_reply',
-                params: JSON.stringify({ display_text: 'CEK APPROVE', id: '!cekapprove' })
+                params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
             });
 
             await sendInteractiveMessage(sock, sender, {
                 title: "",
-                body: reply + "\n\n" + countdownText,
+                body: reply + "\n" + countdownText.trim(),
                 footer: footerText,
                 buttons: buttonsData
             }, { quoted: msgObj });
 
         } else if (status.success && !status.sudahAbsen) {
-            const reply = getMessage('!cek_pending', senderNumber);
+            const reply = "*BELUM ABSEN*\n\nAnda belum mengirim laporan hari ini.";
             
             buttonsData.push({
                 name: 'quick_reply',
@@ -86,12 +88,12 @@ module.exports = {
             });
             buttonsData.push({
                 name: 'cta_url',
-                params: JSON.stringify({ display_text: 'BUKA DASHBOARD', url: webUrl, merchant_url: webUrl })
+                params: JSON.stringify({ display_text: 'ABSEN WEB', url: userUrl, merchant_url: userUrl })
             });
 
             await sendInteractiveMessage(sock, sender, {
                 title: "",
-                body: reply + "\n\n" + countdownText,
+                body: reply + "\n" + countdownText.trim(),
                 footer: footerText,
                 buttons: buttonsData
             }, { quoted: msgObj });

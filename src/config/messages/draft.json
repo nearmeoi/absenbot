@@ -1,11 +1,6 @@
 {
-  "draft_emergency_submit": "*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh bot agar absen Anda aman.",
-  "draft_preview": "*DRAF LAPORAN ANDA*\n\n*Aktivitas:* ({aktivitas_len} karakter)\n{aktivitas}\n\n*Pembelajaran:* ({pembelajaran_len} karakter)\n{pembelajaran}\n\n*Kendala:* ({kendala_len} karakter)\n{kendala}\n\n_Ketik *ya* untuk kirim._",
-  "draft_updated": "*DRAF DIPERBARUI* ✨\n\n*Aktivitas:* ({aktivitas_len} karakter)\n{aktivitas}\n\n*Pembelajaran:* ({pembelajaran_len} karakter)\n{pembelajaran}\n\n*Kendala:* ({kendala_len} karakter)\n{kendala}\n\n_Ketik *ya* untuk kirim._",
-  "draft_update_loading": "_Memperbarui laporan berdasarkan revisi Anda..._",
-  "draft_update_failed": "Gagal memperbarui laporan. Silakan coba lagi atau ketik sesuai format manual.",
-  "draft_manual_updated": "✅ *Draf berhasil diperbarui manual*.\n\nKetik *ya* untuk mengirim.",
-  "draft_format_error": "⚠️ *Format Laporan Belum Sesuai*\n\n{errors}\n\nSilakan perbaiki (minimal 100 karakter per bagian).",
-  "draft_redirect_pc": "✅ Draft laporan telah dikirim ke Chat Pribadi Anda. Silakan cek.",
-  "draft_update_redirect_pc": "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda."
+  "draft_preview": "*DRAF LAPORAN ANDA*\n\n*Aktivitas:* ({aktivitas_len} karakter)\n{aktivitas}\n\n*Pembelajaran:* ({pembelajaran_len} karakter)\n{pembelajaran}\n\n*Kendala:* ({kendala_len} karakter)\n{kendala}",
+  "draft_updated": "*DRAF DIPERBARUI* ✨\n\n*Aktivitas:* ({aktivitas_len} karakter)\n{aktivitas}\n\n*Pembelajaran:* ({pembelajaran_len} karakter)\n{pembelajaran}\n\n*Kendala:* ({kendala_len} karakter)\n{kendala}",
+  "draft_redirect_pc": "✅ Draf laporan telah dikirim ke Chat Pribadi Anda demi privasi.",
+  "draft_format_error": "⚠️ Format draf tidak valid atau terlalu pendek:\n\n{errors}\n\nSilakan edit kembali atau berikan instruksi baru."
 }

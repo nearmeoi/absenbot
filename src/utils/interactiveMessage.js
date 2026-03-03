@@ -85,6 +85,16 @@ async function sendInteractiveMessage(sock, jid, content, options = {}) {
         messageId: message.key.id
     });
 
+    // Logging outgoing interactive message
+    const cleanJid = jid.split('@')[0];
+    console.log(
+        require('chalk').blue.bold("BOT"),
+        require('chalk').gray("->"),
+        require('chalk').cyan(cleanJid),
+        require('chalk').gray(":"),
+        require('chalk').white(`[Interactive] ${body.substring(0, 50)}${body.length > 50 ? '...' : ''}`)
+    );
+
     return message;
 }
 
