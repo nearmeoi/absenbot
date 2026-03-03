@@ -40,7 +40,9 @@ function parseDraftFromMessage(text) {
 
     // Parse sections
     const parseSection = (label) => {
-        const regex = new RegExp(`\\*${label}:\\*\\s*(\\([\\d]+\\s*karakter\\))?\\s*([\\s\\S]*?)(?=\\*\\w+:|$)`, 'i');
+        // Updated regex to be flexible with * markers and whitespace
+        // Matches: *Aktivitas:*, Aktivitas:, * AKTIVITAS *, etc.
+        const regex = new RegExp(`(?:\\*?\\s*${label}\\s*\\*?\\s*:?)\\s*(\\([\\d]+\\s*karakter\\))?\\s*([\\s\\S]*?)(?=\\n\\s*\\*?\\s*(?:Aktivitas|Pembelajaran|Kendala)\\s*\\*?\\s*:?|$)`, 'i');
         const match = cleanText.match(regex);
         return match ? match[2].trim() : '';
     };

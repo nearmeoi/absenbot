@@ -92,7 +92,7 @@ async function sendInteractiveMessage(sock, jid, content, options = {}) {
         require('chalk').gray("->"),
         require('chalk').cyan(cleanJid),
         require('chalk').gray(":"),
-        require('chalk').white(`[Interactive] ${body.substring(0, 50)}${body.length > 50 ? '...' : ''}`)
+        require('chalk').white(`[Interactive]\n${body}`)
     );
 
     return message;

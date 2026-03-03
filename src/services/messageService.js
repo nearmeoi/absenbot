@@ -55,16 +55,15 @@ function getAppUrl(phone = '') {
 
     // Try to find user to get slug
     try {
-        const user = getUserByPhone(phone);
-        if (user && user.slug) {
-            return `${APP_URL}?u=${user.slug}`;
+        // Ensure we have a proper JID for searching
+        let searchId = phone;
+        if (!searchId.includes('@')) {
+            searchId = searchId + '@s.whatsapp.net';
         }
 
-        // Fallback to phone logic if no slug
-        if (user) {
-            if (user.phone && !user.phone.includes('@lid') && user.phone.includes('@s.whatsapp.net')) {
-                phone = user.phone;
-            }
+        const user = getUserByPhone(searchId);
+        if (user && user.slug) {
+            return `${APP_URL}?u=${user.slug}`;
         }
     } catch (e) {
         if (DEBUG) console.error(`[DEBUG] DB Error in getAppUrl: ${e.message}`);

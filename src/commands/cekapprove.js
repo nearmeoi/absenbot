@@ -11,7 +11,7 @@ module.exports = {
     description: 'Cek status approval & ringkasan dashboard',
 
     async execute(sock, msgObj, context) {
-        const { sender, senderNumber, args, BOT_PREFIX } = context;
+        const { sender, senderNumber, args, BOT_PREFIX, isGroup, originalSenderId } = context;
         let today = new Date();
 
         // --- NEW: Handle !cekapprove all (Admin only) ---
@@ -379,7 +379,9 @@ module.exports = {
                 }
             ];
 
-            await sendInteractiveMessage(sock, sender, {
+            const targetJid = sender;
+            
+            await sendInteractiveMessage(sock, targetJid, {
                 title: "",
                 body: body,
                 footer: "Periode: " + rangeStr,

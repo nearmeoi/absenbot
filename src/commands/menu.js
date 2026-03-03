@@ -15,7 +15,7 @@ module.exports = {
     description: 'Tampilkan menu utama',
 
     async execute(sock, msgObj, context) {
-        const { sender, senderNumber } = context;
+        const { sender, senderNumber, isGroup, originalSenderId } = context;
         
         // Concise menu content
         const body = `*BOT MAGANGHUB*
@@ -85,6 +85,8 @@ Pilih menu di bawah atau ketik perintahnya langsung.`;
             }
         ];
 
+        const targetJid = isGroup ? originalSenderId : sender;
+
         try {
             let imageMsg;
             if (fs.existsSync(COVER_IMAGE)) {
@@ -92,19 +94,23 @@ Pilih menu di bawah atau ketik perintahnya langsung.`;
                 imageMsg = media.imageMessage;
             }
 
-            await sendInteractiveMessage(sock, sender, {
+            if (isGroup) {
+                await sock.sendMessage(sender, { text: "✅ Menu utama telah dikirim ke Chat Pribadi Anda." }, { quoted: msgObj });
+            }
+
+            await sendInteractiveMessage(sock, targetJid, {
                 title: "",
                 body: body,
                 footer: "app.monev-absenbot.my.id",
                 buttons: buttons,
                 image: imageMsg
-            }, { quoted: msgObj });
+            });
 
         } catch (menuError) {
             console.error('[CMD:MENU] Error sending interactive menu:', menuError.message);
             // Fallback to simple text menu
             const info = getMessage('!menu', senderNumber);
-            await sock.sendMessage(sender, { text: info }, { quoted: msgObj });
+            await sock.sendMessage(targetJid, { text: info });
         }
     }
 };

@@ -11,6 +11,7 @@
         "build": "cd client && npm install && npm run build"
     },
     "dependencies": {
+        "@babel/runtime": "^7.28.6",
         "@napi-rs/canvas": "^0.1.95",
         "@whiskeysockets/baileys": "npm:wileys",
         "axios": "^1.13.2",
@@ -23,8 +24,10 @@
         "express-session": "^1.18.2",
         "figlet": "^1.10.0",
         "fluent-ffmpeg": "^2.1.3",
+        "jimp": "^0.16.13",
         "mammoth": "^1.11.0",
         "multer": "^2.0.2",
+        "node-cache": "^5.1.2",
         "node-cron": "^4.2.1",
         "pino": "^8.21.0",
         "puppeteer-core": "^24.32.0",

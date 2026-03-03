@@ -248,6 +248,7 @@ const PROJECT_ROOT = getProjectRoot();
 // API Endpoints for MagangHub
 const API_BASE_URL = 'https://monev.maganghub.kemnaker.go.id';
 const SIAPKERJA_URL = 'https://siapkerja.kemnaker.go.id';
+
 const API_ENDPOINTS = {
     DAILY_LOGS: `${API_BASE_URL}/api/daily-logs`,
     SUBMIT_ATTENDANCE: `${API_BASE_URL}/api/attendances/with-daily-log`,

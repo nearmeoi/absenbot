@@ -33,10 +33,7 @@ function getDraft(sender) {
     const cleanSender = sender.split('@')[0].split(':')[0] + '@s.whatsapp.net';
     const draft = pendingPreviews.get(cleanSender);
     
-    if (!draft) {
-        console.log(chalk.yellow(`[PREVIEW SERVICE] 🔍 No draft found for ${cleanSender}`));
-        return null;
-    }
+    if (!draft) return null;
 
     // 30-minute timeout
     const expiry = 30 * 60 * 1000;
@@ -46,7 +43,6 @@ function getDraft(sender) {
         return null;
     }
 
-    console.log(chalk.green(`[PREVIEW SERVICE] ✅ Draft retrieved for ${cleanSender}`));
     return draft;
 }
 

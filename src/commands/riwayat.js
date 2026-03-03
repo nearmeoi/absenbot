@@ -51,9 +51,11 @@ module.exports = {
             });
 
             const { sendInteractiveMessage } = require('../utils/interactiveMessage');
-            const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
+            const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant || sender) : sender;
             
-            if (isGroup) await sock.sendMessage(sender, { text: getMessage('!riwayat_sent_private') }, { quoted: msgObj });
+            if (isGroup) {
+                await sock.sendMessage(sender, { text: "✅ Riwayat absen Anda telah dikirim ke Chat Pribadi." }, { quoted: msgObj });
+            }
             
             const buttons = [
                 {

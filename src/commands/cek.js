@@ -12,7 +12,7 @@ module.exports = {
     description: 'Cek status absensi hari ini',
 
     async execute(sock, msgObj, context) {
-        const { sender, senderNumber } = context;
+        const { sender, senderNumber, isGroup } = context;
 
         // Helper for countdown
         const calculateCountdown = (targetDay) => {
@@ -55,6 +55,7 @@ module.exports = {
         const buttonsData = [];
         let footerText = "app.monev-absenbot.my.id";
         const userUrl = getAppUrl(senderNumber);
+        const targetJid = sender; // Send back to where it came from
 
         if (status.success && status.sudahAbsen) {
             const reply = "*SUDAH ABSEN*\n\nAnda telah absen hari ini.";
@@ -72,7 +73,7 @@ module.exports = {
                 params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
             });
 
-            await sendInteractiveMessage(sock, sender, {
+            await sendInteractiveMessage(sock, targetJid, {
                 title: "",
                 body: reply + "\n" + countdownText.trim(),
                 footer: footerText,
@@ -91,7 +92,7 @@ module.exports = {
                 params: JSON.stringify({ display_text: 'ABSEN WEB', url: userUrl, merchant_url: userUrl })
             });
 
-            await sendInteractiveMessage(sock, sender, {
+            await sendInteractiveMessage(sock, targetJid, {
                 title: "",
                 body: reply + "\n" + countdownText.trim(),
                 footer: footerText,
@@ -110,9 +111,9 @@ module.exports = {
                 params: JSON.stringify({ display_text: 'MENU UTAMA', id: '!menu' })
             });
 
-            await sendInteractiveMessage(sock, sender, {
+            await sendInteractiveMessage(sock, targetJid, {
                 title: "",
-                body: reply + "\n\n" + countdownText,
+                body: reply + "\n" + (countdownText ? countdownText.trim() : ""),
                 footer: footerText,
                 buttons: buttonsData
             }, { quoted: msgObj });

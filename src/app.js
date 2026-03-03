@@ -151,24 +151,6 @@ async function connectToWhatsApp(isInitial = true) {
             return { conversation: "" };
         },
         patchMessageBeforeSending: (message) => {
-            const requiresPatch = !!(
-                message.buttonsMessage ||
-                message.templateMessage ||
-                message.listMessage
-            );
-            if (requiresPatch) {
-                message = {
-                    viewOnceMessage: {
-                        message: {
-                            messageContextInfo: {
-                                deviceListMetadataVersion: 2,
-                                deviceListMetadata: {},
-                            },
-                            ...message,
-                        },
-                    },
-                };
-            }
             return message;
         }
     });
@@ -287,13 +269,6 @@ async function connectToWhatsApp(isInitial = true) {
     const processedMessages = new Set();
 
     sock.ev.on("messages.upsert", async (m) => {
-        console.log(chalk.gray(`[DEBUG] RECEIVED UPSERT: type=${m.type}, count=${m.messages?.length || 0}`));
-        if (m.messages) {
-            for (const msg of m.messages) {
-                console.log(chalk.gray(`[DEBUG]   - ID: ${msg.key.id}, Remote: ${msg.key.remoteJid}, fromMe: ${msg.key.fromMe}, type: ${Object.keys(msg.message || {})[0]}`));
-            }
-        }
-
         if (m.type !== 'notify') return;
 
         try {
@@ -301,10 +276,7 @@ async function connectToWhatsApp(isInitial = true) {
                 if (!msg.message) continue;
 
                 const msgId = msg.key.id;
-                if (processedMessages.has(msgId)) {
-                    if (DEBUG) console.log(chalk.gray(`[DEBUG] Ignoring already processed message: ${msgId}`));
-                    continue;
-                }
+                if (processedMessages.has(msgId)) continue;
                 processedMessages.add(msgId);
 
                 // Clean up cache if too large
@@ -314,69 +286,48 @@ async function connectToWhatsApp(isInitial = true) {
                 }
 
                 if (msg.key.remoteJid === 'status@broadcast') continue;
-                if (msg.key.remoteJid.includes('@newsletter')) continue; // Ignore Channels
+                if (msg.key.remoteJid.includes('@newsletter')) continue; 
 
                 const text = getMessageContent(msg);
+                const messageType = Object.keys(msg.message || {})[0];
 
-                // Mark as read to avoid repeated processing
-                try {
-                    await sock.readMessages([msg.key]);
-                } catch (e) { }
-
-                // Ignore old messages (temporarily disabled due to timezone/drift issues dropping live messages)
-                const msgTime = (typeof msg.messageTimestamp === 'number')
-                    ? msg.messageTimestamp
-                    : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
-
-                // Note: The TOLERANCE drop check was removed because VPS clock drift caused it to drop incoming LIVE messages.
-
-                if (!text && !msg.message) continue;
+                // Skip protocol/junk messages in log
+                if (!text && [
+                    'senderKeyDistributionMessage', 
+                    'protocolMessage', 
+                    'reactionMessage', 
+                    'stickerMessage'
+                ].includes(messageType)) continue;
 
                 const isMe = msg.key.fromMe;
                 const remoteJid = msg.key.remoteJid;
                 const isGroup = remoteJid.endsWith('@g.us');
 
-                // Get Sender Name
                 let senderName = msg.pushName || 'Unknown';
                 if (isMe) senderName = 'ME';
 
-                // Get Group Name (if applicable)
                 let contextInfo = '';
                 if (isGroup) {
                     const groupMetadata = await getGroupMetadata(sock, remoteJid);
-                    if (groupMetadata) {
-                        contextInfo = chalk.yellow(`[${groupMetadata.subject}] `);
-                    } else {
-                        contextInfo = chalk.yellow(`[Group] `);
-                    }
+                    contextInfo = groupMetadata ? `[${groupMetadata.subject}] ` : `[Group] `;
                 }
 
-                const messageType = Object.keys(msg.message || {})[0];
                 let mediaType = null;
-
                 if (messageType === 'imageMessage') mediaType = 'Image';
                 else if (messageType === 'videoMessage') mediaType = 'Video';
                 else if (messageType === 'stickerMessage') mediaType = 'Sticker';
                 else if (messageType === 'audioMessage') mediaType = 'Audio';
                 else if (messageType === 'documentMessage') mediaType = 'Document';
 
-                // Log Format matching lenwy-bot
-                const listColor = ["red", "green", "yellow", "magenta", "cyan", "white", "blue"];
-                const randomColor = listColor[Math.floor(Math.random() * listColor.length)];
                 const logTag = mediaType ? `[${mediaType}] ` : "";
-
-                let logContext = senderName;
-                if (isGroup && contextInfo) {
-                    logContext = `${contextInfo.replace(/[[\]]/g, '').trim()} | ${senderName}`;
-                }
+                const randomColor = ["red", "green", "yellow", "magenta", "cyan", "white", "blue"][Math.floor(Math.random() * 7)];
 
                 console.log(
-                    chalk.yellow.bold("Credit : AbsenBot"),
-                    chalk.green.bold("[ WhatsApp]"),
-                    chalk[randomColor](logContext),
-                    chalk[randomColor](" : "),
-                    chalk.magenta.bold(`${logTag}`),
-                    chalk.white(`${text}`)
+                    chalk.green.bold("WA"),
+                    chalk.gray("->"),
+                    chalk[randomColor](`${contextInfo}${senderName}`),
+                    chalk.gray(":"),
+                    chalk.white(`${logTag}${text || ''}`)
                 );
 
                 try {
@@ -384,12 +335,6 @@ async function connectToWhatsApp(isInitial = true) {
                     await messageHandler(sock, msg);
                 } catch (e) {
                     console.error(chalk.bgRed(" HANDLER ERROR "), e);
-                    if (e.stack) console.error(e.stack);
-                    reportError(e, 'messageHandler', {
-                        sender: remoteJid,
-                        text: text,
-                        isGroup: isGroup
-                    });
                 }
             }
         } catch (err) {
