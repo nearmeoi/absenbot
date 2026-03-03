@@ -141,18 +141,11 @@ async function connectToWhatsApp(isInitial = true) {
         auth: state,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
         version,
-        syncFullHistory: true,
         generateHighQualityLinkPreview: true,
-        markOnlineOnConnect: true,
-        shouldSyncHistoryMessage: () => true,
-        retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 0,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 30000,
         getMessage: async (key) => {
-            return { conversation: "" };
+            return { conversation: "pesan" };
         }
-    })
+    });
 
     // Pairing code logic
     if (usePairingCode && !sock.authState.creds.registered && phoneNumberForPairing) {
