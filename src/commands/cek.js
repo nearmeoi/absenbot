@@ -5,7 +5,6 @@
 const { getUserByPhone } = require('../services/database');
 const { cekStatusHarian } = require('../services/magang');
 const { getMessage } = require('../services/messageService');
-const { generateWAMessageFromContent, proto } = require('@whiskeysockets/baileys');
 
 module.exports = {
     name: 'cek',
@@ -47,28 +46,19 @@ module.exports = {
             .replace('{days3}', daysToBatch3)
             .replace('{days2}', daysToBatch2);
 
-        const sendInteractiveButtons = async (text, footer, buttons) => {
-            const msg = generateWAMessageFromContent(sender, {
-                viewOnceMessage: {
-                    message: {
-                        interactiveMessage: proto.Message.InteractiveMessage.create({
-                            body: proto.Message.InteractiveMessage.Body.create({ text: text }),
-                            footer: proto.Message.InteractiveMessage.Footer.create({ text: footer }),
-                            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.create({
-                                buttons: buttons.map(btn => ({
-                                    name: "quick_reply",
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: btn.displayText,
-                                        id: btn.id
-                                    })
-                                }))
-                            })
-                        })
-                    }
-                }
-            }, { quoted: msgObj });
+        const sendButtons = async (text, footerText, buttonsData) => {
+            const buttons = buttonsData.map(btn => ({
+                buttonId: btn.id,
+                buttonText: { displayText: btn.displayText },
+                type: 1
+            }));
 
-            await sock.relayMessage(sender, msg.message, { messageId: msg.key.id });
+            await sock.sendMessage(sender, {
+                text: text,
+                footer: footerText,
+                buttons: buttons,
+                headerType: 1
+            }, { quoted: msgObj });
         };
 
         if (status.success && status.sudahAbsen) {
@@ -78,20 +68,20 @@ module.exports = {
                 .replace('{date}', log.date || 'Hari ini')
                 .replace('{activity}', log.activity_log || '-');
 
-            await sendInteractiveButtons(reply, "AbsenBot Interactive 🪄", [
+            await sendButtons(reply, "AbsenBot Interactive 🪄", [
                 { displayText: "📜 Lihat Rapor", id: "!rapor" },
                 { displayText: "📊 Dashboard", id: "!dashboard" }
             ]);
         } else if (status.success && !status.sudahAbsen) {
             const reply = getMessage('!cek_pending', senderNumber) + countdownText;
-            await sendInteractiveButtons(reply, "AbsenBot Interactive 🪄", [
+            await sendButtons(reply, "AbsenBot Interactive 🪄", [
                 { displayText: "✅ Absen Sekarang", id: "!absen" },
                 { displayText: "🔄 Refresh Status", id: "!cek" }
             ]);
         } else {
             await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
             const reply = getMessage('!cek_error', senderNumber).replace('{error}', status.pesan) + countdownText;
-            await sendInteractiveButtons(reply, "AbsenBot Interactive 🪄", [
+            await sendButtons(reply, "AbsenBot Interactive 🪄", [
                 { displayText: "🔄 Coba Lagi (!cek)", id: "!cek" },
                 { displayText: "⚙️ Pengaturan Panel", id: "!panel" }
             ]);
