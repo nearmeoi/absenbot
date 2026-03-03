@@ -85,7 +85,7 @@ Pilih menu di bawah atau ketik perintahnya langsung.`;
             }
         ];
 
-        const targetJid = isGroup ? originalSenderId : sender;
+        const targetJid = sender;
 
         try {
             let imageMsg;
@@ -94,23 +94,19 @@ Pilih menu di bawah atau ketik perintahnya langsung.`;
                 imageMsg = media.imageMessage;
             }
 
-            if (isGroup) {
-                await sock.sendMessage(sender, { text: "✅ Menu utama telah dikirim ke Chat Pribadi Anda." }, { quoted: msgObj });
-            }
-
             await sendInteractiveMessage(sock, targetJid, {
                 title: "",
                 body: body,
                 footer: "app.monev-absenbot.my.id",
                 buttons: buttons,
                 image: imageMsg
-            });
+            }, { quoted: msgObj });
 
         } catch (menuError) {
             console.error('[CMD:MENU] Error sending interactive menu:', menuError.message);
             // Fallback to simple text menu
             const info = getMessage('!menu', senderNumber);
-            await sock.sendMessage(targetJid, { text: info });
+            await sock.sendMessage(targetJid, { text: info }, { quoted: msgObj });
         }
     }
 };

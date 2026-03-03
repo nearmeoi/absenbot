@@ -107,6 +107,7 @@ const messageHandler = async (sock, msg) => {
             const cmdModule = getCommand(cmdName);
             if (cmdModule) {
                 if (!user && cmdName !== 'daftar' && cmdName !== 'menu' && cmdName !== 'help') {
+                    console.log(chalk.yellow(`[UNREGISTERED] Command '${cmdName}' from ${senderNumber}`));
                     await sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') }, { quoted: msgObj });
                     return;
                 }
@@ -120,7 +121,7 @@ const messageHandler = async (sock, msg) => {
         if (isConfirmation) {
             const draft = getDraft(senderNumber);
             if (draft || state?.state === 'AWAITING_CONFIRMATION') {
-                const user = getUserByPhone(senderNumber);
+                // Use the 'user' variable already defined at line 87
                 if (!user) return;
 
                 const draftData = state?.data?.draft || draft;

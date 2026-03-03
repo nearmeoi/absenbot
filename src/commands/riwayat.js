@@ -51,11 +51,7 @@ module.exports = {
             });
 
             const { sendInteractiveMessage } = require('../utils/interactiveMessage');
-            const targetJid = isGroup ? (msgObj.key.participant || msgObj.participant || sender) : sender;
-            
-            if (isGroup) {
-                await sock.sendMessage(sender, { text: "✅ Riwayat absen Anda telah dikirim ke Chat Pribadi." }, { quoted: msgObj });
-            }
+            const targetJid = sender;
             
             const buttons = [
                 {
@@ -73,7 +69,7 @@ module.exports = {
                 body: historyText,
                 footer: "app.monev-absenbot.my.id",
                 buttons: buttons
-            });
+            }, { quoted: msgObj });
         } else {
             await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
             await sock.sendMessage(sender, { text: getMessage('!riwayat_failed') }, { quoted: msgObj });

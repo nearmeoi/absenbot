@@ -1,12 +1,12 @@
 /**
- * Utility for sending interactive messages (buttons, lists, etc.)
- * Compatible with newer versions of Baileys/WhatsApp
+ * Utility for sending messages (Simplified to use Smart sendMessage Override)
+ * Supports All Platforms (Android, iOS, PC)
  */
 
-const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('@whiskeysockets/baileys');
+const chalk = require('chalk');
 
 /**
- * Sends an interactive message with buttons
+ * Sends a message with interactive buttons
  * @param {Object} sock - Baileys socket
  * @param {String} jid - Recipient JID
  * @param {Object} content - Message content
@@ -22,77 +22,38 @@ async function sendInteractiveMessage(sock, jid, content, options = {}) {
         video 
     } = content;
 
-    // Prepare header
-    let header = {};
-    if (image) {
-        header = {
-            title: title || "",
-            hasMediaAttachment: true,
-            imageMessage: image
-        };
-    } else if (video) {
-        header = {
-            title: title || "",
-            hasMediaAttachment: true,
-            videoMessage: video
-        };
-    } else {
-        header = {
-            title: title || "",
-            hasMediaAttachment: false
-        };
-    }
-
-    const buttonsMessage = {
-        viewOnceMessage: {
-            message: {
-                messageContextInfo: {
-                    deviceListMetadata: {},
-                    deviceListMetadataVersion: 2
-                },
-                interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-                    body: proto.Message.InteractiveMessage.Body.fromObject({
-                        text: body
-                    }),
-                    footer: proto.Message.InteractiveMessage.Footer.fromObject({
-                        text: footer || ""
-                    }),
-                    header: proto.Message.InteractiveMessage.Header.fromObject(header),
-                    nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-                        buttons: buttons.map(btn => ({
-                            name: btn.name,
-                            buttonParamsJson: btn.params || JSON.stringify({})
-                        }))
-                    }),
-                    contextInfo: options.quoted ? {
-                        stakingRollback: options.quoted,
-                        quotedMessage: options.quoted.message,
-                        participant: options.quoted.key.participant || options.quoted.key.remoteJid,
-                        stanzaId: options.quoted.key.id,
-                        remoteJid: options.quoted.key.remoteJid
-                    } : {}
-                })
-            }
-        }
+    // Construct message object using the new smart structure
+    const messageContent = {
+        text: body,
+        footer: footer,
+        interactiveButtons: buttons
     };
 
-    const message = generateWAMessageFromContent(jid, buttonsMessage, {
+    // Add media if present
+    if (image) {
+        messageContent.image = image.url || image;
+        messageContent.caption = body;
+        delete messageContent.text;
+    } else if (video) {
+        messageContent.video = video.url || video;
+        messageContent.caption = body;
+        delete messageContent.text;
+    }
+
+    // This will now trigger the smart override in app.js
+    const message = await sock.sendMessage(jid, messageContent, { 
         quoted: options.quoted,
-        userJid: sock.user.id
+        mentions: options.mentions || []
     });
 
-    await sock.relayMessage(jid, message.message, {
-        messageId: message.key.id
-    });
-
-    // Logging outgoing interactive message
+    // Logging
     const cleanJid = jid.split('@')[0];
     console.log(
-        require('chalk').blue.bold("BOT"),
-        require('chalk').gray("->"),
-        require('chalk').cyan(cleanJid),
-        require('chalk').gray(":"),
-        require('chalk').white(`[Interactive]\n${body}`)
+        chalk.blue.bold("BOT"),
+        chalk.gray("->"),
+        chalk.cyan(cleanJid),
+        chalk.gray(":"),
+        chalk.white(`[Smart-Buttons]\n${body.substring(0, 50)}...`)
     );
 
     return message;
