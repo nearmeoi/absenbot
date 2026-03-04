@@ -4217,7 +4217,7 @@
     }
   },
   "abelianiadil4@gmail.com": {
-    "timestamp": 1772204446931,
+    "timestamp": 1772225438111,
     "data": {
       "hadir": 14,
       "izin": 0,
@@ -5058,46 +5058,46 @@
     }
   },
   "082151970474": {
-    "timestamp": 1772204457209,
+    "timestamp": 1772587739928,
     "data": {
-      "hadir": 12,
-      "izin": 2,
+      "hadir": 0,
+      "izin": 0,
       "revisi": 0,
       "tidakHadirKet": 0,
       "tidakHadirTanpaKet": 0,
       "ditolak": 0,
       "rapor": "Belum ada",
-      "periode": "Februari 2026",
+      "periode": "Maret 2026",
       "calendar": {
-        "approved": [
-          "23",
-          "18",
-          "13",
-          "12",
-          "11",
-          "10",
-          "9",
-          "6",
-          "5",
-          "4",
-          "3",
-          "2"
-        ],
+        "approved": [],
         "rejected": [],
         "revision": [],
         "pending": [
-          "27",
-          "26",
-          "25",
-          "24"
+          "3",
+          "2"
         ],
-        "permission": [
-          "20",
-          "19"
-        ],
+        "permission": [],
         "alpha": []
       },
       "full_attendances": [
+        {
+          "id": 6444430,
+          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
+          "date": "2026-03-03",
+          "status": "PRESENT",
+          "approval_status": "SUBMITTED",
+          "created_at": "2026-03-03T13:23:53.580656+07:00",
+          "updated_at": "2026-03-03T13:23:53.580656+07:00"
+        },
+        {
+          "id": 6366939,
+          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
+          "date": "2026-03-02",
+          "status": "PRESENT",
+          "approval_status": "SUBMITTED",
+          "created_at": "2026-03-02T14:13:27.867519+07:00",
+          "updated_at": "2026-03-02T14:13:27.867519+07:00"
+        },
         {
           "id": 6241980,
           "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
@@ -5275,207 +5275,6 @@
           "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
           "created_at": "2026-02-02T14:19:18.122266+07:00",
           "updated_at": "2026-02-07T13:44:00.607073+07:00"
-        },
-        {
-          "id": 4519842,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-30",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-30T14:39:16.964978+07:00",
-          "updated_at": "2026-02-07T13:43:56.587585+07:00"
-        },
-        {
-          "id": 4424803,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-29",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-29T13:38:57.552233+07:00",
-          "updated_at": "2026-02-07T13:43:54.507848+07:00"
-        },
-        {
-          "id": 4347844,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-28",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-28T14:55:59.541645+07:00",
-          "updated_at": "2026-02-07T13:43:51.941798+07:00"
-        },
-        {
-          "id": 4254086,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-27",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-27T14:09:04.760053+07:00",
-          "updated_at": "2026-02-07T13:43:47.796037+07:00"
-        },
-        {
-          "id": 4170444,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-26",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-26T14:38:43.403073+07:00",
-          "updated_at": "2026-02-07T13:43:45.064543+07:00"
-        },
-        {
-          "id": 4124545,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-24",
-          "status": "ON_LEAVE",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "leave_reason": "Saya mengisi absen hari ini untuk pengganti absen yang error di hari Kamis tanggal 15 minggu lalu karena saya keracunan makanan dan mengalami diare sehingga tidak bisa mengikuti kegiatan magang.",
-          "created_at": "2026-01-24T09:52:06.808572+07:00",
-          "updated_at": "2026-01-24T11:16:02.964422+07:00"
-        },
-        {
-          "id": 4067744,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-23",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-23T14:23:00.497628+07:00",
-          "updated_at": "2026-01-23T16:14:36.13617+07:00"
-        },
-        {
-          "id": 3953658,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-22",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-22T13:34:34.486114+07:00",
-          "updated_at": "2026-01-23T11:03:41.805174+07:00"
-        },
-        {
-          "id": 3874257,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-21",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-21T14:51:54.390985+07:00",
-          "updated_at": "2026-01-23T11:03:39.595485+07:00"
-        },
-        {
-          "id": 3784652,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-20",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-20T14:37:04.313059+07:00",
-          "updated_at": "2026-01-23T11:03:22.494475+07:00"
-        },
-        {
-          "id": 3703862,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-19",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-19T15:16:36.442833+07:00",
-          "updated_at": "2026-01-23T11:03:15.327568+07:00"
-        },
-        {
-          "id": 3470850,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-14",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-14T14:31:41.115188+07:00",
-          "updated_at": "2026-01-23T11:03:00.317205+07:00"
-        },
-        {
-          "id": 3383899,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-13",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-13T14:43:18.322032+07:00",
-          "updated_at": "2026-01-23T11:02:57.668544+07:00"
-        },
-        {
-          "id": 3295370,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-12",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-12T14:49:18.884067+07:00",
-          "updated_at": "2026-01-23T11:02:55.062795+07:00"
-        },
-        {
-          "id": 3169385,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-09",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-09T14:37:02.061209+07:00",
-          "updated_at": "2026-01-10T11:35:46.011191+07:00"
-        },
-        {
-          "id": 3078245,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-08",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-08T14:28:18.894471+07:00",
-          "updated_at": "2026-01-08T23:44:16.982802+07:00"
-        },
-        {
-          "id": 2987688,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-07",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-07T14:10:24.373006+07:00",
-          "updated_at": "2026-01-08T23:44:04.882136+07:00"
-        },
-        {
-          "id": 2900254,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-06",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-06T14:19:04.916824+07:00",
-          "updated_at": "2026-01-08T23:43:59.762207+07:00"
-        },
-        {
-          "id": 2810944,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-05",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-05T14:16:21.062389+07:00",
-          "updated_at": "2026-01-08T23:43:55.396752+07:00"
-        },
-        {
-          "id": 2694493,
-          "participant_id": "62af9377-4728-4592-8063-3bcbbb17cd13",
-          "date": "2026-01-02",
-          "status": "PRESENT",
-          "approval_status": "APPROVED",
-          "reviewer_id": "151ad20b-297d-424a-b4ce-a519457abedf",
-          "created_at": "2026-01-02T14:39:50.263837+07:00",
-          "updated_at": "2026-01-08T23:43:51.063658+07:00"
         }
       ]
     }

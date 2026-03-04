@@ -33,7 +33,7 @@ const loadMarkedUsers = () => {
         console.error('[HANDLER] Error loading marked users:', e.message);
     }
     cachedMarkedUsers = [];
-    return [];
+    return cachedMarkedUsers;
 };
 
 /**
@@ -80,12 +80,12 @@ const messageHandler = async (sock, msg) => {
             // --- SPECIAL TREATMENT FOR MARKED USERS (Only on Commands) ---
             try {
                 const markedUsers = loadMarkedUsers();
-                if (markedUsers.length > 0) {
+                if (markedUsers && markedUsers.length > 0) {
                     const originalSender = msgObj.key.participant || msgObj.participant || sender;
                     const isMarked = markedUsers.find(u =>
-                        u.lid === originalSender ||
+                        u && (u.lid === originalSender ||
                         u.phone === originalSender ||
-                        (u.phone && normalizeToStandard(u.phone) === senderNumber)
+                        (u.phone && normalizeToStandard(u.phone) === senderNumber))
                     );
 
                     if (isMarked && !msgObj.key.fromMe) {
@@ -248,9 +248,22 @@ const messageHandler = async (sock, msg) => {
         }
     } catch (e) {
         console.error(chalk.red("[HANDLER] Error:"), e);
-        // Only report if it's NOT the admin reporting error to avoid loop
-        if (!msg.messages?.[0]?.message?.extendedTextMessage?.text?.includes('SYSTEM ERROR REPORT')) {
-            reportError(e, 'messageHandler (Internal)', { sender: msg.key?.remoteJid });
+        
+        // Notify Admin
+        if (!textMessage?.includes('SYSTEM ERROR REPORT')) {
+            reportError(e, 'messageHandler (Main)', { 
+                sender: sender, 
+                senderNumber: senderNumber,
+                text: textMessage ? textMessage.substring(0, 100) : "N/A"
+            });
+        }
+
+        // Notify User (friendly message)
+        try {
+            const userErrorMsg = "⚠️ *Terjadi Kesalahan Internal*\n\nMaaf, sistem sedang mengalami kendala teknis saat memproses pesan Anda. Admin telah dinotifikasi untuk pengecekan lebih lanjut.\n\nSilakan coba lagi beberapa saat lagi.";
+            await sock.sendMessage(sender, { text: userErrorMsg }, { quoted: msgObj });
+        } catch (sendErr) {
+            console.error(chalk.red("[HANDLER] Failed to send error msg to user:"), sendErr.message);
         }
     }
 };

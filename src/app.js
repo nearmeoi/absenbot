@@ -10,6 +10,7 @@ const { initAuthServer } = require('./services/secureAuth');
 const messageHandler = require('./handlers/messageHandler');
 
 const { initErrorReporter, reportError } = require('./services/errorReporter');
+const { restoreSession, backupSession } = require('./services/sessionBackup');
 
 const usePairingCode = true;
 let schedulerInitialized = false; // Prevent multiple scheduler init
@@ -83,7 +84,11 @@ let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 async function connectToWhatsApp(isInitial = true) {
-    if (isInitial) await pruneSession();
+    if (isInitial) {
+        await pruneSession();
+        // --- AUTO-RESTORE ---
+        restoreSession();
+    }
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_STATE_DIR)
     const { version } = await fetchLatestBaileysVersion()
 
@@ -177,6 +182,24 @@ async function connectToWhatsApp(isInitial = true) {
             if (reason === DisconnectReason.badSession) {
                 failureReason = 'Bad Session File';
                 extraInfo = 'Solusi: Hapus folder SesiWA dan restart bot.';
+                
+                // --- AUTO RECOVERY ---
+                console.log(chalk.bgRed.white(' [AUTO-RECOVERY] Bad Session detected! Cleaning up and restarting... '));
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const sessionPath = path.join(__dirname, '../SesiWA');
+                    if (fs.existsSync(sessionPath)) {
+                        // Delete all files EXCEPT creds.json backup if we want to be safe, 
+                        // but here we clear all to ensure a fresh state.
+                        fs.rmSync(sessionPath, { recursive: true, force: true });
+                        console.log(chalk.green(' [AUTO-RECOVERY] SesiWA cleared successfully. '));
+                    }
+                } catch (e) {
+                    console.error(' [AUTO-RECOVERY] Failed to clear session:', e.message);
+                }
+                process.exit(1); // PM2 will restart the bot
+
             } else if (reason === DisconnectReason.connectionClosed) {
                 failureReason = 'Connection Closed (428)';
                 extraInfo = 'Penyebab: Bot meminta kode pairing terlalu cepat. Bot akan mencoba menyambung ulang dengan delay otomatis.';
@@ -231,6 +254,11 @@ async function connectToWhatsApp(isInitial = true) {
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
             console.log(chalk.gray(`[SYSTEM] Sesi valid terdeteksi. Bot siap digunakan.`));
 
+            // --- AUTO-BACKUP ---
+            setTimeout(() => {
+                backupSession();
+            }, 30000); // 30s delay after open to ensure session is settled
+
             // INIT ERROR REPORTER
             initErrorReporter(sock);
 
@@ -248,8 +276,18 @@ async function connectToWhatsApp(isInitial = true) {
             // SEND TEST MESSAGE TO ADMIN
             const { ADMIN_NUMBERS } = require('./config/constants');
             if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
-                sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 Bot baru saja restart dan terhubung. Jika Anda melihat ini, bot bisa mengirim pesan.' })
-                    .catch(err => console.error(chalk.red(`[ERROR] Failed to send test message: ${err.message}`)));
+                // Delay 5s to allow session to stabilize
+                setTimeout(() => {
+                    sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 Bot baru saja restart dan terhubung. Jika Anda melihat ini, bot bisa mengirim pesan.' })
+                        .catch(err => {
+                            if (err.message.includes('Bad MAC') || err.message.includes('closed session')) {
+                                console.error(chalk.bgRed.white(' [FATAL] Session out of sync (Bad MAC). Resetting... '));
+                                fs.rmSync(AUTH_STATE_DIR, { recursive: true, force: true });
+                                process.exit(1);
+                            }
+                            console.error(chalk.red(`[ERROR] Failed to send test message: ${err.message}`));
+                        });
+                }, 5000);
             }
 
             // Update scheduler socket
@@ -270,80 +308,94 @@ async function connectToWhatsApp(isInitial = true) {
     sock.ev.on("messages.upsert", async (m) => {
         if (m.type !== 'notify') return;
 
-        for (const msg of m.messages) {
-            if (!msg.message) continue;
-            
-            const msgId = msg.key.id;
-            if (processedMessages.has(msgId)) continue;
-            processedMessages.add(msgId);
-            
-            // Clean up cache if too large
-            if (processedMessages.size > 1000) {
-                const first = processedMessages.values().next().value;
-                processedMessages.delete(first);
-            }
+        try {
+            for (const msg of m.messages) {
+                if (!msg.message) continue;
+                
+                const msgId = msg.key.id;
+                if (processedMessages.has(msgId)) continue;
+                processedMessages.add(msgId);
+                
+                // Clean up cache if too large
+                if (processedMessages.size > 1000) {
+                    const first = processedMessages.values().next().value;
+                    processedMessages.delete(first);
+                }
 
-            if (msg.key.remoteJid === 'status@broadcast') continue;
-            if (msg.key.remoteJid.includes('@newsletter')) continue; // Ignore Channels
+                if (msg.key.remoteJid === 'status@broadcast') continue;
+                if (msg.key.remoteJid.includes('@newsletter')) continue; // Ignore Channels
 
-            const text = getMessageContent(msg);
+                const text = getMessageContent(msg);
 
-            // Mark as read to avoid repeated processing
-            try {
-                await sock.readMessages([msg.key]);
-            } catch (e) { }
+                // Mark as read to avoid repeated processing
+                try {
+                    await sock.readMessages([msg.key]);
+                } catch (e) { }
 
-            // Ignore old messages (only if older than 30 minutes before startup)
-            const msgTime = (typeof msg.messageTimestamp === 'number')
-                ? msg.messageTimestamp
-                : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
+                // Ignore old messages (only if older than 30 minutes before startup)
+                const msgTime = (typeof msg.messageTimestamp === 'number')
+                    ? msg.messageTimestamp
+                    : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
 
-            const TOLERANCE = 1800; // 30 minutes tolerance
-            if (msgTime < (STARTUP_TIME - TOLERANCE)) {
-                continue;
-            }
+                const TOLERANCE = 1800; // 30 minutes tolerance
+                if (msgTime < (STARTUP_TIME - TOLERANCE)) {
+                    continue;
+                }
 
-            if (!text) continue;
+                if (!text) continue;
 
-            const isMe = msg.key.fromMe;
-            const remoteJid = msg.key.remoteJid;
-            const isGroup = remoteJid.endsWith('@g.us');
+                const isMe = msg.key.fromMe;
+                const remoteJid = msg.key.remoteJid;
+                const isGroup = remoteJid.endsWith('@g.us');
 
-            // Get Sender Name
-            let senderName = msg.pushName || 'Unknown';
-            if (isMe) senderName = 'ME';
+                // Get Sender Name
+                let senderName = msg.pushName || 'Unknown';
+                if (isMe) senderName = 'ME';
 
-            // Get Group Name (if applicable)
-            let contextInfo = '';
-            if (isGroup) {
-                const groupMetadata = await getGroupMetadata(sock, remoteJid);
-                if (groupMetadata) {
-                    contextInfo = chalk.yellow(`[${groupMetadata.subject}] `);
-                } else {
-                    contextInfo = chalk.yellow(`[Group] `);
+                // Get Group Name (if applicable)
+                let contextInfo = '';
+                if (isGroup) {
+                    const groupMetadata = await getGroupMetadata(sock, remoteJid);
+                    if (groupMetadata) {
+                        contextInfo = chalk.yellow(`[${groupMetadata.subject}] `);
+                    } else {
+                        contextInfo = chalk.yellow(`[Group] `);
+                    }
+                }
+
+                // Format Timestamp
+                const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                // Log Format: [TIME] [Group] Sender: Message
+                const prefix = chalk.gray(`[${time}]`);
+                const sender = isMe ? chalk.blue.bold('ME') : chalk.green.bold(senderName);
+
+                console.log(`${prefix} ${contextInfo}${sender}: ${text}`);
+
+                try {
+                    msg.bodyTeks = text;
+                    await messageHandler(sock, msg);
+                } catch (e) {
+                    console.error(chalk.bgRed(" HANDLER ERROR "), e);
+                    reportError(e, 'messageHandler', { 
+                        sender: remoteJid, 
+                        text: text,
+                        isGroup: isGroup
+                    });
                 }
             }
-
-            // Format Timestamp
-            const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-            // Log Format: [TIME] [Group] Sender: Message
-            const prefix = chalk.gray(`[${time}]`);
-            const sender = isMe ? chalk.blue.bold('ME') : chalk.green.bold(senderName);
-
-            console.log(`${prefix} ${contextInfo}${sender}: ${text}`);
-
-            try {
-                msg.bodyTeks = text;
-                await messageHandler(sock, msg);
-            } catch (e) {
-                console.error(chalk.bgRed(" HANDLER ERROR "), e);
-                reportError(e, 'messageHandler', { 
-                    sender: remoteJid, 
-                    text: text,
-                    isGroup: isGroup
-                });
+        } catch (err) {
+            if (err.message.includes('Bad MAC') || err.message.includes('closed session')) {
+                console.error(chalk.bgRed.white(' [FATAL] Critical Session Error detected! Resetting state... '));
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const sessionDir = path.join(__dirname, '../SesiWA');
+                    fs.rmSync(sessionDir, { recursive: true, force: true });
+                } catch (e) {}
+                process.exit(1);
             }
+            console.error(chalk.red('[ERROR] Upsert Handler Error:'), err);
         }
     })
 }
