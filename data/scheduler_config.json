@@ -39,7 +39,7 @@
     "id": "evening_reminder_1",
     "time": "21:00",
     "days": "1-5",
-    "type": "group_hidetag",
+    "type": "group_hidetag_japri",
     "messageKey": "REMINDER_EVENING",
     "description": "Pengingat Malam 1",
     "enabled": true
