@@ -228,7 +228,8 @@ router.post('/api/schedule', async (req, res) => {
         }
 
         const scheduled = JSON.parse(fs.readFileSync(SCHEDULED_REPORTS_FILE));
-        const today = new Date().toISOString().split('T')[0];
+        const nowInTz = new Date(new Date().toLocaleString("en-US", { timeZone: 'Asia/Makassar' }));
+        const today = nowInTz.toISOString().split('T')[0];
         const existingIndex = scheduled.findIndex(s => s.phone === phone && s.date === today);
 
         // If disabling

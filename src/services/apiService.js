@@ -353,9 +353,13 @@ async function submitAttendanceReport(email, reportData, targetDate = null) {
         if (response.status === 200 || response.status === 201) {
             return { success: true, pesan: "Berhasil submit via API", pesan_tambahan: "(Fast Mode - API)" };
         } else {
-            return { success: false, pesan: `Unexpected status: ${response.status}` };
+            return { success: false, pesan: `Unexpected status: ${response.status}`, data: response.data };
         }
     } catch (error) {
+        if (error.response && error.response.status === 400) {
+            console.error(chalk.red(`[API] 400 Bad Request for ${email}:`), JSON.stringify(error.response.data, null, 2));
+            return { success: false, needsLogin: false, pesan: "Bad Request (Input tidak valid atau sudah absen)", data: error.response.data };
+        }
         return { success: false, needsLogin: true, pesan: error.message };
     }
 }
