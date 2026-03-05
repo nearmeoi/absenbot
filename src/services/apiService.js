@@ -333,7 +333,7 @@ async function checkAttendanceStatus(email) {
     }
 }
 
-async function submitAttendanceReport(email, reportData) {
+async function submitAttendanceReport(email, reportData, targetDate = null) {
     console.log(chalk.cyan(`[API] Submitting attendance for ${email}...`));
     const session = loadSession(email);
     if (!session) return { success: false, needsLogin: true, pesan: "Session tidak ditemukan" };
@@ -342,7 +342,7 @@ async function submitAttendanceReport(email, reportData) {
         const client = createApiClient(session);
         const today = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
         const payload = {
-            date: today,
+            date: targetDate || today,
             status: "PRESENT",
             activity_log: reportData.aktivitas,
             lesson_learned: reportData.pembelajaran,

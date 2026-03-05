@@ -10,7 +10,6 @@ const { initAuthServer } = require('./services/secureAuth');
 const messageHandler = require('./handlers/messageHandler');
 
 const { initErrorReporter, reportError } = require('./services/errorReporter');
-const { restoreSession, backupSession } = require('./services/sessionBackup');
 
 const usePairingCode = true;
 let schedulerInitialized = false; // Prevent multiple scheduler init
@@ -54,41 +53,11 @@ async function getGroupMetadata(sock, jid) {
     }
 }
 
-async function pruneSession() {
-    try {
-        if (!fs.existsSync(AUTH_STATE_DIR)) return;
-        
-        const files = fs.readdirSync(AUTH_STATE_DIR);
-        if (files.length < 100) return; // Prune earlier to keep session lean
-
-        console.log(chalk.yellow(`[SESSION] Pruning ${files.length} session files to improve stability...`));
-        let count = 0;
-        
-        for (const file of files) {
-            // ONLY keep creds.json - everything else is recreatable junk
-            if (file === 'creds.json') continue;
-            
-            try {
-                fs.unlinkSync(path.join(AUTH_STATE_DIR, file));
-                count++;
-            } catch (e) {}
-        }
-        console.log(chalk.green(`[SESSION] Deleted ${count} junk files. Session is now lean.`));
-    } catch (e) {
-        console.error(chalk.red('[SESSION] Pruning error:'), e.message);
-    }
-}
-
 // Store reconnect attempts
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
 async function connectToWhatsApp(isInitial = true) {
-    if (isInitial) {
-        await pruneSession();
-        // --- AUTO-RESTORE ---
-        restoreSession();
-    }
     const { state, saveCreds } = await useMultiFileAuthState(AUTH_STATE_DIR)
     const { version } = await fetchLatestBaileysVersion()
 
@@ -106,10 +75,10 @@ async function connectToWhatsApp(isInitial = true) {
         shouldSyncHistoryMessage: () => false,
         retryRequestDelayMs: 5000,
         defaultQueryTimeoutMs: 0, 
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 30000, // Increase keep-alive interval
+        connectTimeoutMs: 120000,
+        keepAliveIntervalMs: 60000, // Increase keep-alive interval
         getMessage: async (key) => {
-            return { conversation: "" }; // Avoid Baileys internal retry loop issues
+            return { conversation: "" }; 
         }
     })
 
@@ -147,8 +116,9 @@ async function connectToWhatsApp(isInitial = true) {
         }
         
         try {
-            // Wait a bit before requesting code to avoid 428
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Wait a bit before requesting code to avoid 428 - REDUCED TO 5s
+            console.log(chalk.yellow('[PAIRING] Waiting 5s for server stability before requesting code...'));
+            await new Promise(resolve => setTimeout(resolve, 5000));
             const code = await sock.requestPairingCode(phoneNumber.trim())
             console.log('\n' + chalk.bgGreen.black(' 🔑 PAIRING CODE ') + ' ' + chalk.yellow.bold(code) + '\n');
         } catch (err) {
@@ -168,7 +138,7 @@ async function connectToWhatsApp(isInitial = true) {
     sock.ev.on("connection.update", (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        if (qr) {
+        if (qr && !usePairingCode) {
             console.log(chalk.yellow('[QR] New QR Code generated.'));
             const { setLastQR } = require('./services/botState');
             setLastQR(qr);
@@ -181,28 +151,10 @@ async function connectToWhatsApp(isInitial = true) {
 
             if (reason === DisconnectReason.badSession) {
                 failureReason = 'Bad Session File';
-                extraInfo = 'Solusi: Hapus folder SesiWA dan restart bot.';
-                
-                // --- AUTO RECOVERY ---
-                console.log(chalk.bgRed.white(' [AUTO-RECOVERY] Bad Session detected! Cleaning up and restarting... '));
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const sessionPath = path.join(__dirname, '../SesiWA');
-                    if (fs.existsSync(sessionPath)) {
-                        // Delete all files EXCEPT creds.json backup if we want to be safe, 
-                        // but here we clear all to ensure a fresh state.
-                        fs.rmSync(sessionPath, { recursive: true, force: true });
-                        console.log(chalk.green(' [AUTO-RECOVERY] SesiWA cleared successfully. '));
-                    }
-                } catch (e) {
-                    console.error(' [AUTO-RECOVERY] Failed to clear session:', e.message);
-                }
-                process.exit(1); // PM2 will restart the bot
-
+                extraInfo = 'Solusi: Hapus folder SesiWA secara manual dan restart bot jika pairing gagal.';
             } else if (reason === DisconnectReason.connectionClosed) {
                 failureReason = 'Connection Closed (428)';
-                extraInfo = 'Penyebab: Bot meminta kode pairing terlalu cepat. Bot akan mencoba menyambung ulang dengan delay otomatis.';
+                extraInfo = 'Penyebab: Koneksi ditutup server. Mencoba menyambung ulang...';
             } else if (reason === DisconnectReason.connectionLost) {
                 failureReason = 'Connection Lost from Server';
                 extraInfo = 'Penyebab: Koneksi internet server tidak stabil.';
@@ -211,7 +163,7 @@ async function connectToWhatsApp(isInitial = true) {
                 extraInfo = 'Penyebab: Sesi ini dibuka di perangkat/browser lain.';
             } else if (reason === DisconnectReason.loggedOut) {
                 failureReason = 'Device Logged Out (401)';
-                extraInfo = 'Penyebab: Sesi di folder SesiWA sudah kadaluarsa atau tidak valid lagi. Silakan hapus folder SesiWA.';
+                extraInfo = 'Silakan hapus folder SesiWA dan scan ulang.';
             } else if (reason === DisconnectReason.restartRequired) {
                 failureReason = 'Restart Required';
                 extraInfo = 'Bot akan melakukan restart otomatis.';
@@ -221,6 +173,13 @@ async function connectToWhatsApp(isInitial = true) {
             }
 
             console.log(chalk.red(`❌ Koneksi Terputus: ${failureReason} (${reason})`));
+            
+            // Auto-reset reconnect attempts for temporary server errors
+            if (reason === 428 || reason === 408) {
+                console.log(chalk.yellow(' [SYSTEM] Recoverable error detected. Resetting attempts... '));
+                reconnectAttempts = 0;
+            }
+
             if (extraInfo) console.log(chalk.yellow(`ℹ️ Info: ${extraInfo}`));
             
             if (lastDisconnect?.error) {
@@ -231,21 +190,19 @@ async function connectToWhatsApp(isInitial = true) {
             try {
                 const dashboardRoutes = require('./routes/dashboardRoutes');
                 dashboardRoutes.setBotConnected(false);
-                // FUTURE: We could pass the failureReason to the dashboard here
             } catch (e) { }
 
             const shouldReconnect = reason !== DisconnectReason.loggedOut;
-            if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            if (shouldReconnect && reconnectAttempts < 20) { // Increased to 20
                 reconnectAttempts++;
-                console.log(chalk.yellow(`🔄 Reconnecting (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in 5 seconds...`));
+                console.log(chalk.yellow(`🔄 Reconnecting (${reconnectAttempts}/20) in 5 seconds...`));
                 setTimeout(() => {
-                    connectToWhatsApp(false); // Not initial
+                    connectToWhatsApp(false); 
                 }, 5000);
-            } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            } else if (reconnectAttempts >= 20) {
                 console.log(chalk.bgRed('❌ Max reconnect attempts reached. Please check server manually.'));
-                process.exit(1); // Force exit so PM2 can try a fresh start
             } else {
-                console.log(chalk.bgRed('⛔ Session Invalid/Logged Out. Please delete session folder and restart.'));
+                console.log(chalk.bgRed('⛔ Session Invalid/Logged Out. Please delete SesiWA and restart.'));
             }
         } else if (connection === "connecting") {
             console.log(chalk.cyan("🔄 Sedang menyambung ke WhatsApp..."));
@@ -253,11 +210,6 @@ async function connectToWhatsApp(isInitial = true) {
             reconnectAttempts = 0; // Reset on success
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
             console.log(chalk.gray(`[SYSTEM] Sesi valid terdeteksi. Bot siap digunakan.`));
-
-            // --- AUTO-BACKUP ---
-            setTimeout(() => {
-                backupSession();
-            }, 30000); // 30s delay after open to ensure session is settled
 
             // INIT ERROR REPORTER
             initErrorReporter(sock);
@@ -280,11 +232,6 @@ async function connectToWhatsApp(isInitial = true) {
                 setTimeout(() => {
                     sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 Bot baru saja restart dan terhubung. Jika Anda melihat ini, bot bisa mengirim pesan.' })
                         .catch(err => {
-                            if (err.message.includes('Bad MAC') || err.message.includes('closed session')) {
-                                console.error(chalk.bgRed.white(' [FATAL] Session out of sync (Bad MAC). Resetting... '));
-                                fs.rmSync(AUTH_STATE_DIR, { recursive: true, force: true });
-                                process.exit(1);
-                            }
                             console.error(chalk.red(`[ERROR] Failed to send test message: ${err.message}`));
                         });
                 }, 5000);
@@ -385,16 +332,6 @@ async function connectToWhatsApp(isInitial = true) {
                 }
             }
         } catch (err) {
-            if (err.message.includes('Bad MAC') || err.message.includes('closed session')) {
-                console.error(chalk.bgRed.white(' [FATAL] Critical Session Error detected! Resetting state... '));
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const sessionDir = path.join(__dirname, '../SesiWA');
-                    fs.rmSync(sessionDir, { recursive: true, force: true });
-                } catch (e) {}
-                process.exit(1);
-            }
             console.error(chalk.red('[ERROR] Upsert Handler Error:'), err);
         }
     })

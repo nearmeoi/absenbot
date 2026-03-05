@@ -227,7 +227,7 @@ async function parallelMap(items, mapper, limit = 3) {
 }
 
 async function runEmergencyWarning(sock, task, timezone) {
-    console.log(chalk.magenta(`[SCHEDULER] Running Emergency Warning (${timezone})`));
+    console.log(chalk.magenta(`[SCHEDULER] Running Emergency Warning: ${task.id} (${timezone})`));
     if (timezone !== 'Asia/Makassar') return; // Global logic
     if (isWeekendOrHoliday(timezone)) return;
 
@@ -237,11 +237,14 @@ async function runEmergencyWarning(sock, task, timezone) {
 
     // Parallel check statuses
     const pendingCriticalUsers = (await parallelMap(allUsers, async (user) => {
-        const isCriticalDay =
-            (user.cycle_day === 24 && todayDate === 23) ||
-            (user.cycle_day === 16 && todayDate === 15);
+        // Critical logic only for the critical-tagged task
+        if (task.id === 'emergency_warning_critical') {
+            const isCriticalDay =
+                (user.cycle_day === 24 && todayDate === 23) ||
+                (user.cycle_day === 16 && todayDate === 15);
 
-        if (!isCriticalDay) return null;
+            if (!isCriticalDay) return null;
+        }
 
         try {
             const status = await cekStatusHarian(user.email, user.password);
@@ -563,7 +566,7 @@ async function runDraftPush(sock, task, timezone) {
 }
 
 async function runEmergencySubmit(sock, task, timezone) {
-    console.log(chalk.magenta(`[SCHEDULER] Running Emergency Submit (${timezone})`));
+    console.log(chalk.magenta(`[SCHEDULER] Running Emergency Submit: ${task.id} (${timezone})`));
     if (timezone !== 'Asia/Makassar') return; // Global logic
     if (isWeekendOrHoliday(timezone)) return;
 
@@ -573,11 +576,14 @@ async function runEmergencySubmit(sock, task, timezone) {
 
     // 1. Identify Phase (Parallel)
     const pendingCriticalUsers = (await parallelMap(allUsers, async (user) => {
-        const isCriticalDay =
-            (user.cycle_day === 24 && todayDate === 23) ||
-            (user.cycle_day === 16 && todayDate === 15);
+        // Critical logic only for the critical-tagged task
+        if (task.id === 'emergency_submit_critical') {
+            const isCriticalDay =
+                (user.cycle_day === 24 && todayDate === 23) ||
+                (user.cycle_day === 16 && todayDate === 15);
 
-        if (!isCriticalDay) return null;
+            if (!isCriticalDay) return null;
+        }
 
         try {
             const status = await cekStatusHarian(user.email, user.password);

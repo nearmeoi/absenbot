@@ -48,9 +48,9 @@
     "id": "evening_reminder_2",
     "time": "23:00",
     "days": "1-5",
-    "type": "group_hidetag_japri",
-    "messageKey": "REMINDER_EVENING",
-    "description": "Pengingat Malam 2 (+Japri)",
+    "type": "draft_push",
+    "messageKey": "DRAFT_PUSH_ALERT",
+    "description": "Auto Draft & Notify Japri",
     "enabled": true
   },
   {

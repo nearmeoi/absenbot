@@ -1,5 +1,5 @@
-// Load environment variables first
-require('dotenv').config();
+// Load environment variables first - FORCE OVERRIDE to bypass stale system env
+require('dotenv').config({ override: true });
 
 // --- CONSOLE FILTER: Suppress noisy Baileys internal logs ---
 const filterOutput = (args) => {

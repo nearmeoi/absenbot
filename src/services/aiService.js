@@ -17,9 +17,30 @@ const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
 
 // Validate API keys on startup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 if (!GROQ_API_KEY) {
     console.error(chalk.red('[GROQ] ❌ GROQ_API_KEY not found in .env file!'));
+}
+
+async function runGeminiGeneration(systemPrompt, userPrompt) {
+    if (!GEMINI_API_KEY) return { success: false };
+    try {
+        console.log(chalk.cyan('[AI] Trying Gemini Fallback...'));
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+        const response = await axios.post(url, {
+            contents: [{
+                parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+            }]
+        }, { timeout: 20000 });
+
+        const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (content) return { success: true, content, model: 'Gemini' };
+        return { success: false };
+    } catch (err) {
+        console.error(chalk.red(`[GEMINI] Fallback failed: ${err.response?.data?.error?.message || err.message}`));
+        return { success: false };
+    }
 }
 
 async function transcribeAudio(filePath) {
@@ -225,8 +246,13 @@ async function generateAttendanceReport(previousLogs = []) {
 
     // 1. Try Groq
     let res = await runGroqGeneration(systemPrompt, userPrompt);
-    let content = res.content;
+    
+    // FALLBACK to Gemini if Groq fails
+    if (!res.success) {
+        res = await runGeminiGeneration(systemPrompt, userPrompt);
+    }
 
+    let content = res.content;
     if (!content) return { success: false, error: 'Layanan AI sedang sibuk/gagal.' };
 
     // 2. Double Check
@@ -259,8 +285,13 @@ async function processFreeTextToReport(userText, previousLogs = []) {
 
     // 1. Try Groq (Primary)
     let res = await runGroqGeneration(systemPrompt, fullPrompt);
-    let content = res.content;
+    
+    // FALLBACK to Gemini if Groq fails
+    if (!res.success) {
+        res = await runGeminiGeneration(systemPrompt, fullPrompt);
+    }
 
+    let content = res.content;
     if (!content) return { success: false, error: 'Gagal memproses laporan (Engine AI sibuk).' };
 
     // 3. Smart Refinement: Skip separate refinement if input is short
