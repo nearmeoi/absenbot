@@ -5,75 +5,63 @@ const os = require('os');
 const chalk = require('chalk');
 
 // ========================================
-// ADMIN CONFIGURATION
+// KONFIGURASI ADMIN
 // ========================================
 
-// Admin phone numbers (add your number here)
-// Format: '628xxxxxxxxxx@s.whatsapp.net'
+// Nomor admin (format: '628xxx@s.whatsapp.net')
 const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
     ? process.env.ADMIN_NUMBERS.split(',').map(n => n.trim())
     : [];
 
 const APP_URL = process.env.APP_URL || 'https://app.monev-absenbot.my.id';
 
-// Bot Command Prefix (Default: !)
+// Prefix perintah bot (default: !)
 const BOT_PREFIX = process.env.BOT_PREFIX || '!';
 
 // ========================================
-// ENVIRONMENT DETECTION
+// DETEKSI LINGKUNGAN
 // ========================================
 
 /**
- * Detect the current running environment
+ * Deteksi lingkungan runtime saat ini
  * @returns {'termux' | 'windows' | 'vps' | 'linux' | 'macos' | 'unknown'}
  */
-const detectEnvironment = () => {
-    // Allow manual override via .env
+const deteksiEnv = () => {
     if (process.env.ENVIRONMENT) {
         return process.env.ENVIRONMENT.toLowerCase();
     }
 
-    // Detect Termux (Android)
     if (process.env.TERMUX_VERSION ||
         process.env.PREFIX?.includes('com.termux') ||
         fs.existsSync('/data/data/com.termux/files/usr')) {
         return 'termux';
     }
 
-    // Detect platform
     const platform = process.platform;
 
-    if (platform === 'win32') {
-        return 'windows';
-    }
-
-    if (platform === 'darwin') {
-        return 'macos';
-    }
+    if (platform === 'win32') return 'windows';
+    if (platform === 'darwin') return 'macos';
 
     if (platform === 'linux') {
-        // Check if running on VPS/server (headless environment)
-        const isHeadless = !process.env.DISPLAY;
-        const isSSH = process.env.SSH_CLIENT || process.env.SSH_TTY || process.env.SSH_CONNECTION;
-        const isDocker = fs.existsSync('/.dockerenv');
-        const isContainer = process.env.container || isDocker;
+        const tanpaDisplay = !process.env.DISPLAY;
+        const viaSSH = process.env.SSH_CLIENT || process.env.SSH_TTY || process.env.SSH_CONNECTION;
+        const diDocker = fs.existsSync('/.dockerenv');
+        const diContainer = process.env.container || diDocker;
 
-        if (isSSH || isHeadless || isContainer) {
-            return 'vps';
-        }
+        if (viaSSH || tanpaDisplay || diContainer) return 'vps';
         return 'linux';
     }
 
     return 'unknown';
 };
 
-const CURRENT_ENV = detectEnvironment();
+const ENV_SAAT_INI = deteksiEnv();
 
 // ========================================
-// ENVIRONMENT-SPECIFIC CONFIGURATIONS
+// KONFIGURASI PER LINGKUNGAN
 // ========================================
 
-const ENVIRONMENT_CONFIGS = {
+const DAFTAR_ENV = {
     termux: {
         name: 'Termux (Android)',
         chromiumPaths: [
@@ -82,12 +70,8 @@ const ENVIRONMENT_CONFIGS = {
         ],
         defaultProjectRoot: '/data/data/com.termux/files/home/absenbot',
         puppeteerArgs: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-gpu',
-            '--disable-dev-shm-usage',
-            '--single-process',  // Required for Termux
-            '--no-zygote'        // Required for Termux
+            '--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu',
+            '--disable-dev-shm-usage', '--single-process', '--no-zygote'
         ],
         headless: 'new'
     },
@@ -101,75 +85,44 @@ const ENVIRONMENT_CONFIGS = {
         ],
         defaultProjectRoot: process.cwd(),
         puppeteerArgs: [
-            '--disable-gpu',
-            '--disable-dev-shm-usage',
-            '--disable-background-networking',
-            '--disable-default-apps',
-            '--disable-extensions',
-            '--disable-sync',
-            '--no-first-run'
+            '--disable-gpu', '--disable-dev-shm-usage', '--disable-background-networking',
+            '--disable-default-apps', '--disable-extensions', '--disable-sync', '--no-first-run'
         ],
         headless: 'new'
     },
     vps: {
         name: 'VPS/Server (Linux)',
         chromiumPaths: [
-            '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
-            '/usr/bin/google-chrome',
-            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser', '/usr/bin/chromium',
+            '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable',
             '/snap/bin/chromium'
         ],
         defaultProjectRoot: process.cwd(),
         puppeteerArgs: [
-            // Essential for VPS
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--single-process',
-            '--no-zygote',
-            // GPU & Rendering (save memory)
-            '--disable-gpu',
-            '--disable-accelerated-2d-canvas',
-            '--disable-canvas-aa',
-            '--disable-2d-canvas-clip-aa',
-            '--disable-gl-drawing-for-tests',
+            '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+            '--single-process', '--no-zygote',
+            '--disable-gpu', '--disable-accelerated-2d-canvas', '--disable-canvas-aa',
+            '--disable-2d-canvas-clip-aa', '--disable-gl-drawing-for-tests',
             '--disable-software-rasterizer',
-            // Features off
-            '--disable-background-networking',
-            '--disable-default-apps',
-            '--disable-extensions',
-            '--disable-sync',
-            '--disable-translate',
+            '--disable-background-networking', '--disable-default-apps',
+            '--disable-extensions', '--disable-sync', '--disable-translate',
             '--disable-features=TranslateUI,BlinkGenPropertyTrees,IsolateOrigins,site-per-process',
-            '--disable-ipc-flooding-protection',
-            '--disable-renderer-backgrounding',
+            '--disable-ipc-flooding-protection', '--disable-renderer-backgrounding',
             '--disable-backgrounding-occluded-windows',
-            // Memory optimization
-            '--js-flags=--max-old-space-size=128',
-            '--memory-pressure-off',
-            // UI
-            '--no-first-run',
-            '--hide-scrollbars',
-            '--mute-audio'
+            '--js-flags=--max-old-space-size=128', '--memory-pressure-off',
+            '--no-first-run', '--hide-scrollbars', '--mute-audio'
         ],
         headless: 'new'
     },
     linux: {
         name: 'Linux Desktop',
         chromiumPaths: [
-            '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
-            '/usr/bin/google-chrome',
-            '/usr/bin/google-chrome-stable',
+            '/usr/bin/chromium-browser', '/usr/bin/chromium',
+            '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable',
             '/snap/bin/chromium'
         ],
         defaultProjectRoot: process.cwd(),
-        puppeteerArgs: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-gpu'
-        ],
+        puppeteerArgs: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
         headless: 'new'
     },
     macos: {
@@ -179,10 +132,7 @@ const ENVIRONMENT_CONFIGS = {
             '/Applications/Chromium.app/Contents/MacOS/Chromium'
         ],
         defaultProjectRoot: process.cwd(),
-        puppeteerArgs: [
-            '--disable-gpu',
-            '--no-first-run'
-        ],
+        puppeteerArgs: ['--disable-gpu', '--no-first-run'],
         headless: 'new'
     },
     unknown: {
@@ -194,56 +144,49 @@ const ENVIRONMENT_CONFIGS = {
     }
 };
 
-// Get current environment config
-const ENV_CONFIG = ENVIRONMENT_CONFIGS[CURRENT_ENV] || ENVIRONMENT_CONFIGS.unknown;
+// Konfigurasi untuk lingkungan saat ini
+const KONFIG_ENV = DAFTAR_ENV[ENV_SAAT_INI] || DAFTAR_ENV.unknown;
 
 // ========================================
-// PATH RESOLUTION FUNCTIONS
+// RESOLUSI PATH
 // ========================================
 
 /**
- * Find the first existing Chromium path
+ * Cari path Chromium yang tersedia
  */
-const getChromiumPath = () => {
-    // Priority 1: Environment variable override
+const ambilPathChromium = () => {
     if (process.env.CHROMIUM_PATH) {
         if (fs.existsSync(process.env.CHROMIUM_PATH)) {
             return process.env.CHROMIUM_PATH;
         }
-        console.warn(`[CONFIG] ⚠️ CHROMIUM_PATH not found: ${process.env.CHROMIUM_PATH}`);
+        console.warn(`[CONFIG] ⚠️ CHROMIUM_PATH tidak ditemukan: ${process.env.CHROMIUM_PATH}`);
     }
 
-    // Priority 2: Auto-detect from environment config
-    for (const chromePath of ENV_CONFIG.chromiumPaths) {
+    for (const chromePath of KONFIG_ENV.chromiumPaths) {
         if (fs.existsSync(chromePath)) {
             return chromePath;
         }
     }
 
-    // Fallback: Return first path (may not exist)
-    console.warn(`[CONFIG] ⚠️ No Chromium found, using fallback: ${ENV_CONFIG.chromiumPaths[0]}`);
-    return ENV_CONFIG.chromiumPaths[0];
+    console.warn(`[CONFIG] ⚠️ Chromium tidak ditemukan, pakai fallback: ${KONFIG_ENV.chromiumPaths[0]}`);
+    return KONFIG_ENV.chromiumPaths[0];
 };
 
 /**
- * Get project root directory
+ * Ambil root directory proyek
  */
-const getProjectRoot = () => {
-    // Priority 1: Environment variable override
-    if (process.env.PROJECT_ROOT) {
-        return process.env.PROJECT_ROOT;
-    }
-    // Priority 2: Current working directory (most reliable)
+const ambilRootProyek = () => {
+    if (process.env.PROJECT_ROOT) return process.env.PROJECT_ROOT;
     return process.cwd();
 };
 
 // ========================================
-// RESOLVED PATHS
+// PATH YANG SUDAH DIRESOLUSI
 // ========================================
 
-const PROJECT_ROOT = getProjectRoot();
+const ROOT_PROYEK = ambilRootProyek();
 
-// API Endpoints for MagangHub
+// API Endpoints untuk MagangHub
 const API_BASE_URL = 'https://monev.maganghub.kemnaker.go.id';
 const SIAPKERJA_URL = 'https://siapkerja.kemnaker.go.id';
 const API_ENDPOINTS = {
@@ -257,21 +200,20 @@ const API_ENDPOINTS = {
     USER_ME: `${API_BASE_URL}/api/users/me`
 };
 
-// Session timeout (default 24 hours)
+// Timeout sesi (default 24 jam)
 const SESSION_TIMEOUT_MS = parseInt(process.env.SESSION_TIMEOUT_MS) || 24 * 60 * 60 * 1000;
 
 // ========================================
-// LOGGING ENVIRONMENT INFO
+// INFO LINGKUNGAN
 // ========================================
 
-const printEnvironmentInfo = () => {
-    console.log(`\n🌍 ${ENV_CONFIG.name} | ${CURRENT_ENV} | Node ${process.version}`);
-    console.log(`   Root: ${PROJECT_ROOT} | Chromium: ${getChromiumPath()}\n`);
+const tampilEnv = () => {
+    console.log(`\n🌍 ${KONFIG_ENV.name} | ${ENV_SAAT_INI} | Node ${process.version}`);
+    console.log(`   Root: ${ROOT_PROYEK} | Chromium: ${ambilPathChromium()}\n`);
 };
 
-// Print on startup (can be disabled via env)
 if (process.env.SILENT_STARTUP !== 'true') {
-    printEnvironmentInfo();
+    tampilEnv();
 }
 
 // ========================================
@@ -279,39 +221,37 @@ if (process.env.SILENT_STARTUP !== 'true') {
 // ========================================
 
 module.exports = {
-    // Environment info
-    CURRENT_ENV,
-    ENV_CONFIG,
-    detectEnvironment,
-    printEnvironmentInfo,
+    // Info lingkungan (nama baru)
+    ENV_SAAT_INI,
+    KONFIG_ENV,
+    deteksiEnv,
+    tampilEnv,
 
-    // Paths
-    PROJECT_ROOT,
-    SESSION_DIR: path.join(PROJECT_ROOT, 'sessions'),
-    TEMP_DIR: path.join(PROJECT_ROOT, 'temp'),
-    USERS_FILE: path.join(PROJECT_ROOT, 'users.json'),
-    GROUP_ID_FILE: path.join(PROJECT_ROOT, 'group_id.txt'),
-    AUTH_STATE_DIR: path.join(PROJECT_ROOT, 'SesiWA'),
-    LOGS_DIR: path.join(PROJECT_ROOT, 'logs'), // Directory for individual user logs
+    // Path (nama baru)
+    ROOT_PROYEK,
+    DIR_SESI: path.join(ROOT_PROYEK, 'sessions'),
+    DIR_TEMP: path.join(ROOT_PROYEK, 'temp'),
+    FILE_USER: path.join(ROOT_PROYEK, 'users.json'),
+    FILE_GRUP: path.join(ROOT_PROYEK, 'data', 'group_id.txt'),
+    DIR_AUTH: path.join(ROOT_PROYEK, 'SesiWA'),
+    DIR_LOG: path.join(ROOT_PROYEK, 'logs'),
 
-    // Puppeteer config
-    CHROMIUM_PATH: getChromiumPath(),
-    PUPPETEER_ARGS: ENV_CONFIG.puppeteerArgs,
-    PUPPETEER_HEADLESS: ENV_CONFIG.headless,
+    // Puppeteer
+    PATH_CHROMIUM: ambilPathChromium(),
+    ARG_PUPPETEER: KONFIG_ENV.puppeteerArgs,
+    HEADLESS_PUPPETEER: KONFIG_ENV.headless,
 
     // API
     API_BASE_URL,
     API_ENDPOINTS,
     SESSION_TIMEOUT_MS,
 
-    // New addition
+    // Konfigurasi umum
     APP_URL,
     ADMIN_NUMBERS,
     BOT_PREFIX,
 
-    // ========================================
-    // AI & VALIDATION CONFIGURATION
-    // ========================================
+    // AI & Validasi
     AI_CONFIG: {
         GROQ: {
             API_URL: 'https://api.groq.com/openai/v1/chat/completions',
@@ -325,12 +265,28 @@ module.exports = {
             TIMEOUT: 60000
         },
         REPORT: {
-            MIN_CHARS: 110, // Buffer to ensure > 100
+            MIN_CHARS: 110,
             MAX_CHARS: 300,
-            TRUNCATE_BUFFER: 50 // Increase buffer to find a better cut-off point
+            TRUNCATE_BUFFER: 50
         }
     },
     VALIDATION: {
         MANUAL_MIN_CHARS: 100
-    }
+    },
+
+    // === ALIAS (backward compat) ===
+    CURRENT_ENV: ENV_SAAT_INI,
+    ENV_CONFIG: KONFIG_ENV,
+    detectEnvironment: deteksiEnv,
+    printEnvironmentInfo: tampilEnv,
+    PROJECT_ROOT: ROOT_PROYEK,
+    SESSION_DIR: path.join(ROOT_PROYEK, 'sessions'),
+    TEMP_DIR: path.join(ROOT_PROYEK, 'temp'),
+    USERS_FILE: path.join(ROOT_PROYEK, 'users.json'),
+    GROUP_ID_FILE: path.join(ROOT_PROYEK, 'data', 'group_id.txt'),
+    AUTH_STATE_DIR: path.join(ROOT_PROYEK, 'SesiWA'),
+    LOGS_DIR: path.join(ROOT_PROYEK, 'logs'),
+    CHROMIUM_PATH: ambilPathChromium(),
+    PUPPETEER_ARGS: KONFIG_ENV.puppeteerArgs,
+    PUPPETEER_HEADLESS: KONFIG_ENV.headless
 };

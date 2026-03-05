@@ -1,10 +1,10 @@
 const fs = require("fs");
 const { USERS_FILE } = require('../config/constants');
 
-// Write queue to prevent race conditions
-let writeQueue = Promise.resolve();
-const safeWriteFile = (path, data) => {
-    writeQueue = writeQueue.then(() => {
+// Antrian tulis untuk mencegah race condition
+let antrianTulis = Promise.resolve();
+const tulisFileAman = (path, data) => {
+    antrianTulis = antrianTulis.then(() => {
         return new Promise((resolve, reject) => {
             fs.writeFile(path, data, 'utf8', (err) => {
                 if (err) reject(err);
@@ -12,124 +12,112 @@ const safeWriteFile = (path, data) => {
             });
         });
     }).catch(err => {
-        console.error('[DATABASE] Write error:', err.message);
+        console.error('[DATABASE] Gagal menulis:', err.message);
     });
-    return writeQueue;
+    return antrianTulis;
 };
 
-// In-memory cache
-let cachedUsers = null;
+// Cache di memori
+let cacheUser = null;
 
-const loadUsers = () => {
-    // 1. Return from memory if available
-    if (cachedUsers) return structuredClone(cachedUsers);
+const muatUser = () => {
+    if (cacheUser) return structuredClone(cacheUser);
 
-    // 2. Otherwise load from disk
     try {
         if (!fs.existsSync(USERS_FILE)) {
             fs.writeFileSync(USERS_FILE, JSON.stringify([]));
-            cachedUsers = [];
+            cacheUser = [];
             return [];
         }
 
         const data = fs.readFileSync(USERS_FILE, "utf8");
-        cachedUsers = JSON.parse(data);
-        return [...cachedUsers];
+        cacheUser = JSON.parse(data);
+        return [...cacheUser];
     } catch (e) {
-        console.error('[DATABASE] Load error:', e.message);
+        console.error('[DATABASE] Gagal memuat:', e.message);
         return [];
     }
 };
 
 /**
- * Update memory and persist to disk
+ * Update memori dan simpan ke disk
  */
-const updateUsers = (users) => {
-    cachedUsers = [...users];
-    return safeWriteFile(USERS_FILE, JSON.stringify(users, null, 2));
+const perbaruiUser = (users) => {
+    cacheUser = [...users];
+    return tulisFileAman(USERS_FILE, JSON.stringify(users, null, 2));
 };
 
-// ... replace all safeWriteFile(USERS_FILE, ...) with updateUsers(users) ...
-
-
-// Helper: Normalisasi nomor telepon
-const normalizePhone = (phone) => {
+// Helper: Normalisasi nomor HP
+const normalisasiHP = (phone) => {
     if (!phone) return '';
-    let normalized = phone.split('@')[0].split(':')[0];
-    normalized = normalized.replace(/\D/g, '');
-    return normalized;
+    let hasil = phone.split('@')[0].split(':')[0];
+    hasil = hasil.replace(/\D/g, '');
+    return hasil;
 };
 
-// Cari user berdasarkan phone, LID, atau identifiers lainnya
-const getUserByPhone = (id) => {
-    const users = loadUsers();
-    const normalizedId = normalizePhone(id);
+// Cari user berdasarkan phone, LID, atau identifiers
+const cariUserHP = (id) => {
+    const users = muatUser();
+    const idNormal = normalisasiHP(id);
 
     return users.find(u => {
-        // Cek phone utama
-        if (normalizePhone(u.phone) === normalizedId) return true;
+        if (normalisasiHP(u.phone) === idNormal) return true;
         if (u.phone === id) return true;
-
-        // Cek LID
-        if (u.lid && (normalizePhone(u.lid) === normalizedId || u.lid === id)) return true;
-
-        // Cek identifiers array
+        if (u.lid && (normalisasiHP(u.lid) === idNormal || u.lid === id)) return true;
         if (u.identifiers && Array.isArray(u.identifiers)) {
             for (const identifier of u.identifiers) {
-                if (normalizePhone(identifier) === normalizedId || identifier === id) return true;
+                if (normalisasiHP(identifier) === idNormal || identifier === id) return true;
             }
         }
-
         return false;
     });
 };
 
 // Cari user berdasarkan email
-const getUserByEmail = (email) => {
-    const users = loadUsers();
+const cariUserEmail = (email) => {
+    const users = muatUser();
     return users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
 };
 
 // Cari user berdasarkan slug
-const getUserBySlug = (slug) => {
-    const users = loadUsers();
+const cariUserSlug = (slug) => {
+    const users = muatUser();
     return users.find(u => u.slug === slug);
 };
 
-// Ambil semua user (dengan deduplicate)
-const getAllUsers = () => {
-    const users = loadUsers();
-    const uniqueUsers = [];
-    const seenEmails = new Set();
+// Ambil semua user (deduplicate berdasarkan email)
+const semuaUser = () => {
+    const users = muatUser();
+    const unik = [];
+    const emailSudah = new Set();
 
     for (const user of users) {
         if (!user.email) continue;
-        const emailKey = user.email.toLowerCase();
-        if (!seenEmails.has(emailKey)) {
-            seenEmails.add(emailKey);
-            uniqueUsers.push(user);
+        const kunci = user.email.toLowerCase();
+        if (!emailSudah.has(kunci)) {
+            emailSudah.add(kunci);
+            unik.push(user);
         }
     }
-    return uniqueUsers;
+    return unik;
 };
 
 // Simpan atau update user
-const saveUser = (phoneNumber, email, password) => {
-    const users = loadUsers();
+const simpanUser = (nomorHP, email, password) => {
+    const users = muatUser();
 
     // Normalisasi phone
-    if (phoneNumber && !phoneNumber.includes("@")) {
-        phoneNumber = phoneNumber + "@s.whatsapp.net";
+    if (nomorHP && !nomorHP.includes("@")) {
+        nomorHP = nomorHP + "@s.whatsapp.net";
     }
 
     // Cek apakah email sudah ada (untuk auto-link)
-    const existingByEmail = users.findIndex(u =>
+    const idxEmail = users.findIndex(u =>
         u.email && u.email.toLowerCase() === email.toLowerCase()
     );
 
-    if (existingByEmail !== -1) {
-        // Email sudah ada - tambahkan identifier baru
-        const user = users[existingByEmail];
+    if (idxEmail !== -1) {
+        const user = users[idxEmail];
 
         // Inisialisasi identifiers jika belum ada
         if (!user.identifiers) {
@@ -139,16 +127,16 @@ const saveUser = (phoneNumber, email, password) => {
         }
 
         // Tambahkan phone baru ke identifiers jika belum ada
-        const normalizedNew = normalizePhone(phoneNumber);
-        const alreadyExists = user.identifiers.some(id => normalizePhone(id) === normalizedNew);
+        const hpNormal = normalisasiHP(nomorHP);
+        const sudahAda = user.identifiers.some(id => normalisasiHP(id) === hpNormal);
 
-        if (!alreadyExists) {
-            user.identifiers.push(phoneNumber);
+        if (!sudahAda) {
+            user.identifiers.push(nomorHP);
         }
 
-        // Update phone utama jika yang baru adalah format yang lebih baik (bukan LID)
-        if (user.phone.includes('@lid') && !phoneNumber.includes('@lid')) {
-            user.phone = phoneNumber;
+        // Update phone utama jika yang baru bukan LID
+        if (user.phone.includes('@lid') && !nomorHP.includes('@lid')) {
+            user.phone = nomorHP;
         }
 
         user.password = password;
@@ -157,78 +145,97 @@ const saveUser = (phoneNumber, email, password) => {
     } else {
         // User baru
         users.push({
-            phone: phoneNumber,
+            phone: nomorHP,
             email,
             password,
-            identifiers: [phoneNumber],
+            identifiers: [nomorHP],
             registeredAt: new Date().toISOString(),
             lastLogin: new Date().toISOString()
         });
     }
 
-    updateUsers(users);
+    perbaruiUser(users);
     return true;
 };
 
-const updateUserLid = (realPhoneNumber, lid) => {
-    const users = loadUsers();
-    const normalizedPhone = normalizePhone(realPhoneNumber);
-    const index = users.findIndex(u => normalizePhone(u.phone) === normalizedPhone);
+const updateLidUser = (nomorAsli, lid) => {
+    const users = muatUser();
+    const hpNormal = normalisasiHP(nomorAsli);
+    const idx = users.findIndex(u => normalisasiHP(u.phone) === hpNormal);
 
-    if (index !== -1) {
-        users[index].lid = lid;
+    if (idx !== -1) {
+        users[idx].lid = lid;
 
-        // Tambahkan LID ke identifiers
-        if (!users[index].identifiers) users[index].identifiers = [users[index].phone];
-        if (!users[index].identifiers.includes(lid)) {
-            users[index].identifiers.push(lid);
+        if (!users[idx].identifiers) users[idx].identifiers = [users[idx].phone];
+        if (!users[idx].identifiers.includes(lid)) {
+            users[idx].identifiers.push(lid);
         }
 
-        updateUsers(users);
+        perbaruiUser(users);
         return true;
     }
     return false;
 };
 
-const deleteUser = (phoneNumber) => {
-    const users = loadUsers();
-    const normalizedPhone = normalizePhone(phoneNumber);
+const hapusUser = (nomorHP) => {
+    const users = muatUser();
+    const hpNormal = normalisasiHP(nomorHP);
 
-    const index = users.findIndex(u => {
-        if (normalizePhone(u.phone) === normalizedPhone) return true;
-        if (u.lid && normalizePhone(u.lid) === normalizedPhone) return true;
+    const idx = users.findIndex(u => {
+        if (normalisasiHP(u.phone) === hpNormal) return true;
+        if (u.lid && normalisasiHP(u.lid) === hpNormal) return true;
         if (u.identifiers) {
-            return u.identifiers.some(id => normalizePhone(id) === normalizedPhone);
+            return u.identifiers.some(id => normalisasiHP(id) === hpNormal);
         }
         return false;
     });
 
-    if (index !== -1) {
-        users.splice(index, 1);
-        updateUsers(users);
+    if (idx !== -1) {
+        users.splice(idx, 1);
+        perbaruiUser(users);
         return true;
     }
     return false;
 };
 
-const saveUserTemplate = (phoneNumber, templateData) => {
-    const users = loadUsers();
-    const normalizedPhone = normalizePhone(phoneNumber);
-    const index = users.findIndex(u => {
-        if (normalizePhone(u.phone) === normalizedPhone) return true;
-        if (u.lid && normalizePhone(u.lid) === normalizedPhone) return true;
+const simpanTemplateUser = (nomorHP, templateData) => {
+    const users = muatUser();
+    const hpNormal = normalisasiHP(nomorHP);
+    const idx = users.findIndex(u => {
+        if (normalisasiHP(u.phone) === hpNormal) return true;
+        if (u.lid && normalisasiHP(u.lid) === hpNormal) return true;
         if (u.identifiers) {
-            return u.identifiers.some(id => normalizePhone(id) === normalizedPhone);
+            return u.identifiers.some(id => normalisasiHP(id) === hpNormal);
         }
         return false;
     });
 
-    if (index !== -1) {
-        users[index].template = templateData;
-        updateUsers(users);
+    if (idx !== -1) {
+        users[idx].template = templateData;
+        perbaruiUser(users);
         return true;
     }
     return false;
 };
 
-module.exports = { getUserByPhone, getUserByEmail, getUserBySlug, saveUser, updateUserLid, getAllUsers, deleteUser, saveUserTemplate };
+module.exports = {
+    // Nama baru
+    cariUserHP,
+    cariUserEmail,
+    cariUserSlug,
+    simpanUser,
+    updateLidUser,
+    semuaUser,
+    hapusUser,
+    simpanTemplateUser,
+
+    // Alias backward compat
+    getUserByPhone: cariUserHP,
+    getUserByEmail: cariUserEmail,
+    getUserBySlug: cariUserSlug,
+    saveUser: simpanUser,
+    updateUserLid: updateLidUser,
+    getAllUsers: semuaUser,
+    deleteUser: hapusUser,
+    saveUserTemplate: simpanTemplateUser
+};

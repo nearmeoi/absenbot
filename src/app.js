@@ -4,23 +4,22 @@ const chalk = require("chalk")
 const readline = require("readline")
 const fs = require('fs');
 const path = require('path');
-const { AUTH_STATE_DIR } = require('./config/constants');
+const { DIR_AUTH } = require('./config/constants');
 const { initScheduler, setBotSocket } = require('./services/scheduler');
 const { initAuthServer } = require('./services/secureAuth');
-const messageHandler = require('./handlers/messageHandler');
+const tanganiPesan = require('./handlers/messageHandler');
+const { initPelaporError, laporError } = require('./services/errorReporter');
 
-const { initErrorReporter, reportError } = require('./services/errorReporter');
+const modePairing = true;
+let jadwalSiap = false;
+let serverAuthSiap = false;
 
-const usePairingCode = true;
-let schedulerInitialized = false; // Prevent multiple scheduler init
-let authServerInitialized = false; // Prevent multiple auth server init
-
-const question = (text) => {
+const tanya = (teks) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-    return new Promise((resolve) => rl.question(text, (ans) => { rl.close(); resolve(ans) }))
+    return new Promise((resolve) => rl.question(teks, (jawaban) => { rl.close(); resolve(jawaban) }))
 }
 
-function getMessageContent(msg) {
+function ekstrakPesan(msg) {
     if (!msg.message) return "";
     const m = msg.message;
     if (m.conversation) return m.conversation;
@@ -34,38 +33,70 @@ function getMessageContent(msg) {
     return "";
 }
 
-// Group Metadata Cache
-const groupCache = new Map();
+// Cache metadata grup
+const cacheGrup = new Map();
 
-async function getGroupMetadata(sock, jid) {
-    if (groupCache.has(jid)) {
-        const cached = groupCache.get(jid);
-        if (Date.now() - cached.timestamp < 3600000) { // 1 hour cache
+async function ambilInfoGrup(sock, jid) {
+    if (cacheGrup.has(jid)) {
+        const cached = cacheGrup.get(jid);
+        if (Date.now() - cached.waktu < 3600000) { // Cache 1 jam
             return cached.metadata;
         }
     }
     try {
         const metadata = await sock.groupMetadata(jid);
-        groupCache.set(jid, { metadata, timestamp: Date.now() });
+        cacheGrup.set(jid, { metadata, waktu: Date.now() });
         return metadata;
     } catch (e) {
         return null;
     }
 }
 
-// Store reconnect attempts
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 5;
+// Percobaan koneksi ulang
+let hitungKoneksiUlang = 0;
+const MAKS_KONEKSI_ULANG = 20;
 
-async function connectToWhatsApp(isInitial = true) {
-    const { state, saveCreds } = await useMultiFileAuthState(AUTH_STATE_DIR)
+// Lookup map untuk alasan disconnect
+const ALASAN_DISCONNECT = {
+    [DisconnectReason.badSession]: {
+        alasan: 'Sesi Rusak',
+        info: 'Solusi: Hapus folder SesiWA secara manual dan restart bot jika pairing gagal.'
+    },
+    [DisconnectReason.connectionClosed]: {
+        alasan: 'Koneksi Ditutup (428)',
+        info: 'Penyebab: Koneksi ditutup server. Mencoba menyambung ulang...'
+    },
+    [DisconnectReason.connectionLost]: {
+        alasan: 'Koneksi Hilang',
+        info: 'Penyebab: Koneksi internet server tidak stabil.'
+    },
+    [DisconnectReason.connectionReplaced]: {
+        alasan: 'Koneksi Diganti',
+        info: 'Penyebab: Sesi ini dibuka di perangkat/browser lain.'
+    },
+    [DisconnectReason.loggedOut]: {
+        alasan: 'Perangkat Logout (401)',
+        info: 'Silakan hapus folder SesiWA dan scan ulang.'
+    },
+    [DisconnectReason.restartRequired]: {
+        alasan: 'Restart Diperlukan',
+        info: 'Bot akan melakukan restart otomatis.'
+    },
+    [DisconnectReason.timedOut]: {
+        alasan: 'Koneksi Timeout',
+        info: 'Mencoba menyambung ulang...'
+    }
+};
+
+async function sambungKeWhatsApp(awal = true) {
+    const { state, saveCreds } = await useMultiFileAuthState(DIR_AUTH)
     const { version } = await fetchLatestBaileysVersion()
 
     console.log(chalk.cyan(`🤖 Memulai Bot (v${version.join('.')}) + SCHEDULER`))
 
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
-        printQRInTerminal: !usePairingCode,
+        printQRInTerminal: !modePairing,
         auth: state,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
         version,
@@ -74,183 +105,154 @@ async function connectToWhatsApp(isInitial = true) {
         markOnlineOnConnect: true,
         shouldSyncHistoryMessage: () => false,
         retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 0, 
+        defaultQueryTimeoutMs: 0,
         connectTimeoutMs: 120000,
-        keepAliveIntervalMs: 60000, // Increase keep-alive interval
+        keepAliveIntervalMs: 60000,
         getMessage: async (key) => {
-            return { conversation: "" }; 
+            return { conversation: "" };
         }
     })
 
     // --- ANTI-LOOP WRAPPER ---
-    const originalSendMessage = sock.sendMessage.bind(sock);
-    const { recordSentMessage } = require('./services/botState');
-    
+    const kirimAsli = sock.sendMessage.bind(sock);
+    const { catatPesanKeluar } = require('./services/botState');
+
     sock.sendMessage = async (...args) => {
-        const isLoop = recordSentMessage();
-        if (isLoop) {
-            console.error(chalk.bgRed.white(" [ANTI-LOOP] CRITICAL: Too many outgoing messages! Shutting down to prevent spam. "));
-            
-            // Try to notify admin before crashing if possible (one last shot)
+        const loopDetected = catatPesanKeluar();
+        if (loopDetected) {
+            console.error(chalk.bgRed.white(" [ANTI-LOOP] KRITIS: Terlalu banyak pesan keluar! Shutdown untuk mencegah spam. "));
+
             try {
                 const { ADMIN_NUMBERS } = require('./config/constants');
                 if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
-                    await originalSendMessage(ADMIN_NUMBERS[0], { 
-                        text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan." 
+                    await kirimAsli(ADMIN_NUMBERS[0], {
+                        text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan."
                     });
                 }
-            } catch (e) {}
+            } catch (e) { }
 
-            process.exit(1); // Force exit, PM2 will handle restart
+            process.exit(1);
         }
-        return originalSendMessage(...args);
+        return kirimAsli(...args);
     };
 
-    // Pairing code logic
-    if (usePairingCode && !sock.authState.creds.registered) {
-        let phoneNumber = process.env.PAIRING_NUMBER;
-        if (!phoneNumber) {
-            phoneNumber = await question(chalk.green('Nomor WA (628xxx): '))
+    // Pairing code
+    if (modePairing && !sock.authState.creds.registered) {
+        let nomorHP = process.env.PAIRING_NUMBER;
+        if (!nomorHP) {
+            nomorHP = await tanya(chalk.green('Nomor WA (628xxx): '))
         } else {
-            console.log(chalk.cyan(`[PAIRING] Using phone number from ENV: ${phoneNumber}`));
+            console.log(chalk.cyan(`[PAIRING] Menggunakan nomor dari ENV: ${nomorHP}`));
         }
-        
+
         try {
-            // Wait a bit before requesting code to avoid 428 - REDUCED TO 5s
-            console.log(chalk.yellow('[PAIRING] Waiting 5s for server stability before requesting code...'));
+            console.log(chalk.yellow('[PAIRING] Menunggu 5 detik untuk stabilitas server...'));
             await new Promise(resolve => setTimeout(resolve, 5000));
-            const code = await sock.requestPairingCode(phoneNumber.trim())
-            console.log('\n' + chalk.bgGreen.black(' 🔑 PAIRING CODE ') + ' ' + chalk.yellow.bold(code) + '\n');
+            const kode = await sock.requestPairingCode(nomorHP.trim())
+            console.log('\n' + chalk.bgGreen.black(' 🔑 KODE PAIRING ') + ' ' + chalk.yellow.bold(kode) + '\n');
         } catch (err) {
-            console.error(chalk.red('[PAIRING] Failed to request pairing code:'), err.message);
+            console.error(chalk.red('[PAIRING] Gagal meminta kode pairing:'), err.message);
         }
     }
 
     sock.ev.on("creds.update", saveCreds)
 
-    // DEBUG ALL EVENTS
-    sock.ev.process(async (events) => {
-        if (events['connection.update']) {
-            // Handled separately below, but we can log it here too
-        }
-    });
-
     sock.ev.on("connection.update", (update) => {
         const { connection, lastDisconnect, qr } = update;
-        
-        if (qr && !usePairingCode) {
-            console.log(chalk.yellow('[QR] New QR Code generated.'));
-            const { setLastQR } = require('./services/botState');
-            setLastQR(qr);
+
+        if (qr && !modePairing) {
+            console.log(chalk.yellow('[QR] QR Code baru dihasilkan.'));
+            const { setQRTerakhir } = require('./services/botState');
+            setQRTerakhir(qr);
         }
 
         if (connection === "close") {
-            const reason = lastDisconnect?.error?.output?.statusCode;
-            let failureReason = 'Unknown Error';
-            let extraInfo = '';
+            const kodeStatus = lastDisconnect?.error?.output?.statusCode;
 
-            if (reason === DisconnectReason.badSession) {
-                failureReason = 'Bad Session File';
-                extraInfo = 'Solusi: Hapus folder SesiWA secara manual dan restart bot jika pairing gagal.';
-            } else if (reason === DisconnectReason.connectionClosed) {
-                failureReason = 'Connection Closed (428)';
-                extraInfo = 'Penyebab: Koneksi ditutup server. Mencoba menyambung ulang...';
-            } else if (reason === DisconnectReason.connectionLost) {
-                failureReason = 'Connection Lost from Server';
-                extraInfo = 'Penyebab: Koneksi internet server tidak stabil.';
-            } else if (reason === DisconnectReason.connectionReplaced) {
-                failureReason = 'Connection Replaced';
-                extraInfo = 'Penyebab: Sesi ini dibuka di perangkat/browser lain.';
-            } else if (reason === DisconnectReason.loggedOut) {
-                failureReason = 'Device Logged Out (401)';
-                extraInfo = 'Silakan hapus folder SesiWA dan scan ulang.';
-            } else if (reason === DisconnectReason.restartRequired) {
-                failureReason = 'Restart Required';
-                extraInfo = 'Bot akan melakukan restart otomatis.';
-            } else if (reason === DisconnectReason.timedOut) {
-                failureReason = 'Connection Timed Out';
-                extraInfo = 'Mencoba menyambung ulang...';
+            // Cari info disconnect dari lookup map
+            const infoDisconnect = ALASAN_DISCONNECT[kodeStatus] || {
+                alasan: 'Error Tidak Diketahui',
+                info: ''
+            };
+
+            console.log(chalk.red(`❌ Koneksi Terputus: ${infoDisconnect.alasan} (${kodeStatus})`));
+
+            // Reset percobaan untuk error sementara
+            if (kodeStatus === 428 || kodeStatus === 408) {
+                console.log(chalk.yellow(' [SYSTEM] Error sementara terdeteksi. Mereset percobaan... '));
+                hitungKoneksiUlang = 0;
             }
 
-            console.log(chalk.red(`❌ Koneksi Terputus: ${failureReason} (${reason})`));
-            
-            // Auto-reset reconnect attempts for temporary server errors
-            if (reason === 428 || reason === 408) {
-                console.log(chalk.yellow(' [SYSTEM] Recoverable error detected. Resetting attempts... '));
-                reconnectAttempts = 0;
-            }
+            if (infoDisconnect.info) console.log(chalk.yellow(`ℹ️ Info: ${infoDisconnect.info}`));
 
-            if (extraInfo) console.log(chalk.yellow(`ℹ️ Info: ${extraInfo}`));
-            
             if (lastDisconnect?.error) {
-                console.log(chalk.gray(`[DEBUG] Error Detail: ${lastDisconnect.error.message}`));
+                console.log(chalk.gray(`[DEBUG] Detail: ${lastDisconnect.error.message}`));
             }
 
-            // Update dashboard status
+            // Update status dashboard
             try {
                 const dashboardRoutes = require('./routes/dashboardRoutes');
                 dashboardRoutes.setBotConnected(false);
             } catch (e) { }
 
-            const shouldReconnect = reason !== DisconnectReason.loggedOut;
-            if (shouldReconnect && reconnectAttempts < 20) { // Increased to 20
-                reconnectAttempts++;
-                console.log(chalk.yellow(`🔄 Reconnecting (${reconnectAttempts}/20) in 5 seconds...`));
+            const harusRekoneksi = kodeStatus !== DisconnectReason.loggedOut;
+            if (harusRekoneksi && hitungKoneksiUlang < MAKS_KONEKSI_ULANG) {
+                hitungKoneksiUlang++;
+                console.log(chalk.yellow(`🔄 Menyambung ulang (${hitungKoneksiUlang}/${MAKS_KONEKSI_ULANG}) dalam 5 detik...`));
                 setTimeout(() => {
-                    connectToWhatsApp(false); 
+                    sambungKeWhatsApp(false);
                 }, 5000);
-            } else if (reconnectAttempts >= 20) {
-                console.log(chalk.bgRed('❌ Max reconnect attempts reached. Please check server manually.'));
+            } else if (hitungKoneksiUlang >= MAKS_KONEKSI_ULANG) {
+                console.log(chalk.bgRed('❌ Batas percobaan koneksi ulang tercapai. Cek server secara manual.'));
             } else {
-                console.log(chalk.bgRed('⛔ Session Invalid/Logged Out. Please delete SesiWA and restart.'));
+                console.log(chalk.bgRed('⛔ Sesi tidak valid / Logout. Hapus folder SesiWA dan restart.'));
             }
         } else if (connection === "connecting") {
             console.log(chalk.cyan("🔄 Sedang menyambung ke WhatsApp..."));
         } else if (connection === "open") {
-            reconnectAttempts = 0; // Reset on success
+            hitungKoneksiUlang = 0;
             console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
             console.log(chalk.gray(`[SYSTEM] Sesi valid terdeteksi. Bot siap digunakan.`));
 
-            // INIT ERROR REPORTER
-            initErrorReporter(sock);
+            // Init error reporter
+            initPelaporError(sock);
 
-            // INIT AUTH SERVER (only once)
-            if (!authServerInitialized) {
+            // Init auth server (sekali saja)
+            if (!serverAuthSiap) {
                 initAuthServer();
-                authServerInitialized = true;
+                serverAuthSiap = true;
             }
 
-            // Pass socket to dashboard for broadcast/trigger features
+            // Berikan socket ke dashboard
             const dashboardRoutes = require('./routes/dashboardRoutes');
             dashboardRoutes.setBotSocket(sock);
             dashboardRoutes.setBotConnected(true);
 
-            // SEND TEST MESSAGE TO ADMIN
+            // Kirim pesan tes ke admin
             const { ADMIN_NUMBERS } = require('./config/constants');
             if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
-                // Delay 5s to allow session to stabilize
                 setTimeout(() => {
                     sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 Bot baru saja restart dan terhubung. Jika Anda melihat ini, bot bisa mengirim pesan.' })
                         .catch(err => {
-                            console.error(chalk.red(`[ERROR] Failed to send test message: ${err.message}`));
+                            console.error(chalk.red(`[ERROR] Gagal mengirim pesan tes: ${err.message}`));
                         });
                 }, 5000);
             }
 
-            // Update scheduler socket
+            // Update socket scheduler
             setBotSocket(sock);
 
-            // INIT SCHEDULER (only once)
-            if (!schedulerInitialized) {
+            // Init scheduler (sekali saja)
+            if (!jadwalSiap) {
                 initScheduler(sock);
-                schedulerInitialized = true;
+                jadwalSiap = true;
             }
         }
     })
 
-    // Store startup time to ignore old messages
-    const STARTUP_TIME = Math.floor(Date.now() / 1000);
-    const processedMessages = new Set();
+    // Simpan waktu startup untuk mengabaikan pesan lama
+    const WAKTU_MULAI = Math.floor(Date.now() / 1000);
+    const pesanDiproses = new Set();
 
     sock.ev.on("messages.upsert", async (m) => {
         if (m.type !== 'notify') return;
@@ -258,76 +260,70 @@ async function connectToWhatsApp(isInitial = true) {
         try {
             for (const msg of m.messages) {
                 if (!msg.message) continue;
-                
-                const msgId = msg.key.id;
-                if (processedMessages.has(msgId)) continue;
-                processedMessages.add(msgId);
-                
-                // Clean up cache if too large
-                if (processedMessages.size > 1000) {
-                    const first = processedMessages.values().next().value;
-                    processedMessages.delete(first);
+
+                const idPesan = msg.key.id;
+                if (pesanDiproses.has(idPesan)) continue;
+                pesanDiproses.add(idPesan);
+
+                // Bersihkan cache jika terlalu besar
+                if (pesanDiproses.size > 1000) {
+                    const pertama = pesanDiproses.values().next().value;
+                    pesanDiproses.delete(pertama);
                 }
 
                 if (msg.key.remoteJid === 'status@broadcast') continue;
-                if (msg.key.remoteJid.includes('@newsletter')) continue; // Ignore Channels
+                if (msg.key.remoteJid.includes('@newsletter')) continue;
 
-                const text = getMessageContent(msg);
+                const teks = ekstrakPesan(msg);
 
-                // Mark as read to avoid repeated processing
-                try {
-                    await sock.readMessages([msg.key]);
-                } catch (e) { }
+                // Tandai sudah dibaca
+                try { await sock.readMessages([msg.key]); } catch (e) { }
 
-                // Ignore old messages (only if older than 30 minutes before startup)
-                const msgTime = (typeof msg.messageTimestamp === 'number')
+                // Abaikan pesan lama (lebih dari 30 menit sebelum startup)
+                const waktuPesan = (typeof msg.messageTimestamp === 'number')
                     ? msg.messageTimestamp
                     : msg.messageTimestamp.low || Math.floor(Date.now() / 1000);
 
-                const TOLERANCE = 1800; // 30 minutes tolerance
-                if (msgTime < (STARTUP_TIME - TOLERANCE)) {
-                    continue;
+                const TOLERANSI = 1800; // 30 menit
+                if (waktuPesan < (WAKTU_MULAI - TOLERANSI)) continue;
+
+                if (!teks) continue;
+
+                const dariSaya = msg.key.fromMe;
+                const jidTujuan = msg.key.remoteJid;
+                const adalahGrup = jidTujuan.endsWith('@g.us');
+
+                // Ambil nama pengirim
+                let namaPengirim = msg.pushName || 'Unknown';
+                if (dariSaya) namaPengirim = 'ME';
+
+                // Ambil info grup (jika grup)
+                let infoKonteks = '';
+                if (adalahGrup) {
+                    const metadataGrup = await ambilInfoGrup(sock, jidTujuan);
+                    infoKonteks = metadataGrup
+                        ? chalk.yellow(`[${metadataGrup.subject}] `)
+                        : chalk.yellow(`[Group] `);
                 }
 
-                if (!text) continue;
+                // Format timestamp
+                const waktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-                const isMe = msg.key.fromMe;
-                const remoteJid = msg.key.remoteJid;
-                const isGroup = remoteJid.endsWith('@g.us');
+                // Format log: [WAKTU] [Grup] Pengirim: Pesan
+                const prefix = chalk.gray(`[${waktu}]`);
+                const pengirim = dariSaya ? chalk.blue.bold('ME') : chalk.green.bold(namaPengirim);
 
-                // Get Sender Name
-                let senderName = msg.pushName || 'Unknown';
-                if (isMe) senderName = 'ME';
-
-                // Get Group Name (if applicable)
-                let contextInfo = '';
-                if (isGroup) {
-                    const groupMetadata = await getGroupMetadata(sock, remoteJid);
-                    if (groupMetadata) {
-                        contextInfo = chalk.yellow(`[${groupMetadata.subject}] `);
-                    } else {
-                        contextInfo = chalk.yellow(`[Group] `);
-                    }
-                }
-
-                // Format Timestamp
-                const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-                // Log Format: [TIME] [Group] Sender: Message
-                const prefix = chalk.gray(`[${time}]`);
-                const sender = isMe ? chalk.blue.bold('ME') : chalk.green.bold(senderName);
-
-                console.log(`${prefix} ${contextInfo}${sender}: ${text}`);
+                console.log(`${prefix} ${infoKonteks}${pengirim}: ${teks}`);
 
                 try {
-                    msg.bodyTeks = text;
-                    await messageHandler(sock, msg);
+                    msg.bodyTeks = teks;
+                    await tanganiPesan(sock, msg);
                 } catch (e) {
                     console.error(chalk.bgRed(" HANDLER ERROR "), e);
-                    reportError(e, 'messageHandler', { 
-                        sender: remoteJid, 
-                        text: text,
-                        isGroup: isGroup
+                    laporError(e, 'messageHandler', {
+                        sender: jidTujuan,
+                        text: teks,
+                        isGroup: adalahGrup
                     });
                 }
             }
@@ -337,4 +333,4 @@ async function connectToWhatsApp(isInitial = true) {
     })
 }
 
-module.exports = connectToWhatsApp;
+module.exports = sambungKeWhatsApp;

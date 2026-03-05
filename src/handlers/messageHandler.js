@@ -1,13 +1,13 @@
 /**
- * Message Handler - Slim Dispatcher
- * Routes incoming messages to appropriate command modules
+ * Penangan Pesan — Dispatcher Utama
+ * Meneruskan pesan masuk ke modul perintah yang sesuai
  */
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
 const { getCommand, getCommandKeys } = require('../commands');
 const { findClosestMatch } = require('../utils/stringUtils');
-const { getUserByPhone, updateUserLid } = require('../services/database');
+const { cariUserHP, updateLidUser } = require('../services/database');
 const { prosesLoginDanAbsen, getRiwayat } = require('../services/magang');
 const { processFreeTextToReport } = require('../services/aiService');
 const { getDraft, setDraft, deleteDraft, formatDraftPreview } = require('../services/previewService');
@@ -15,232 +15,234 @@ const botState = require('../services/botState');
 const { getMessage } = require('../services/messageService');
 const { BOT_PREFIX, VALIDATION } = require('../config/constants');
 const { parseDraftFromMessage, normalizeToStandard } = require('../utils/messageUtils');
-const { reportError } = require('../services/errorReporter');
+const { laporError } = require('../services/errorReporter');
 
-// In-memory cache for marked users
-let cachedMarkedUsers = null;
-const MARKED_USERS_FILE = path.join(__dirname, '../../data/marked_users.json');
+// Cache user yang ditandai
+let cacheUserTandai = null;
+const FILE_USER_TANDAI = path.join(__dirname, '../../data/marked_users.json');
 
-const loadMarkedUsers = () => {
-    if (cachedMarkedUsers) return cachedMarkedUsers;
+const muatUserTandai = () => {
+    if (cacheUserTandai) return cacheUserTandai;
     try {
-        if (fs.existsSync(MARKED_USERS_FILE)) {
-            const data = JSON.parse(fs.readFileSync(MARKED_USERS_FILE, 'utf8'));
-            cachedMarkedUsers = (data && Array.isArray(data.marked_users)) ? data.marked_users : [];
-            return cachedMarkedUsers;
+        if (fs.existsSync(FILE_USER_TANDAI)) {
+            const data = JSON.parse(fs.readFileSync(FILE_USER_TANDAI, 'utf8'));
+            cacheUserTandai = (data && Array.isArray(data.marked_users)) ? data.marked_users : [];
+            return cacheUserTandai;
         }
     } catch (e) {
-        console.error('[HANDLER] Error loading marked users:', e.message);
+        console.error('[HANDLER] Gagal memuat user tandai:', e.message);
     }
-    cachedMarkedUsers = [];
-    return cachedMarkedUsers;
+    cacheUserTandai = [];
+    return cacheUserTandai;
 };
 
 /**
- * Main message handler
+ * Handler utama untuk semua pesan masuk
  */
-const messageHandler = async (sock, msg) => {
+const tanganiPesan = async (sock, msg) => {
+    let noPengirim, teksPesan, pengirim;
+
     try {
-        let msgObj = msg.messages ? msg.messages[0] : msg;
-        if (!msgObj || !msgObj.message) return;
+        let objPesan = msg.messages ? msg.messages[0] : msg;
+        if (!objPesan || !objPesan.message) return;
 
-        // Ignore messages from self to prevent loops
-        if (msgObj.key.fromMe) return;
+        // Abaikan pesan dari diri sendiri untuk mencegah loop
+        if (objPesan.key.fromMe) return;
 
-        const botStatus = botState.getBotStatus();
-        const sender = msgObj.key.remoteJid;
-        const isGroup = sender.endsWith("@g.us");
+        const statusBot = botState.ambilStatusBot();
+        pengirim = objPesan.key.remoteJid;
+        const adalahGrup = pengirim.endsWith("@g.us");
 
-        // Bot offline - ignore all
-        if (botStatus === 'offline') return;
+        // Bot offline — abaikan semua
+        if (statusBot === 'offline') return;
 
-        // --- PRE-PROCESS MESSAGE CONTENT ---
-        const getMsgText = (m) => {
+        // --- PROSES KONTEN PESAN ---
+        const ambilTeks = (m) => {
             if (!m) return "";
             return m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || "";
         };
-        const textMessage = getMsgText(msgObj.message);
-        const isCommand = textMessage.trim().startsWith(BOT_PREFIX);
-        const isConfirmation = textMessage.toLowerCase().trim() === 'ya';
+        teksPesan = ambilTeks(objPesan.message);
+        const perintah = teksPesan.trim().startsWith(BOT_PREFIX);
+        const konfirmasi = teksPesan.toLowerCase().trim() === 'ya';
 
-        // Resolve sender number
-        let senderNumber = isGroup
-            ? msgObj.key.participant || msgObj.participant
-            : sender;
+        // Resolusi nomor pengirim
+        noPengirim = adalahGrup
+            ? objPesan.key.participant || objPesan.participant
+            : pengirim;
 
-        senderNumber = normalizeToStandard(senderNumber);
+        noPengirim = normalizeToStandard(noPengirim);
 
-        // --- COMMAND ROUTING & MARKED USERS ---
-        if (isCommand) {
-            const commandParts = textMessage.trim().split(/\s+/);
-            const command = commandParts[0].toLowerCase();
-            const cmdName = command.substring(BOT_PREFIX.length);
-            const args = textMessage.trim().substring(command.length).trim();
+        // --- ROUTING PERINTAH & USER TANDAI ---
+        if (perintah) {
+            const bagianPerintah = teksPesan.trim().split(/\s+/);
+            const cmd = bagianPerintah[0].toLowerCase();
+            const namaCmd = cmd.substring(BOT_PREFIX.length);
+            const argumen = teksPesan.trim().substring(cmd.length).trim();
 
-            // --- SPECIAL TREATMENT FOR MARKED USERS (Only on Commands) ---
+            // --- PERLAKUAN KHUSUS USER TANDAI (Hanya pada perintah) ---
             try {
-                const markedUsers = loadMarkedUsers();
-                if (markedUsers && markedUsers.length > 0) {
-                    const originalSender = msgObj.key.participant || msgObj.participant || sender;
-                    const isMarked = markedUsers.find(u =>
-                        u && (u.lid === originalSender ||
-                        u.phone === originalSender ||
-                        (u.phone && normalizeToStandard(u.phone) === senderNumber))
+                const userTandai = muatUserTandai();
+                if (userTandai && userTandai.length > 0) {
+                    const pengirimAsli = objPesan.key.participant || objPesan.participant || pengirim;
+                    const cocok = userTandai.find(u =>
+                        u && (u.lid === pengirimAsli ||
+                            u.phone === pengirimAsli ||
+                            (u.phone && normalizeToStandard(u.phone) === noPengirim))
                     );
 
-                    if (isMarked && !msgObj.key.fromMe) {
-                        const stickerPath = path.join(__dirname, '../../', isMarked.sticker_path);
-                        if (fs.existsSync(stickerPath)) {
-                            await sock.sendMessage(sender, {
-                                sticker: fs.readFileSync(stickerPath)
-                            }, { quoted: msgObj });
+                    if (cocok && !objPesan.key.fromMe) {
+                        const pathStiker = path.join(__dirname, '../../', cocok.sticker_path);
+                        if (fs.existsSync(pathStiker)) {
+                            await sock.sendMessage(pengirim, {
+                                sticker: fs.readFileSync(pathStiker)
+                            }, { quoted: objPesan });
                         } else {
-                            await sock.sendMessage(sender, { react: { text: "⭐", key: msgObj.key } });
+                            await sock.sendMessage(pengirim, { react: { text: "⭐", key: objPesan.key } });
                         }
                         return;
                     }
                 }
             } catch (e) {
-                console.error('[HANDLER] Error in marked users logic:', e.message);
+                console.error('[HANDLER] Error pada logika user tandai:', e.message);
             }
 
-            const cmdModule = getCommand(cmdName);
-            if (cmdModule) {
+            const modulCmd = getCommand(namaCmd);
+            if (modulCmd) {
 
-                if (botState.isCommandUnderMaintenance(cmdName)) {
-                    await sock.sendMessage(sender, {
-                        text: `⚠️ Perintah *!${cmdName}* sedang dalam pemeliharaan (maintenance). Mohon coba lagi nanti.`
-                    }, { quoted: msgObj });
+                if (botState.cekCmdMaintenance(namaCmd)) {
+                    await sock.sendMessage(pengirim, {
+                        text: `⚠️ Perintah *!${namaCmd}* sedang dalam pemeliharaan (maintenance). Mohon coba lagi nanti.`
+                    }, { quoted: objPesan });
                     return;
                 }
 
                 try {
-                    sock.sendMessage(sender, {
-                        react: { text: getMessage('reaction_wait') || '⏳', key: msgObj.key }
+                    sock.sendMessage(pengirim, {
+                        react: { text: getMessage('reaction_wait') || '⏳', key: objPesan.key }
                     }).catch(() => { });
                 } catch (e) { }
 
-                const originalSenderId = isGroup ? (msgObj.key.participant || msgObj.participant) : sender;
-                const context = { sender, senderNumber, isGroup, args, textMessage, originalSenderId, BOT_PREFIX };
+                const idPengirimAsli = adalahGrup ? (objPesan.key.participant || objPesan.participant) : pengirim;
+                const konteks = { sender: pengirim, senderNumber: noPengirim, isGroup: adalahGrup, args: argumen, textMessage: teksPesan, originalSenderId: idPengirimAsli, BOT_PREFIX };
 
-                await cmdModule.execute(sock, msgObj, context);
+                await modulCmd.execute(sock, objPesan, konteks);
 
-                const manualReactionCmds = ['cek', 'riwayat', 'broadcast'];
-                if (!manualReactionCmds.includes(cmdName)) {
+                const cmdTanpaReaksi = ['cek', 'riwayat', 'broadcast'];
+                if (!cmdTanpaReaksi.includes(namaCmd)) {
                     try {
-                        await sock.sendMessage(sender, { react: { text: "", key: msgObj.key } });
+                        await sock.sendMessage(pengirim, { react: { text: "", key: objPesan.key } });
                     } catch (e) { }
                 }
                 return;
             } else {
-                // --- TYPO HANDLER ---
-                const allCmds = getCommandKeys();
-                const closest = findClosestMatch(cmdName, allCmds, 2); // Threshold 2
-                if (closest) {
+                // --- PENANGAN TYPO ---
+                const semuaCmd = getCommandKeys();
+                const terdekat = findClosestMatch(namaCmd, semuaCmd, 2);
+                if (terdekat) {
                     try {
-                        await sock.sendMessage(sender, { react: { text: "❓", key: msgObj.key } });
-                        await sock.sendMessage(sender, {
-                            text: `⚠️ Perintah *!${cmdName}* tidak ditemukan. Mungkin maksud Anda *!${closest}*?`
-                        }, { quoted: msgObj });
+                        await sock.sendMessage(pengirim, { react: { text: "❓", key: objPesan.key } });
+                        await sock.sendMessage(pengirim, {
+                            text: `⚠️ Perintah *!${namaCmd}* tidak ditemukan. Mungkin maksud Anda *!${terdekat}*?`
+                        }, { quoted: objPesan });
                     } catch (e) { }
                 }
             }
         }
 
-        // --- CONFIRMATION FLOW: "ya" ---
-        const draft = getDraft(senderNumber);
-        if (isConfirmation && draft) {
-            if (draft.type === 'simulation') {
-                await sock.sendMessage(sender, { react: { text: "🛠️", key: msgObj.key } });
+        // --- ALUR KONFIRMASI: "ya" ---
+        const draf = getDraft(noPengirim);
+        if (konfirmasi && draf) {
+            if (draf.type === 'simulation') {
+                await sock.sendMessage(pengirim, { react: { text: "🛠️", key: objPesan.key } });
                 await new Promise(r => setTimeout(r, 1000));
-                await sock.sendMessage(sender, {
+                await sock.sendMessage(pengirim, {
                     text: `✅ *[SIMULASI BERHASIL]*\n\nDraft ini valid, tapi TIDAK dikirim ke server karena ini mode test.\n\n_Draft dihapus dari memori._`
-                }, { quoted: msgObj });
-                deleteDraft(senderNumber);
+                }, { quoted: objPesan });
+                deleteDraft(noPengirim);
                 return;
             }
 
-            const user = getUserByPhone(senderNumber);
+            const user = cariUserHP(noPengirim);
             if (!user) return;
 
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_rocket'), key: msgObj.key } });
+            await sock.sendMessage(pengirim, { react: { text: getMessage('reaction_rocket'), key: objPesan.key } });
 
-            const loginResult = await prosesLoginDanAbsen({
+            const hasilLogin = await prosesLoginDanAbsen({
                 email: user.email,
                 password: user.password,
-                aktivitas: draft.aktivitas,
-                pembelajaran: draft.pembelajaran,
-                kendala: draft.kendala
+                aktivitas: draf.aktivitas,
+                pembelajaran: draf.pembelajaran,
+                kendala: draf.kendala
             });
 
-            if (loginResult.success) {
-                await sock.sendMessage(sender, { text: getMessage('!absen_submit_success', senderNumber) }, { quoted: msgObj });
-                deleteDraft(senderNumber);
+            if (hasilLogin.success) {
+                await sock.sendMessage(pengirim, { text: getMessage('!absen_submit_success', noPengirim) }, { quoted: objPesan });
+                deleteDraft(noPengirim);
             } else {
-                await sock.sendMessage(sender, { text: getMessage('!absen_submit_failed', senderNumber).replace('{error}', loginResult.pesan) }, { quoted: msgObj });
+                await sock.sendMessage(pengirim, { text: getMessage('!absen_submit_failed', noPengirim).replace('{error}', hasilLogin.pesan) }, { quoted: objPesan });
             }
             return;
         }
 
-        // --- DRAFT EDIT & AI REVISION FLOW ---
-        const isDraftContent = textMessage.includes("*DRAF LAPORAN ANDA*") ||
-            textMessage.includes("*DRAF LAPORAN OTOMATIS*") ||
-            textMessage.includes("Draf absen darurat") ||
-            textMessage.includes("*DRAF DIPERBARUI*");
+        // --- ALUR EDIT DRAF & REVISI AI ---
+        const kontenDraf = teksPesan.includes("*DRAF LAPORAN ANDA*") ||
+            teksPesan.includes("*DRAF LAPORAN OTOMATIS*") ||
+            teksPesan.includes("Draf absen darurat") ||
+            teksPesan.includes("*DRAF DIPERBARUI*");
 
-        const isTemplate = textMessage.includes("Aktivitas pada hari ini adalah") || textMessage.includes("Isi dan kirim balik pesan ini");
+        const adalahTemplate = teksPesan.includes("Aktivitas pada hari ini adalah") || teksPesan.includes("Isi dan kirim balik pesan ini");
 
-        if ((draft || isDraftContent) && !isCommand && !isTemplate) {
-            const contextInfo = msgObj.message.extendedTextMessage?.contextInfo;
-            const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-            const isReplyToBot = contextInfo?.participant === botJid || contextInfo?.participant === sock.user.id;
+        if ((draf || kontenDraf) && !perintah && !adalahTemplate) {
+            const infoKonteks = objPesan.message.extendedTextMessage?.contextInfo;
+            const jidBot = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+            const balasBot = infoKonteks?.participant === jidBot || infoKonteks?.participant === sock.user.id;
 
-            if (isDraftContent || ((!isGroup || isReplyToBot) && draft)) {
-                const parsedEdit = parseDraftFromMessage(textMessage);
+            if (kontenDraf || ((!adalahGrup || balasBot) && draf)) {
+                const hasilParse = parseDraftFromMessage(teksPesan);
 
-                if (parsedEdit) {
-                    const MIN_CHARS = VALIDATION.MANUAL_MIN_CHARS;
+                if (hasilParse) {
+                    const MIN_KARAKTER = VALIDATION.MANUAL_MIN_CHARS;
                     const errors = [];
-                    if (parsedEdit.aktivitas.length < MIN_CHARS) errors.push(`Aktivitas kurang (${parsedEdit.aktivitas.length}/${MIN_CHARS})`);
-                    if (parsedEdit.pembelajaran.length < MIN_CHARS) errors.push(`Pembelajaran kurang (${parsedEdit.pembelajaran.length}/${MIN_CHARS})`);
-                    if (parsedEdit.kendala !== 'Tidak ada kendala.' && parsedEdit.kendala.length < MIN_CHARS) errors.push(`Kendala kurang (${parsedEdit.kendala.length}/${MIN_CHARS})`);
+                    if (hasilParse.aktivitas.length < MIN_KARAKTER) errors.push(`Aktivitas kurang (${hasilParse.aktivitas.length}/${MIN_KARAKTER})`);
+                    if (hasilParse.pembelajaran.length < MIN_KARAKTER) errors.push(`Pembelajaran kurang (${hasilParse.pembelajaran.length}/${MIN_KARAKTER})`);
+                    if (hasilParse.kendala !== 'Tidak ada kendala.' && hasilParse.kendala.length < MIN_KARAKTER) errors.push(`Kendala kurang (${hasilParse.kendala.length}/${MIN_KARAKTER})`);
 
                     if (errors.length > 0) {
-                        await sock.sendMessage(sender, { text: getMessage('draft_format_error', senderNumber).replace('{errors}', errors.join('\n')) }, { quoted: msgObj });
+                        await sock.sendMessage(pengirim, { text: getMessage('draft_format_error', noPengirim).replace('{errors}', errors.join('\n')) }, { quoted: objPesan });
                         return;
                     }
 
-                    setDraft(senderNumber, parsedEdit);
-                    const previewText = formatDraftPreview(parsedEdit, 'draft_updated');
+                    setDraft(noPengirim, hasilParse);
+                    const teksPreview = formatDraftPreview(hasilParse, 'draft_updated');
 
-                    if (isGroup) {
-                        await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
-                        const originalSenderId = msgObj.key.participant || msgObj.participant || sender;
-                        await sock.sendMessage(originalSenderId, { text: previewText });
+                    if (adalahGrup) {
+                        await sock.sendMessage(pengirim, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: objPesan });
+                        const idAsli = objPesan.key.participant || objPesan.participant || pengirim;
+                        await sock.sendMessage(idAsli, { text: teksPreview });
                     } else {
-                        await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
+                        await sock.sendMessage(pengirim, { text: teksPreview }, { quoted: objPesan });
                     }
-                } else if (!isGroup || isReplyToBot) {
-                    // AI Revision (Free text reply)
-                    const user = getUserByPhone(senderNumber);
+                } else if (!adalahGrup || balasBot) {
+                    // Revisi AI (balasan teks bebas)
+                    const user = cariUserHP(noPengirim);
                     if (!user) return;
 
-                    await sock.sendMessage(sender, { react: { text: getMessage('reaction_write', senderNumber), key: msgObj.key } });
-                    const history = await getRiwayat(user.email, user.password, 3);
-                    const revisionContext = (draft && draft.type === 'ai') ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual/baru: ';
-                    const aiResult = await processFreeTextToReport(revisionContext + textMessage, history.success ? history.logs : []);
+                    await sock.sendMessage(pengirim, { react: { text: getMessage('reaction_write', noPengirim), key: objPesan.key } });
+                    const riwayat = await getRiwayat(user.email, user.password, 3);
+                    const konteksRevisi = (draf && draf.type === 'ai') ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual/baru: ';
+                    const hasilAI = await processFreeTextToReport(konteksRevisi + teksPesan, riwayat.success ? riwayat.logs : []);
 
-                    if (aiResult.success) {
-                        const reportData = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala, type: 'ai' };
-                        setDraft(senderNumber, reportData);
-                        const previewText = formatDraftPreview(reportData, 'draft_updated');
+                    if (hasilAI.success) {
+                        const dataLaporan = { aktivitas: hasilAI.aktivitas, pembelajaran: hasilAI.pembelajaran, kendala: hasilAI.kendala, type: 'ai' };
+                        setDraft(noPengirim, dataLaporan);
+                        const teksPreview = formatDraftPreview(dataLaporan, 'draft_updated');
 
-                        if (isGroup) {
-                            await sock.sendMessage(sender, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: msgObj });
-                            const originalSenderId = msgObj.key.participant || msgObj.participant || sender;
-                            await sock.sendMessage(originalSenderId, { text: previewText });
+                        if (adalahGrup) {
+                            await sock.sendMessage(pengirim, { text: "✅ Draft berhasil diperbarui. Cek Chat Pribadi Anda." }, { quoted: objPesan });
+                            const idAsli = objPesan.key.participant || objPesan.participant || pengirim;
+                            await sock.sendMessage(idAsli, { text: teksPreview });
                         } else {
-                            await sock.sendMessage(sender, { text: previewText }, { quoted: msgObj });
+                            await sock.sendMessage(pengirim, { text: teksPreview }, { quoted: objPesan });
                         }
                     }
                 }
@@ -248,25 +250,24 @@ const messageHandler = async (sock, msg) => {
         }
     } catch (e) {
         console.error(chalk.red("[HANDLER] Error:"), e);
-        
-        // Notify Admin
-        if (!textMessage?.includes('SYSTEM ERROR REPORT')) {
-            reportError(e, 'messageHandler (Main)', { 
-                sender: sender, 
-                senderNumber: senderNumber,
-                text: textMessage ? textMessage.substring(0, 100) : "N/A"
+
+        // Notifikasi Admin
+        if (!teksPesan?.includes('SYSTEM ERROR REPORT')) {
+            laporError(e, 'messageHandler (Main)', {
+                sender: pengirim,
+                senderNumber: noPengirim,
+                text: teksPesan ? teksPesan.substring(0, 100) : "N/A"
             });
         }
 
-        // Notify User (friendly message)
+        // Notifikasi User (pesan ramah)
         try {
-            const userErrorMsg = "⚠️ *Terjadi Kesalahan Internal*\n\nMaaf, sistem sedang mengalami kendala teknis saat memproses pesan Anda. Admin telah dinotifikasi untuk pengecekan lebih lanjut.\n\nSilakan coba lagi beberapa saat lagi.";
-            await sock.sendMessage(sender, { text: userErrorMsg }, { quoted: msgObj });
-        } catch (sendErr) {
-            console.error(chalk.red("[HANDLER] Failed to send error msg to user:"), sendErr.message);
+            const pesanError = "⚠️ *Terjadi Kesalahan Internal*\n\nMaaf, sistem sedang mengalami kendala teknis saat memproses pesan Anda. Admin telah dinotifikasi untuk pengecekan lebih lanjut.\n\nSilakan coba lagi beberapa saat lagi.";
+            await sock.sendMessage(pengirim, { text: pesanError }, { quoted: objPesan });
+        } catch (errKirim) {
+            console.error(chalk.red("[HANDLER] Gagal mengirim pesan error ke user:"), errKirim.message);
         }
     }
 };
 
-messageHandler.parseDraftFromMessage = parseDraftFromMessage;
-module.exports = messageHandler;
+module.exports = tanganiPesan;

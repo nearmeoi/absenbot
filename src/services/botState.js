@@ -1,93 +1,113 @@
 /**
- * Bot State Management
- * Centralized state to avoid circular dependencies
+ * Manajemen Status Bot
+ * State terpusat untuk menghindari circular dependency
  */
 
-// Bot state variables
-let schedulerEnabled = true;
-let botStatus = 'online'; // 'online' | 'offline' | 'maintenance'
-let botConnected = false;
-let lastQR = null;
-let maintenanceCommands = []; // List of commands under maintenance, e.g., ['absen', 'daftar']
+// --- Status Bot ---
+let jadwalAktif = true;
+let statusBot = 'online'; // 'online' | 'offline' | 'maintenance'
+let botTerhubung = false;
+let qrTerakhir = null;
+let cmdMaintenance = []; // Daftar perintah yang sedang maintenance
 
-// Anti-Loop State
-let sentMessagesHistory = [];
-const LOOP_THRESHOLD = 10;
-const LOOP_WINDOW_MS = 10000; // 10 seconds
+// --- Anti-Loop ---
+let logPesanKeluar = [];
+const LIMIT_LOOP = 10;
+const WINDOW_LOOP_MS = 10000; // 10 detik
 
-// Getters
-const isSchedulerEnabled = () => schedulerEnabled;
-const getBotStatus = () => botStatus;
-const isBotConnected = () => botConnected;
-const getLastQR = () => lastQR;
-const getMaintenanceCommands = () => maintenanceCommands;
-const isCommandUnderMaintenance = (cmd) => maintenanceCommands.includes(cmd.toLowerCase());
+// ========== GETTER ==========
+
+const cekJadwalAktif = () => jadwalAktif;
+const ambilStatusBot = () => statusBot;
+const cekBotTerhubung = () => botTerhubung;
+const ambilQRTerakhir = () => qrTerakhir;
+const ambilCmdMaintenance = () => cmdMaintenance;
+const cekCmdMaintenance = (cmd) => cmdMaintenance.includes(cmd.toLowerCase());
 
 /**
- * Record a sent message and check for spam loops
- * @returns {boolean} true if loop detected
+ * Catat pesan keluar dan deteksi spam loop
+ * @returns {boolean} true jika loop terdeteksi
  */
-const recordSentMessage = () => {
-    const now = Date.now();
-    sentMessagesHistory.push(now);
-    
-    // Clean up history older than the window
-    sentMessagesHistory = sentMessagesHistory.filter(timestamp => (now - timestamp) < LOOP_WINDOW_MS);
-    
-    if (sentMessagesHistory.length >= LOOP_THRESHOLD) {
-        console.error(`[CRITICAL] Loop detected! ${sentMessagesHistory.length} messages sent in ${LOOP_WINDOW_MS/1000}s`);
+const catatPesanKeluar = () => {
+    const sekarang = Date.now();
+    logPesanKeluar.push(sekarang);
+
+    // Bersihkan riwayat di luar jendela waktu
+    logPesanKeluar = logPesanKeluar.filter(waktu => (sekarang - waktu) < WINDOW_LOOP_MS);
+
+    if (logPesanKeluar.length >= LIMIT_LOOP) {
+        console.error(`[KRITIS] Loop terdeteksi! ${logPesanKeluar.length} pesan terkirim dalam ${WINDOW_LOOP_MS / 1000} detik`);
         return true;
     }
     return false;
 };
 
-// Setters
-const setSchedulerEnabled = (enabled) => {
-    schedulerEnabled = enabled;
+// ========== SETTER ==========
+
+const setJadwalAktif = (aktif) => {
+    jadwalAktif = aktif;
 };
 
-const setBotStatus = (status) => {
+const setStatusBot = (status) => {
     if (['online', 'offline', 'maintenance'].includes(status)) {
-        botStatus = status;
+        statusBot = status;
     }
 };
 
-const setBotConnected = (connected) => {
-    botConnected = connected;
-    if (connected) lastQR = null; // Clear QR when connected
+const setBotTerhubung = (terhubung) => {
+    botTerhubung = terhubung;
+    if (terhubung) qrTerakhir = null;
 };
 
-const setLastQR = (qr) => {
-    lastQR = qr;
+const setQRTerakhir = (qr) => {
+    qrTerakhir = qr;
 };
 
-const setMaintenanceCommands = (cmds) => {
-    if (Array.isArray(cmds)) {
-        maintenanceCommands = cmds.map(c => c.toLowerCase());
+const setCmdMaintenance = (daftar) => {
+    if (Array.isArray(daftar)) {
+        cmdMaintenance = daftar.map(c => c.toLowerCase());
     }
 };
 
-const toggleCommandMaintenance = (cmd) => {
+const toggleCmdMaintenance = (cmd) => {
     const c = cmd.toLowerCase();
-    if (maintenanceCommands.includes(c)) {
-        maintenanceCommands = maintenanceCommands.filter(item => item !== c);
+    if (cmdMaintenance.includes(c)) {
+        cmdMaintenance = cmdMaintenance.filter(item => item !== c);
     } else {
-        maintenanceCommands.push(c);
+        cmdMaintenance.push(c);
     }
 };
 
 module.exports = {
-    isSchedulerEnabled,
-    getBotStatus,
-    isBotConnected,
-    getLastQR,
-    getMaintenanceCommands,
-    isCommandUnderMaintenance,
-    recordSentMessage,
-    setSchedulerEnabled,
-    setBotStatus,
-    setBotConnected,
-    setLastQR,
-    setMaintenanceCommands,
-    toggleCommandMaintenance
+    // Getter (nama baru)
+    cekJadwalAktif,
+    ambilStatusBot,
+    cekBotTerhubung,
+    ambilQRTerakhir,
+    ambilCmdMaintenance,
+    cekCmdMaintenance,
+    catatPesanKeluar,
+
+    // Setter (nama baru)
+    setJadwalAktif,
+    setStatusBot,
+    setBotTerhubung,
+    setQRTerakhir,
+    setCmdMaintenance,
+    toggleCmdMaintenance,
+
+    // === ALIAS (backward compat) ===
+    isSchedulerEnabled: cekJadwalAktif,
+    getBotStatus: ambilStatusBot,
+    isBotConnected: cekBotTerhubung,
+    getLastQR: ambilQRTerakhir,
+    getMaintenanceCommands: ambilCmdMaintenance,
+    isCommandUnderMaintenance: cekCmdMaintenance,
+    recordSentMessage: catatPesanKeluar,
+    setSchedulerEnabled: setJadwalAktif,
+    setBotStatus: setStatusBot,
+    setBotConnected: setBotTerhubung,
+    setLastQR: setQRTerakhir,
+    setMaintenanceCommands: setCmdMaintenance,
+    toggleCommandMaintenance: toggleCmdMaintenance
 };

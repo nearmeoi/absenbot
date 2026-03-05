@@ -1,95 +1,81 @@
-// Load environment variables first - FORCE OVERRIDE to bypass stale system env
+// Muat environment variables terlebih dahulu — FORCE OVERRIDE
 require('dotenv').config({ override: true });
 
-// --- CONSOLE FILTER: Suppress noisy Baileys internal logs ---
-const filterOutput = (args) => {
-    const text = args.map(arg => {
+// --- FILTER KONSOL: Sembunyikan log internal Baileys yang berisik ---
+const POLA_FILTER = ['Closing session', 'SessionEntry', '_chains', 'ephemeralKeyPair', 'pendingPreKey'];
+
+const saringOutput = (args) => {
+    const teks = args.map(arg => {
         if (typeof arg === 'string') return arg;
         try { return JSON.stringify(arg); } catch (e) { return String(arg); }
     }).join(' ');
 
-    return text.includes('Closing session') ||
-           text.includes('SessionEntry') ||
-           text.includes('_chains') ||
-           text.includes('ephemeralKeyPair') ||
-           text.includes('pendingPreKey');
+    return POLA_FILTER.some(pola => teks.includes(pola));
 };
 
-const originalLog = console.log;
-console.log = (...args) => {
-    if (filterOutput(args)) return;
-    originalLog.apply(console, args);
-};
+const logAsli = console.log;
+console.log = (...args) => { if (!saringOutput(args)) logAsli.apply(console, args); };
 
-const originalInfo = console.info;
-console.info = (...args) => {
-    if (filterOutput(args)) return;
-    originalInfo.apply(console, args);
-};
+const infoAsli = console.info;
+console.info = (...args) => { if (!saringOutput(args)) infoAsli.apply(console, args); };
 
-const originalError = console.error;
-console.error = (...args) => {
-    if (filterOutput(args)) return;
-    originalError.apply(console, args);
-};
+const errorAsli = console.error;
+console.error = (...args) => { if (!saringOutput(args)) errorAsli.apply(console, args); };
 
-const connectToWhatsApp = require('./src/app');
+// --- MUAT APLIKASI ---
+const sambungKeWhatsApp = require('./src/app');
+const { laporError } = require('./src/services/errorReporter');
 
-const { reportError } = require('./src/services/errorReporter');
+// --- GRACEFUL SHUTDOWN ---
+const matikanApp = (sinyal) => {
+    console.log(`\n[SHUTDOWN] Menerima ${sinyal}. Membersihkan...`);
 
-// Graceful Shutdown Handler (important for VPS with limited resources)
-const gracefulShutdown = (signal) => {
-    console.log(`\n[SHUTDOWN] Received ${signal}. Cleaning up...`);
-
-    // Attempt to close auth server
     try {
         const { shutdownAuthServer } = require('./src/services/secureAuth');
         shutdownAuthServer();
     } catch (e) { }
 
-    console.log('[SHUTDOWN] Cleanup complete. Exiting.');
+    console.log('[SHUTDOWN] Selesai. Keluar.');
     process.exit(0);
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => matikanApp('SIGTERM'));
+process.on('SIGINT', () => matikanApp('SIGINT'));
 
-// Handle uncaught exceptions to prevent silent crashes
+// --- PENANGAN ERROR GLOBAL ---
 process.on('uncaughtException', (err) => {
     console.error('[FATAL] Uncaught Exception:', err);
-    reportError(err, 'UncaughtException').finally(() => {
-        gracefulShutdown('UNCAUGHT_EXCEPTION');
-    });
+    laporError(err, 'UncaughtException').finally(() => matikanApp('UNCAUGHT_EXCEPTION'));
 });
 
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[FATAL] Unhandled Rejection at:', promise, 'reason:', reason);
-    reportError(reason, 'UnhandledRejection');
+    laporError(reason, 'UnhandledRejection');
 });
 
-// --- AUTO LOG CLEANUP (Every 24 Hours) ---
+// --- BERSIHKAN LOG OTOMATIS (Setiap 24 Jam) ---
+const fs = require('fs');
+const path = require('path');
+
 setInterval(() => {
-    const fs = require('fs');
-    const path = require('path');
-    const logDir = path.join(__dirname, 'logs');
-    if (fs.existsSync(logDir)) {
-        const files = fs.readdirSync(logDir);
-        for (const file of files) {
-            if (file.endsWith('.log')) {
-                const filePath = path.join(logDir, file);
-                const stats = fs.statSync(filePath);
-                if (stats.size > 10 * 1024 * 1024) { // 10MB limit
-                    fs.writeFileSync(filePath, ''); // Clear it
-                    console.log(`[CLEANUP] Cleared large log file: ${file}`);
-                }
-            }
+    const folderLog = path.join(__dirname, 'logs');
+    if (!fs.existsSync(folderLog)) return;
+
+    const daftarFile = fs.readdirSync(folderLog);
+    for (const namaFile of daftarFile) {
+        if (!namaFile.endsWith('.log')) continue;
+        const pathFile = path.join(folderLog, namaFile);
+        const info = fs.statSync(pathFile);
+        if (info.size > 10 * 1024 * 1024) { // Batas 10MB
+            fs.writeFileSync(pathFile, '');
+            console.log(`[CLEANUP] File log besar dibersihkan: ${namaFile}`);
         }
     }
 }, 24 * 60 * 60 * 1000);
 
-// Start Application
+// --- MULAI APLIKASI ---
 try {
-    connectToWhatsApp();
+    sambungKeWhatsApp();
 } catch (error) {
-    console.error("Critical Error starting application:", error);
+    console.error("Error kritis saat memulai aplikasi:", error);
 }

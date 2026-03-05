@@ -1,75 +1,80 @@
 const chalk = require('chalk');
 const { ADMIN_NUMBERS } = require('../config/constants');
 
-let botSocket = null;
-const reportCache = new Map();
-const REPORT_COOLDOWN_MS = 60000; // 1 minute
+let socketBot = null;
+const cacheReport = new Map();
+const COOLDOWN_REPORT_MS = 60000; // 1 menit
 
 /**
- * Initialize error reporter with bot socket
+ * Inisialisasi pelapor error dengan socket bot
  * @param {Object} sock - Baileys socket
  */
-function initErrorReporter(sock) {
-    botSocket = sock;
+function initPelaporError(sock) {
+    socketBot = sock;
 }
 
 /**
- * Send error report to admin
- * @param {Error|string} error - The error object or message
- * @param {string} context - Where the error occurred
- * @param {Object} metadata - Additional info (sender, command, etc)
+ * Kirim laporan error ke admin
+ * @param {Error|string} error - Object error atau pesan
+ * @param {string} konteks - Lokasi error terjadi
+ * @param {Object} metadata - Info tambahan (pengirim, perintah, dll)
  */
-async function reportError(error, context = 'Unknown', metadata = {}) {
-    console.error(chalk.bgRed.white(' [ERROR REPORT] '), error);
+async function laporError(error, konteks = 'Tidak diketahui', metadata = {}) {
+    console.error(chalk.bgRed.white(' [LAPORAN ERROR] '), error);
 
-    if (!botSocket || ADMIN_NUMBERS.length === 0) {
-        console.warn(chalk.yellow('[ERROR REPORTER] Bot socket or admin not configured. Logging only.'));
+    if (!socketBot || ADMIN_NUMBERS.length === 0) {
+        console.warn(chalk.yellow('[PELAPOR ERROR] Socket bot atau admin belum dikonfigurasi. Hanya dicatat di log.'));
         return;
     }
 
     try {
-        const errorMsg = typeof error === 'string' ? error : error.message;
+        const pesanError = typeof error === 'string' ? error : error.message;
 
         // --- RATE LIMITING ---
-        const cacheKey = `${context}:${errorMsg}`;
-        const lastReport = reportCache.get(cacheKey);
-        const now = Date.now();
+        const kunciCache = `${konteks}:${pesanError}`;
+        const laporanTerakhir = cacheReport.get(kunciCache);
+        const sekarang = Date.now();
 
-        if (lastReport && (now - lastReport) < REPORT_COOLDOWN_MS) {
-            console.log(chalk.gray(`[ERROR REPORTER] Suppressing duplicate report: ${errorMsg}`));
+        if (laporanTerakhir && (sekarang - laporanTerakhir) < COOLDOWN_REPORT_MS) {
+            console.log(chalk.gray(`[PELAPOR ERROR] Laporan duplikat ditahan: ${pesanError}`));
             return;
         }
-        reportCache.set(cacheKey, now);
+        cacheReport.set(kunciCache, sekarang);
 
-        // Periodically clean cache to prevent memory leaks
-        if (reportCache.size > 100) {
-            for (const [key, timestamp] of reportCache.entries()) {
-                if (now - timestamp > REPORT_COOLDOWN_MS * 5) reportCache.delete(key);
+        // Bersihkan cache secara berkala untuk mencegah memory leak
+        if (cacheReport.size > 100) {
+            for (const [key, timestamp] of cacheReport.entries()) {
+                if (sekarang - timestamp > COOLDOWN_REPORT_MS * 5) cacheReport.delete(key);
             }
         }
 
-        const stack = error.stack ? error.stack.split('\n').slice(0, 5).join('\n') : 'No stack trace';
+        const stack = error.stack ? error.stack.split('\n').slice(0, 5).join('\n') : 'Tidak ada stack trace';
 
-        let reportText = '🚨 *SYSTEM ERROR REPORT* 🚨\n\n';
-        reportText += '*Context:* ' + context + '\n';
-        reportText += '*Time:* ' + new Date().toLocaleString('id-ID') + '\n';
-        reportText += '*Error:* ' + errorMsg + '\n\n';
+        let teksLaporan = '🚨 *SYSTEM ERROR REPORT* 🚨\n\n';
+        teksLaporan += '*Konteks:* ' + konteks + '\n';
+        teksLaporan += '*Waktu:* ' + new Date().toLocaleString('id-ID') + '\n';
+        teksLaporan += '*Error:* ' + pesanError + '\n\n';
 
         if (Object.keys(metadata).length > 0) {
-            reportText += '*Metadata:*\n' + JSON.stringify(metadata, null, 2) + '\n\n';
+            teksLaporan += '*Metadata:*\n' + JSON.stringify(metadata, null, 2) + '\n\n';
         }
 
-        reportText += '*Stack Trace (Top 5):*\n```\n' + stack + '\n```';
+        teksLaporan += '*Stack Trace (Top 5):*\n```\n' + stack + '\n```';
 
-        // Send to first admin
-        await botSocket.sendMessage(ADMIN_NUMBERS[0], { text: reportText });
-        console.log(chalk.green('[ERROR REPORTER] Error report sent to admin.'));
+        // Kirim ke admin pertama
+        await socketBot.sendMessage(ADMIN_NUMBERS[0], { text: teksLaporan });
+        console.log(chalk.green('[PELAPOR ERROR] Laporan error terkirim ke admin.'));
     } catch (e) {
-        console.error(chalk.red('[ERROR REPORTER] Failed to send report to admin:'), e.message);
+        console.error(chalk.red('[PELAPOR ERROR] Gagal mengirim laporan ke admin:'), e.message);
     }
 }
 
 module.exports = {
-    initErrorReporter,
-    reportError
+    // Nama baru
+    initPelaporError,
+    laporError,
+
+    // Alias backward compat
+    initErrorReporter: initPelaporError,
+    reportError: laporError
 };
