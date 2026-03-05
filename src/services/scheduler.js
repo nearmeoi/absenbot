@@ -573,11 +573,12 @@ async function runEmergencySubmit(sock, task, timezone) {
     const now = new Date();
     const todayDate = now.getDate();
     const allUsers = getAllUsers();
+    const isCriticalTask = task.id === 'emergency_submit_critical';
 
     // 1. Identify Phase (Parallel)
     const pendingCriticalUsers = (await parallelMap(allUsers, async (user) => {
         // Critical logic only for the critical-tagged task
-        if (task.id === 'emergency_submit_critical') {
+        if (isCriticalTask) {
             const isCriticalDay =
                 (user.cycle_day === 24 && todayDate === 23) ||
                 (user.cycle_day === 16 && todayDate === 15);
@@ -593,14 +594,20 @@ async function runEmergencySubmit(sock, task, timezone) {
     }, 5)).filter(Boolean);
 
     if (pendingCriticalUsers.length > 0) {
-        console.log(chalk.yellow(`[CRITICAL] Found ${pendingCriticalUsers.length} users haven't attended on deadline day!`));
+        console.log(chalk.yellow(`[CRITICAL] Found ${pendingCriticalUsers.length} users haven't attended!`));
 
         // Notify in Group
         const groupId = getGroupId();
         if (groupId) {
             const mentionedText = pendingCriticalUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
             const mentions = pendingCriticalUsers.map(u => u.phone);
-            const warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
+
+            let warningMsg = '';
+            if (isCriticalTask) {
+                warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
+            } else {
+                warningMsg = `⚠️ *DARURAT ABSENSI (HAMPIR JAM 00:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen hari ini. *Bot sedang melakukan absen otomatis sekarang* agar Anda tidak alfa.\n\n_Mohon biarkan bot yang bekerja._`;
+            }
 
             await sock.sendMessage(groupId, { text: warningMsg, mentions });
         }
@@ -608,9 +615,13 @@ async function runEmergencySubmit(sock, task, timezone) {
         // Notify via DM and then Submit
         for (const user of pendingCriticalUsers) {
             try {
-                await sock.sendMessage(user.phone, {
-                    text: `🚨 *PERINGATAN DEADLINE*\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya akan membantu melakukan absen otomatis sekarang agar upah Anda tidak terpotong.`
-                });
+                let dmMsg = '';
+                if (isCriticalTask) {
+                    dmMsg = `🚨 *PERINGATAN DEADLINE*\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya akan membantu melakukan absen otomatis sekarang agar upah Anda tidak terpotong.`;
+                } else {
+                    dmMsg = `🚨 *DARURAT ABSEN (BELUM ABSEN HARI INI)*\n\nHari ini hampir berganti, saya akan membantu melakukan absen otomatis sekarang agar Anda tidak alfa.`;
+                }
+                await sock.sendMessage(user.phone, { text: dmMsg });
                 await new Promise(r => setTimeout(r, 3000));
             } catch (e) { }
 
@@ -682,17 +693,28 @@ async function executeAutoSubmit(sock, user) {
                 const sourceMsg = user.template ? " (Menggunakan Template)" : " (Auto-AI)";
                 let successMsg = getMessage('AUTO_SUBMIT_SUCCESS');
 
-                successMsg = successMsg.replace('{source}', sourceMsg)
-                    .replace('{activity}', finalReport.aktivitas)
-                    .replace('{pembelajaran}', finalReport.pembelajaran)
-                    .replace('{kendala}', finalReport.kendala);
-
-                await sock.sendMessage(user.phone, { text: successMsg });
-                await notifyAdmins(`*Absen Otomatis Deadline Berhasil*\n\nUser: ${user.name}\nEmail: ${user.email}\nSource: ${sourceMsg}`);
+                if (successMsg) {
+                    successMsg = successMsg.replace('{source}', sourceMsg)
+                        .replace('{activity}', finalReport.aktivitas)
+                        .replace('{pembelajaran}', finalReport.pembelajaran)
+                        .replace('{kendala}', finalReport.kendala);
+                    await sock.sendMessage(user.phone, { text: successMsg });
+                }
+                await notifyAdmins(`*Absen Otomatis Sukses*\n\nUser: ${user.name}\nEmail: ${user.email}\nSource: ${sourceMsg}`);
+            } else {
+                const failMsg = `❌ *AUTO-SUBMIT GAGAL*\n\nSistem mencoba mengirim laporan darurat namun gagal dengan alasan:\n_${submitResult.pesan}_\n\nSilakan coba submit manual.`;
+                await sock.sendMessage(user.phone, { text: failMsg });
+                await notifyAdmins(`*Absen Otomatis GAGAL*\n\nUser: ${user.name}\nEmail: ${user.email}\nAlasan: ${submitResult.pesan}`);
             }
+        } else {
+            await sock.sendMessage(user.phone, { text: `❌ *AUTO-SUBMIT GAGAL*\n\nSistem tidak dapat merangkai laporan darurat (Draft tidak ada, AI gagal, dan Template kosong).` });
+            await notifyAdmins(`*Absen Otomatis GAGAL*\n\nUser: ${user.name}\nEmail: ${user.email}\nAlasan: Gagal generate laporan (AI Error/Fallback kosong).`);
         }
     } catch (e) {
         console.error(`[AUTO-SUBMIT] Error for ${user.email}:`, e.message);
+        try {
+            await sock.sendMessage(user.phone, { text: `❌ *AUTO-SUBMIT GAGAL*\n\nTerjadi kesalahan internal: ${e.message}` });
+        } catch (err) { }
     }
 }
 
@@ -935,11 +957,12 @@ async function scheduleRamadanForToday(sock) {
 
                 ramadanCrons.set(task.name, job);
             });
-            }
-        
-            console.log(chalk.magenta(`[RAMADAN] ${citySchedules.size} cities | ${enabledGroups.length} groups`));
-        
-        } catch (e) {        console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
+        }
+
+        console.log(chalk.magenta(`[RAMADAN] ${citySchedules.size} cities | ${enabledGroups.length} groups`));
+
+    } catch (e) {
+        console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message);
     }
 }
 
