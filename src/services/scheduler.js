@@ -743,6 +743,7 @@ module.exports = {
     addSchedule,
     updateSchedule,
     deleteSchedule,
+    reloadScheduler,
     runTestScheduler,
     runScheduledWebReports,
     runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'),
