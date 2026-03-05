@@ -1,5 +1,5 @@
 /**
- * AI Service - Generate attendance reports using Groq (Primary)
+ * AI Service - Generate attendance reports using OpenRouter (Primary) or Groq
  */
 
 const axios = require('axios');
@@ -10,40 +10,23 @@ const { AI_CONFIG } = require('../config/constants');
 const FormData = require('form-data');
 const fs = require('fs');
 
-// Use constants from config
+// OpenRouter Config
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_URL = AI_CONFIG.OPENROUTER.API_URL;
+const OPENROUTER_MODEL = AI_CONFIG.OPENROUTER.MODEL;
+
+// Groq Config
 const GROQ_API_URL = AI_CONFIG.GROQ.API_URL;
 const GROQ_AUDIO_URL = AI_CONFIG.GROQ.AUDIO_URL;
 const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
-
-// Validate API keys on startup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-if (!GROQ_API_KEY) {
-    console.error(chalk.red('[GROQ] ❌ GROQ_API_KEY not found in .env file!'));
-}
-
-async function runGeminiGeneration(systemPrompt, userPrompt) {
-    if (!GEMINI_API_KEY) return { success: false };
-    try {
-        console.log(chalk.cyan('[AI] Trying Gemini Fallback...'));
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const response = await axios.post(url, {
-            contents: [{
-                parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
-            }]
-        }, { timeout: 20000 });
-
-        const content = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (content) return { success: true, content, model: 'Gemini' };
-        return { success: false };
-    } catch (err) {
-        console.error(chalk.red(`[GEMINI] Fallback failed: ${err.response?.data?.error?.message || err.message}`));
-        return { success: false };
-    }
+if (!OPENROUTER_API_KEY && !GROQ_API_KEY) {
+    console.error(chalk.red('[AI] ❌ No AI API keys found in .env file!'));
 }
 
 async function transcribeAudio(filePath) {
+    if (!GROQ_API_KEY) return { success: false, error: 'Groq key missing for transcription' };
     try {
         const formData = new FormData();
         formData.append('file', fs.createReadStream(filePath));
@@ -69,7 +52,33 @@ async function transcribeAudio(filePath) {
     }
 }
 
-// --- SHARED LOGIC ---
+// --- GENERATION ENGINES ---
+
+async function runOpenRouterGeneration(systemPrompt, userPrompt) {
+    if (!OPENROUTER_API_KEY) return { success: false };
+    try {
+        console.log(chalk.cyan('[AI] Trying OpenRouter...'));
+        const response = await axios.post(OPENROUTER_URL, {
+            model: OPENROUTER_MODEL,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ]
+        }, {
+            headers: { 
+                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://monev-absenbot.my.id',
+                'X-Title': 'AbsenBot'
+            },
+            timeout: AI_CONFIG.OPENROUTER.TIMEOUT
+        });
+        return { success: true, content: response.data.choices[0]?.message?.content, model: 'OpenRouter' };
+    } catch (err) {
+        console.warn(chalk.yellow(`[OPENROUTER] engine failed: ${err.response?.data?.error?.message || err.message}`));
+        return { success: false };
+    }
+}
 
 async function runGroqGeneration(systemPrompt, userPrompt) {
     if (!GROQ_API_KEY) return { success: false };
@@ -87,17 +96,15 @@ async function runGroqGeneration(systemPrompt, userPrompt) {
             headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
             timeout: AI_CONFIG.GROQ.TIMEOUT
         });
-        return { success: true, content: response.data.choices[0]?.message?.content };
+        return { success: true, content: response.data.choices[0]?.message?.content, model: 'Groq' };
     } catch (err) {
-        console.warn(chalk.yellow(`[GROQ] Primary engine failed: ${err.message}`));
+        console.warn(chalk.yellow(`[GROQ] engine failed: ${err.message}`));
         return { success: false };
     }
 }
 
-async function runGroqRefinement(content, userStory, previousLogs) {
-    if (!GROQ_API_KEY) return content;
-
-    console.log(chalk.cyan('[AI] Groq Refinement (Double Check)...'));
+async function runAIRefinement(content, userStory, previousLogs) {
+    console.log(chalk.cyan('[AI] Refinement (Double Check)...'));
     let historySummary = "-";
     if (previousLogs && previousLogs.length > 0) {
         historySummary = previousLogs.map(l => `[${l.date}] ${l.activity_log.substring(0, 50)}...`).join('; ');
@@ -108,54 +115,28 @@ async function runGroqRefinement(content, userStory, previousLogs) {
         .replace('{user_story}', userStory)
         .replace('{history_summary}', historySummary);
 
-    try {
-        const refineResponse = await axios.post(GROQ_API_URL, {
-            model: GROQ_MODEL,
-            messages: [
-                { role: 'system', content: "Kamu adalah Supervisor Editor. Pastikan konten akurat, logis, dan TIDAK HALUSINASI." },
-                { role: 'user', content: refinementPrompt }
-            ],
-            temperature: 0.5, // Lower temperature for accuracy
-            max_tokens: AI_CONFIG.GROQ.MAX_TOKENS
-        }, {
-            headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-            timeout: AI_CONFIG.GROQ.TIMEOUT
-        });
+    const systemPrompt = "Kamu adalah Supervisor Editor. Pastikan konten akurat, logis, dan TIDAK HALUSINASI.";
 
-        const refined = refineResponse.data.choices[0]?.message?.content;
-        if (refined) {
-            console.log(chalk.green('[AI] Groq Refinement Successful.'));
-            return refined;
-        }
-    } catch (e) {
-        console.warn(chalk.yellow('[AI] Groq Refinement failed:'), e.message);
+    // Try OpenRouter first for refinement
+    let res = await runOpenRouterGeneration(systemPrompt, refinementPrompt);
+    if (!res.success) {
+        res = await runGroqGeneration(systemPrompt, refinementPrompt);
     }
+
+    if (res.success && res.content) {
+        console.log(chalk.green(`[AI] Refinement Successful (${res.model}).`));
+        return res.content;
+    }
+    
     return content;
 }
 
 const parseAndClamp = (content) => {
     const parseSection = (label, text) => {
         try {
-            // BACKSLASH-SAFE REGEX STRATEGY:
-            // Avoid \s because of backslash hell. Use [ \t] instead.
-            // Avoid [\s\S] because of backslash hell. Use [^] (any char).
-
-            // Regex logic:
-            // (?:^|[\n\r])  -> Start of line or string
-            // [ \t]*        -> Optional spaces/tabs
-            // [*#\-.0-9]*   -> Optional markdown/list markers
-            // [ \t]*        -> Optional spaces/tabs
-            // ${label}      -> "AKTIVITAS", etc
-            // [*: ]*        -> Optional suffix (colon, star, space)
-            // [ \t]*        -> Optional spaces/tabs
-            // ([^]*?)       -> Capture EVERYTHING until...
-            // (?=...)       -> Lookahead for next section header or end of string
-
             const regexStr = `(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*${label}[*: ]*[ \t]*([^]*?)(?=(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*(?:AKTIVITAS|PEMBELAJARAN|KENDALA)|$)`;
-
             const regex = new RegExp(regexStr, 'i');
             const match = text.match(regex);
-
             if (match && match[1] && match[1].trim().length > 0) {
                 return match[1].trim();
             }
@@ -169,21 +150,16 @@ const parseAndClamp = (content) => {
     let pembelajaran = parseSection('PEMBELAJARAN', content);
     let kendala = parseSection('KENDALA', content);
 
-    // FINAL FALLBACK: Manual line-by-line check if everything is empty
     if (!aktivitas && !pembelajaran && !kendala) {
         console.log(chalk.cyan('[AI-PARSE] Regex failed, using manual line split fallback...'));
         const lines = content.split('\n');
         let currentSection = null;
-
-        // Reset variables for fallback
         let a_temp = '', p_temp = '', k_temp = '';
 
         lines.forEach(line => {
             const l = line.trim().toUpperCase();
-            // Check headers with flexible matching
             if (l.match(/[*#\-.0-9]*\s*AKTIVITAS[*: ]*/)) {
                 currentSection = 'A';
-                // Remove header and keep content
                 a_temp = line.replace(/.*AKTIVITAS[*: ]*/i, '').trim();
             }
             else if (l.match(/[*#\-.0-9]*\s*PEMBELAJARAN[*: ]*/)) {
@@ -195,7 +171,6 @@ const parseAndClamp = (content) => {
                 k_temp = line.replace(/.*KENDALA[*: ]*/i, '').trim();
             }
             else if (currentSection && line.trim()) {
-                // Append continuation lines
                 if (currentSection === 'A') a_temp += ' ' + line.trim();
                 else if (currentSection === 'P') p_temp += ' ' + line.trim();
                 else if (currentSection === 'K') k_temp += ' ' + line.trim();
@@ -226,11 +201,7 @@ const parseAndClamp = (content) => {
     };
 };
 
-/**
- * Generate attendance report (Manual Points)
- */
 async function generateAttendanceReport(previousLogs = []) {
-    // Build context
     let context = '';
     if (previousLogs.length > 0) {
         context = 'Berikut adalah riwayat laporan sebelumnya:\n\n';
@@ -244,27 +215,19 @@ async function generateAttendanceReport(previousLogs = []) {
     const systemPrompt = getMessage('AI_SYSTEM_PROMPT');
     const userPrompt = getMessage('AI_USER_PROMPT').replace('{context}', context);
 
-    // 1. Try Groq
-    let res = await runGroqGeneration(systemPrompt, userPrompt);
-    
-    // FALLBACK to Gemini if Groq fails
+    // Prefer OpenRouter
+    let res = await runOpenRouterGeneration(systemPrompt, userPrompt);
     if (!res.success) {
-        res = await runGeminiGeneration(systemPrompt, userPrompt);
+        res = await runGroqGeneration(systemPrompt, userPrompt);
     }
 
     let content = res.content;
     if (!content) return { success: false, error: 'Layanan AI sedang sibuk/gagal.' };
 
-    // 2. Double Check
-    content = await runGroqRefinement(content, "(Manual Input Context)", previousLogs);
-
+    content = await runAIRefinement(content, "(Manual Input Context)", previousLogs);
     return parseAndClamp(content);
 }
 
-/**
- * Process free text input into a structured attendance report (Story Mode)
- * Optimized: skips separate refinement for short input, combines with expansion
- */
 async function processFreeTextToReport(userText, previousLogs = []) {
     const contextMessages = [];
     if (previousLogs.length > 0) {
@@ -272,8 +235,6 @@ async function processFreeTextToReport(userText, previousLogs = []) {
         previousLogs.forEach((log, i) => {
             historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
         });
-
-        // Truncate history to avoid URL length limits
         if (historyText.length > 2000) {
             historyText = historyText.substring(0, 2000) + "\n...(Riwayat dipotong)...";
         }
@@ -283,38 +244,28 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     const systemPrompt = getMessage('AI_SYSTEM_PROMPT_STORY');
     const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: \"${userText}\"\n\nBuatkan laporan dengan gaya saya!`;
 
-    // 1. Try Groq (Primary)
-    let res = await runGroqGeneration(systemPrompt, fullPrompt);
-    
-    // FALLBACK to Gemini if Groq fails
+    // Prefer OpenRouter
+    let res = await runOpenRouterGeneration(systemPrompt, fullPrompt);
     if (!res.success) {
-        res = await runGeminiGeneration(systemPrompt, fullPrompt);
+        res = await runGroqGeneration(systemPrompt, fullPrompt);
     }
 
     let content = res.content;
     if (!content) return { success: false, error: 'Gagal memproses laporan (Engine AI sibuk).' };
 
-    // 3. Smart Refinement: Skip separate refinement if input is short
-    //    (expansion will handle both refinement + lengthening in one call)
     const wordCount = userText.trim().split(/\s+/).length;
     const skipRefinement = wordCount < 50;
 
     if (!skipRefinement) {
-        content = await runGroqRefinement(content, userText, previousLogs);
+        content = await runAIRefinement(content, userText, previousLogs);
     }
-
-    console.log(chalk.yellow('[AI-DEBUG] RAW CONTENT BEFORE PARSE:\n', content));
 
     let report = parseAndClamp(content);
 
-    // --- COMBINED REFINEMENT + EXPANSION if sections too short ---
-    if (GROQ_API_KEY && (report.aktivitas.length < 100 || report.pembelajaran.length < 100 || report.kendala.length < 100)) {
-        console.log(chalk.cyan('[AI] Sections too short, running combined refinement+expansion...'));
-
-        // For very short user input, allow more creative elaboration
-        const isMinimalInput = wordCount < 10;
-        const expansionPrompt = `Laporan magang ini perlu diperpanjang.${isMinimalInput ? `\nUser hanya bilang: "${userText}". Elaborasi dengan detail teknis yang WAJAR dan REALISTIS untuk kegiatan tersebut.` : `\nCERITA ASLI USER: "${userText}"`}
-
+    // Expansion logic if needed
+    if (report.aktivitas.length < 100 || report.pembelajaran.length < 100 || report.kendala.length < 100) {
+        console.log(chalk.cyan('[AI] Sections too short, running expansion...'));
+        const expansionPrompt = `Laporan magang ini perlu diperpanjang.
 DRAFT SAAT INI:
 AKTIVITAS: ${report.aktivitas}
 PEMBELAJARAN: ${report.pembelajaran}
@@ -322,100 +273,51 @@ KENDALA: ${report.kendala}
 
 INSTRUKSI:
 1. Perpanjang SETIAP bagian agar mencapai 110-150 karakter.
-2. Tambahkan detail teknis yang WAJAR dan REALISTIS sesuai konteks kegiatan.
-3. JANGAN pakai kalimat klise/lebay ("tetap semangat", "mencari solusi terbaik", "tidak menyurutkan").
-4. Tulis to-the-point, natural, profesional.
-5. JANGAN PERNAH mempersingkat. Hanya PERPANJANG.
-
+2. Tambahkan detail teknis yang WAJAR dan REALISTIS.
 Format output:
 AKTIVITAS: [isi]
 PEMBELAJARAN: [isi]
 KENDALA: [isi]`;
 
-        try {
-            const expandRes = await axios.post(GROQ_API_URL, {
-                model: GROQ_MODEL,
-                messages: [
-                    { role: 'system', content: "Kamu adalah Editor laporan magang. TUGASMU: perpanjang setiap bagian agar mencapai 110-150 karakter. Tambahkan detail teknis yang wajar. JANGAN PERNAH mempersingkat atau menghapus konten. Output HANYA format AKTIVITAS/PEMBELAJARAN/KENDALA." },
-                    { role: 'user', content: expansionPrompt }
-                ],
-                temperature: isMinimalInput ? 0.5 : 0.4,
-                max_tokens: 500
-            }, {
-                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-                timeout: AI_CONFIG.GROQ.TIMEOUT
-            });
+        const expansionSystem = "Kamu adalah Editor laporan magang. TUGASMU: perpanjang setiap bagian agar mencapai 110-150 karakter. Output HANYA format AKTIVITAS/PEMBELAJARAN/KENDALA.";
 
-            const expandedContent = expandRes.data.choices[0]?.message?.content;
-            if (expandedContent) {
-                console.log(chalk.green('[AI] Combined refinement+expansion successful.'));
-                report = parseAndClamp(expandedContent);
-            }
-        } catch (e) {
-            console.warn(chalk.yellow('[AI] Expansion failed:'), e.message);
+        let expRes = await runOpenRouterGeneration(expansionSystem, expansionPrompt);
+        if (!expRes.success) {
+            expRes = await runGroqGeneration(expansionSystem, expansionPrompt);
+        }
+
+        if (expRes.success && expRes.content) {
+            console.log(chalk.green(`[AI] Expansion successful (${expRes.model}).`));
+            report = parseAndClamp(expRes.content);
         }
     }
 
     return report;
 }
 
-/**
- * Summarize Islamic Content (Hadith/Ayat)
- * @param {string} text - Full text
- * @returns {Promise<string>} - Summarized text (Hikmah/Intisari)
- */
 async function summarizeIslamicContent(text) {
-    // If text is short enough, return as is
     if (!text || text.length < 250) return text;
-
-    console.log(chalk.cyan(`[AI] Summarizing Islamic content (${text.length} chars)...`));
-
-    const prompt = `Ringkas hadits/ayat berikut menjadi 1-2 kalimat pendek yang berisi "Hikmah" atau "Intisari" utamanya saja.
-    Jangan ubah makna. Bahasa Indonesia santai, ramah, tapi sopan. 
-    JANGAN pakai emoji berlebihan (maksimal 1).
-    JANGAN pakai kata pembuka "Berikut ringkasannya". Langsung isinya.
+    const prompt = `Ringkas hadits/ayat berikut menjadi 1-2 kalimat pendek yang berisi "Hikmah" utama saja.\n\nTeks Asli: "${text}"`;
     
-    Teks Asli: "${text}"`;
-
-    if (GROQ_API_KEY) {
-        try {
-            const res = await axios.post(GROQ_API_URL, {
-                model: 'llama3-8b-8192', // Fast model
-                messages: [{ role: 'user', content: prompt }],
-                max_tokens: 150
-            }, {
-                headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-                timeout: 10000
-            });
-            const summary = res.data.choices[0]?.message?.content;
-            if (summary) return summary.trim();
-        } catch (e) {
-            console.warn(chalk.yellow('[AI-SUMMARY] Groq failed.'));
-        }
+    let res = await runOpenRouterGeneration("Kamu adalah asisten pengingat ibadah.", prompt);
+    if (!res.success) {
+        res = await runGroqGeneration("Kamu adalah asisten pengingat ibadah.", prompt);
     }
 
-    return text; // Return original if all fail
+    if (res.success && res.content) return res.content.trim();
+    return text;
 }
 
-// Exports (Keep existing names)
 module.exports = {
     generateAttendanceReport,
     processFreeTextToReport,
     summarizeIslamicContent,
     transcribeAudio,
     smartChat: async (prompt, systemPrompt = '') => {
-        if (!GROQ_API_KEY) return { success: false, error: 'API key missing' };
-        try {
-            const res = await axios.post(GROQ_API_URL, {
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-                    { role: 'user', content: prompt }
-                ],
-            }, { headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` } });
-            return { success: true, content: res.data.choices[0]?.message?.content, model: 'Groq' };
-        } catch (e) {
-            return { success: false, error: 'Busy' };
+        let res = await runOpenRouterGeneration(systemPrompt, prompt);
+        if (!res.success) {
+            res = await runGroqGeneration(systemPrompt, prompt);
         }
+        return res;
     }
 };

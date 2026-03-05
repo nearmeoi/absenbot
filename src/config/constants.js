@@ -253,6 +253,12 @@ module.exports = {
 
     // AI & Validasi
     AI_CONFIG: {
+        OPENROUTER: {
+            API_URL: 'https://openrouter.ai/api/v1/chat/completions',
+            MODEL: 'openrouter/auto',
+            MAX_TOKENS: 1000,
+            TIMEOUT: 30000
+        },
         GROQ: {
             API_URL: 'https://api.groq.com/openai/v1/chat/completions',
             AUDIO_URL: 'https://api.groq.com/openai/v1/audio/transcriptions',

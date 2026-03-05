@@ -124,10 +124,6 @@ function initAuthServer() {
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
-    // Dashboard routes
-    const dashboardRoutes = require('../routes/dashboardRoutes');
-    app.use('/dashboard', dashboardRoutes);
-
     // App routes (Public/User)
     const appRoutes = require('../routes/appRoutes');
     app.use('/app-api', appRoutes);

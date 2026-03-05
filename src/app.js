@@ -4,15 +4,17 @@ const chalk = require("chalk")
 const readline = require("readline")
 const fs = require('fs');
 const path = require('path');
-const { DIR_AUTH } = require('./config/constants');
+const { DIR_AUTH, ADMIN_NUMBERS } = require('./config/constants');
 const { initScheduler, setBotSocket } = require('./services/scheduler');
 const { initAuthServer } = require('./services/secureAuth');
 const tanganiPesan = require('./handlers/messageHandler');
 const { initPelaporError, laporError } = require('./services/errorReporter');
+const { catatPesanKeluar, setBotConnected } = require('./services/botState');
 
 const modePairing = true;
 let jadwalSiap = false;
 let serverAuthSiap = false;
+let appInitialized = false;
 
 const tanya = (teks) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
@@ -100,14 +102,13 @@ async function sambungKeWhatsApp(awal = true) {
         auth: state,
         browser: ["Ubuntu", "Chrome", "20.0.04"],
         version,
-        generateHighQualityLinkPreview: false,
-        syncFullHistory: false,
+        generateHighQualityLinkPreview: true,
+        syncFullHistory: true,
         markOnlineOnConnect: true,
-        shouldSyncHistoryMessage: () => false,
         retryRequestDelayMs: 5000,
-        defaultQueryTimeoutMs: 0,
-        connectTimeoutMs: 120000,
-        keepAliveIntervalMs: 60000,
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 30000,
+        transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
         getMessage: async (key) => {
             return { conversation: "" };
         }
@@ -115,7 +116,6 @@ async function sambungKeWhatsApp(awal = true) {
 
     // --- ANTI-LOOP WRAPPER ---
     const kirimAsli = sock.sendMessage.bind(sock);
-    const { catatPesanKeluar } = require('./services/botState');
 
     sock.sendMessage = async (...args) => {
         const loopDetected = catatPesanKeluar();
@@ -123,7 +123,6 @@ async function sambungKeWhatsApp(awal = true) {
             console.error(chalk.bgRed.white(" [ANTI-LOOP] KRITIS: Terlalu banyak pesan keluar! Shutdown untuk mencegah spam. "));
 
             try {
-                const { ADMIN_NUMBERS } = require('./config/constants');
                 if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
                     await kirimAsli(ADMIN_NUMBERS[0], {
                         text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan."
@@ -190,10 +189,7 @@ async function sambungKeWhatsApp(awal = true) {
             }
 
             // Update status dashboard
-            try {
-                const dashboardRoutes = require('./routes/dashboardRoutes');
-                dashboardRoutes.setBotConnected(false);
-            } catch (e) { }
+            setBotConnected(false);
 
             const harusRekoneksi = kodeStatus !== DisconnectReason.loggedOut;
             if (harusRekoneksi && hitungKoneksiUlang < MAKS_KONEKSI_ULANG) {
@@ -223,21 +219,27 @@ async function sambungKeWhatsApp(awal = true) {
                 serverAuthSiap = true;
             }
 
-            // Berikan socket ke dashboard
-            const dashboardRoutes = require('./routes/dashboardRoutes');
-            dashboardRoutes.setBotSocket(sock);
-            dashboardRoutes.setBotConnected(true);
+            setBotConnected(true);
 
-            // Kirim pesan tes ke admin
-            const { ADMIN_NUMBERS } = require('./config/constants');
-            if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
+            // Kirim pesan tes ke admin (Hanya saat startup awal proses)
+            if (awal && ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
                 setTimeout(() => {
-                    sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 Bot baru saja restart dan terhubung. Jika Anda melihat ini, bot bisa mengirim pesan.' })
+                    sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 *Bot Started/Restarted*\n\nSistem telah aktif dan terhubung kembali.' })
                         .catch(err => {
                             console.error(chalk.red(`[ERROR] Gagal mengirim pesan tes: ${err.message}`));
                         });
                 }, 5000);
             }
+
+            // EXPOSE SOCKET GLOBALLY for Dashboard APIs
+            global.botSock = sock;
+            global.restartBot = async () => {
+                console.log(chalk.yellow('[SYSTEM] Restarting bot connection...'));
+                try {
+                    sock.end(new Error('Admin requested restart'));
+                } catch (e) { }
+                sambungKeWhatsApp();
+            };
 
             // Update socket scheduler
             setBotSocket(sock);
@@ -246,6 +248,7 @@ async function sambungKeWhatsApp(awal = true) {
             if (!jadwalSiap) {
                 initScheduler(sock);
                 jadwalSiap = true;
+                appInitialized = true;
             }
         }
     })
@@ -325,6 +328,14 @@ async function sambungKeWhatsApp(awal = true) {
                         text: teks,
                         isGroup: adalahGrup
                     });
+
+                    // Notify admin on critical handler error
+                    if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
+                        const adminJid = ADMIN_NUMBERS[0].includes('@') ? ADMIN_NUMBERS[0] : `${ADMIN_NUMBERS[0]}@s.whatsapp.net`;
+                        await sock.sendMessage(adminJid, {
+                            text: `⚠️ *CRITICAL ERROR IN HANDLER*\n\nUser: @${msg.key.remoteJid.split('@')[0]}\nError: ${e.message}\n\nCheck logs for details.`
+                        }).catch(() => { });
+                    }
                 }
             }
         } catch (err) {
