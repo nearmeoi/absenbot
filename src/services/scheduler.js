@@ -492,7 +492,12 @@ async function runGroupHidetagJapri(sock, task, timezone) {
         for (const user of pendingUsers) {
             try {
                 // Use the list we already filtered above
-                await sock.sendMessage(user.phone, { text: getMessage(task.messageKey, user.phone) });
+                let japriMsg = getMessage(task.messageKey, user.phone);
+                // Inject nama parameter if exists
+                if (japriMsg.includes('{nama}')) {
+                    japriMsg = japriMsg.replace('{nama}', user.name || 'Kak');
+                }
+                await sock.sendMessage(user.phone, { text: japriMsg });
                 await new Promise(r => setTimeout(r, 3000));
             } catch (e) {
                 console.error(`[SCHEDULER] Failed japri to ${user.email}:`, e.message);

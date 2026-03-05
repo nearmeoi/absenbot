@@ -55,7 +55,7 @@
   },
   {
     "id": "emergency_submit",
-    "time": "23:50",
+    "time": "23:30",
     "days": "1-5",
     "type": "emergency_submit",
     "messageKey": null,
