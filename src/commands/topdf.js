@@ -31,8 +31,6 @@ module.exports = {
                 return await sock.sendMessage(sender, { text: '⚠️ Format file tidak didukung. Kirim file *.doc* atau *.docx*.' }, { quoted: msg });
             }
 
-            await sock.sendMessage(sender, { react: { text: '⏳', key: msg.key } });
-
             // 2. Download
             const msgToDownload = quotedMsg ? {
                 key: { ...msg.key, id: msg.message.extendedTextMessage.contextInfo.stanzaId },

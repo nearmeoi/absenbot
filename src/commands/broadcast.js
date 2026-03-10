@@ -26,13 +26,12 @@ module.exports = {
         }
 
         const users = getAllUsers();
-        await sock.sendMessage(sender, { react: { text: getMessage('reaction_broadcast') }, key: msgObj.key } );
 
         let count = 0;
         for (const user of users) {
             try {
-                // Add delay to avoid ban
-                await new Promise(r => setTimeout(r, 1000));
+                // Larger delay to avoid ban and be annoying
+                await new Promise(r => setTimeout(r, 4000));
                 await sock.sendMessage(user.phone, { text: `📢 *INFORMASI PENTING*\n\n${args}` });
                 count++;
             } catch (e) {

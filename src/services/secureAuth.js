@@ -10,6 +10,7 @@ const path = require('path');
 const crypto = require('crypto');
 const chalk = require('chalk');
 const os = require('os');
+const axios = require('axios');
 const { SESSION_DIR, USERS_FILE } = require('../config/constants');
 const { scrapeAndSaveUser } = require('./nameScraper');
 
@@ -90,9 +91,15 @@ async function getServerAddress() {
 function initAuthServer() {
     const app = express();
 
+    // Logger for debugging
+    app.use((req, res, next) => {
+        console.log(chalk.gray(`[AUTH-REQ] ${req.method} ${req.path} | Host: ${req.headers.host}`));
+        next();
+    });
+
     // Session middleware for dashboard
     app.use(session({
-        secret: process.env.DASHBOARD_SECRET || 'absenbot-secret-key-change-this',
+        secret: process.env.DASHBOARD_SECRET || '18000',
         resave: true, // Force session to be saved back to the session store
         saveUninitialized: false,
         rolling: true, // Force a session identifier cookie to be set on every response
@@ -103,30 +110,47 @@ function initAuthServer() {
         }
     }));
 
-    // Serve React App Assets
-    const clientDistPath = path.join(__dirname, '../../client/dist');
-    
-    // 1. Global static serving for common assets (manifest, sw, assets)
-    // This ensures /assets/ or /manifest.webmanifest works from ANY domain/path
-    app.use(express.static(clientDistPath, { index: false }));
-
-    app.use('/dashboard', express.static(clientDistPath)); // Original dashboard mount
-    
-    // Also serve static assets at root for app subdomain
-    app.use((req, res, next) => {
-        const host = req.headers.host || '';
-        if (host.startsWith('app.')) {
-            return express.static(clientDistPath)(req, res, next);
-        }
-        next();
-    });
-
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
 
     // App routes (Public/User)
     const appRoutes = require('../routes/appRoutes');
     app.use('/app-api', appRoutes);
+
+    // Serve the Kemnaker-style Login Page (Restored)
+    app.get('/auth/preview', (req, res) => {
+        const loginPagePath = path.join(__dirname, '../../public/login.html');
+        if (fs.existsSync(loginPagePath)) {
+            res.sendFile(loginPagePath);
+        } else {
+            res.status(404).send('Login page not found (public/login.html missing)');
+        }
+    });
+
+    app.get('/auth/:token', (req, res) => {
+        const token = req.params.token;
+        const authRequest = pendingAuths.get(token);
+
+        console.log(chalk.cyan(`[AUTH] Accessing /auth/${token.substring(0, 8)}... from host: ${req.headers.host}`));
+
+        // Also allow debug token or verify if token exists
+        if (token !== 'debug-preview-token' && !authRequest) {
+            return res.send('Link kadaluarsa atau tidak valid.');
+        }
+
+        const loginPagePath = path.join(__dirname, '../../public/login.html');
+        if (fs.existsSync(loginPagePath)) {
+            res.sendFile(loginPagePath);
+        } else {
+            res.status(404).send('Login page not found (public/login.html missing)');
+        }
+    });
+
+    // STATIC ASSETS AND SPA HANDLING (Must be after specific routes)
+    const clientDistPath = path.join(__dirname, '../../client/dist');
+    
+    // Serve static files at root
+    app.use(express.static(clientDistPath, { index: false }));
 
     // Root redirect
     app.get('/', (req, res) => {
@@ -145,53 +169,21 @@ function initAuthServer() {
         res.redirect('/dashboard');
     });
 
-    // Subdomain catch-all for React routing AND static assets
+    // Subdomain catch-all for React routing
     app.use((req, res, next) => {
         const host = req.headers.host || '';
-        // If on app subdomain, try to serve static file from root first
         if (host.startsWith('app.')) {
-            // Serve static files (assets, etc) if they exist
-            express.static(clientDistPath)(req, res, (err) => {
-                if (err) return next(err);
-                // If not found, serve index.html for SPA routing (exclude API)
-                if (!req.path.startsWith('/app-api')) {
-                    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-                    return res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
-                }
-                next();
-            });
-            return;
+            // Already handled /auth/ and static files above via express.static
+            // If we reach here, it's likely a React SPA route
+            if (!req.path.startsWith('/app-api') && !req.path.startsWith('/auth/')) {
+                res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+                return res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+            }
         }
         next();
     });
 
-
-    // Serve the Kemnaker-style Login Page (Restored)
-    app.get('/auth/preview', (req, res) => {
-        const loginPagePath = path.join(__dirname, '../../public/login.html');
-        if (fs.existsSync(loginPagePath)) {
-            res.sendFile(loginPagePath);
-        } else {
-            res.status(404).send('Login page not found (public/login.html missing)');
-        }
-    });
-
-    app.get('/auth/:token', (req, res) => {
-        const token = req.params.token;
-        const authRequest = pendingAuths.get(token);
-
-        // Also allow debug token or verify if token exists
-        if (token !== 'debug-preview-token' && !authRequest) {
-            return res.send('Link kadaluarsa atau tidak valid.');
-        }
-
-        const loginPagePath = path.join(__dirname, '../../public/login.html');
-        if (fs.existsSync(loginPagePath)) {
-            res.sendFile(loginPagePath);
-        } else {
-            res.status(404).send('Login page not found (public/login.html missing)');
-        }
-    });
+    app.use('/dashboard', express.static(clientDistPath));
 
     // Handle login submission
     app.post('/auth/submit', async (req, res) => {
@@ -261,6 +253,43 @@ function initAuthServer() {
                 message: 'Server error during authentication'
             });
         }
+    });
+
+    // Endpoint for external auth server to notify success (absen-auth)
+    app.post('/api/external/auth-success', (req, res) => {
+        const { phone, email, secret } = req.body;
+        
+        // Simple secret check (matches what's in absen-auth/index.js)
+        if (secret !== '18000') {
+            console.log(chalk.red(`[AUTH] Forbidden access to auth-success from ${req.ip}`));
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        console.log(chalk.green(`[AUTH] External success notification received for ${phone}`));
+
+        // Find the pending auth by phone (iterate tokens)
+        let foundToken = null;
+        for (const [token, data] of pendingAuths.entries()) {
+            if (data.phone === phone) {
+                foundToken = token;
+                break;
+            }
+        }
+
+        if (foundToken) {
+            const authRequest = pendingAuths.get(foundToken);
+            if (authRequest.callback) {
+                try {
+                    authRequest.callback({ success: true, message: 'Registrasi berhasil!' });
+                } catch (e) {
+                    console.error('[AUTH] Callback error:', e.message);
+                }
+            }
+            pendingAuths.delete(foundToken);
+            tempTokens.delete(foundToken);
+        }
+
+        res.json({ success: true });
     });
 
     // Endpoint to notify about auth status

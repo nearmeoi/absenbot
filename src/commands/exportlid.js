@@ -14,8 +14,6 @@ module.exports = {
         }
 
         try {
-            await sock.sendMessage(sender, { react: { text: '📂', key: msgObj.key } });
-
             const metadata = await sock.groupMetadata(sender);
             const participants = metadata.participants;
 

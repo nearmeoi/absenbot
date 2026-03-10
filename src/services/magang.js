@@ -375,67 +375,84 @@ async function cekKredensial(email, password) {
     return await puppeteerLogin(email, password, true);
 }
 
-async function cekStatusHarian(email, password) {
-    const apiResult = await apiService.checkAttendanceStatus(email);
-    if (apiResult.success) return apiResult;
-
-    if (apiResult.needsLogin) {
-        console.log(chalk.yellow(`[MAGANG] Session expired for ${email}. Attempting Direct Login...`));
-        const directResult = await apiService.directLogin(email, password);
+async function cekStatusHarian(email, password, retries = 3) {
+    let lastError = null;
+    
+    for (let i = 0; i < retries; i++) {
+        const apiResult = await apiService.checkAttendanceStatus(email);
         
-        // Try API status check again after Direct Login (even if SSO incomplete, session might work)
-        if (directResult.success) {
-            const retryApi = await apiService.checkAttendanceStatus(email);
-            if (retryApi.success) return retryApi;
-        }
+        // If successful or explicitly confirmed already attended, return immediately
+        if (apiResult.success) return apiResult;
 
-        console.log(chalk.yellow(`[MAGANG] API check failed after Direct Login. Completing via Puppeteer...`));
-        const loginResult = await puppeteerLogin(email, password, false);
-        if (loginResult.success) {
-            return await apiService.checkAttendanceStatus(email);
+        // If it's a login issue, try to fix it once
+        if (apiResult.needsLogin) {
+            console.log(chalk.yellow(`[MAGANG] Session expired for ${email}. Attempting Direct Login (Retry ${i+1}/${retries})...`));
+            const directResult = await apiService.directLogin(email, password);
+            
+            if (directResult.success) {
+                const retryApi = await apiService.checkAttendanceStatus(email);
+                if (retryApi.success) return retryApi;
+            }
+
+            console.log(chalk.yellow(`[MAGANG] API check failed after Direct Login. Completing via Puppeteer...`));
+            const loginResult = await puppeteerLogin(email, password, false);
+            if (loginResult.success) {
+                const finalCheck = await apiService.checkAttendanceStatus(email);
+                if (finalCheck.success) return finalCheck;
+            }
+            lastError = "Login gagal";
+        } else {
+            lastError = apiResult.pesan || "Unknown error";
+            console.log(chalk.red(`[MAGANG] Server error checking status for ${email}: ${lastError}. Retrying... (${i+1}/${retries})`));
+            // Small delay before retry if it's a server error
+            await new Promise(r => setTimeout(r, 2000));
         }
-        return { success: false, pesan: "Login gagal" };
     }
-    return { success: false, sudahAbsen: false, pesan: apiResult.pesan || "Unknown error" };
+    
+    return { success: false, sudahAbsen: false, pesan: lastError || "Gagal setelah beberapa kali percobaan" };
 }
 
-async function prosesLoginDanAbsen(dataUser) {
+async function prosesLoginDanAbsen(dataUser, retries = 2) {
     const { email, password, aktivitas, pembelajaran, kendala, simulation } = dataUser;
     if (simulation) {
         await new Promise(r => setTimeout(r, 1000));
         return { success: true, nama: email, foto: null, pesan_tambahan: "(MODE SIMULASI)" };
     }
 
-    console.log(chalk.cyan(`[PROCESS] Trying API submission for ${email}...`));
-    let apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
-    if (apiResult.success) {
-        console.log(chalk.green(`[PROCESS] API submission successful for ${email}`));
-        return apiResult;
-    }
-
-    console.log(chalk.yellow(`[PROCESS] API submission failed for ${email}: ${apiResult.pesan}`));
-
-    if (apiResult.needsLogin) {
-        console.log(chalk.yellow(`[PROCESS] API failed (needs login). Attempting Direct Login for ${email}...`));
-        const loginResult = await apiService.directLogin(email, password);
-
-        if (loginResult.success) {
-            console.log(chalk.green(`[PROCESS] Direct Login successful. Retrying API submission...`));
-            apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
-            if (apiResult.success) {
-                console.log(chalk.green(`[PROCESS] API submission successful on retry for ${email}`));
-                return apiResult;
-            }
-            console.log(chalk.red(`[PROCESS] API retry failed for ${email}: ${apiResult.pesan}`));
+    let lastError = null;
+    for (let i = 0; i <= retries; i++) {
+        console.log(chalk.cyan(`[PROCESS] Trying API submission for ${email}... (Attempt ${i+1}/${retries+1})`));
+        let apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
+        
+        if (apiResult.success) {
+            console.log(chalk.green(`[PROCESS] API submission successful for ${email}`));
+            return apiResult;
         }
+
+        // Jika error 400 dan alasannya karena "sudah absen", jangan retry atau fallback
+        if (apiResult.pesan && apiResult.pesan.toLowerCase().includes("sudah absen")) {
+            console.log(chalk.blue(`[PROCESS] User ${email} confirmed already attended via API.`));
+            return { success: true, sudahAbsen: true, pesan: "Sudah absen hari ini (API Check)" };
+        }
+
+        console.log(chalk.yellow(`[PROCESS] API submission failed for ${email}: ${apiResult.pesan}`));
+
+        if (apiResult.needsLogin) {
+            console.log(chalk.yellow(`[PROCESS] API failed (needs login). Attempting Direct Login for ${email}...`));
+            const loginResult = await apiService.directLogin(email, password);
+
+            if (loginResult.success) {
+                console.log(chalk.green(`[PROCESS] Direct Login successful. Retrying API submission...`));
+                apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
+                if (apiResult.success) return apiResult;
+            }
+        }
+        
+        lastError = apiResult.pesan;
+        if (i < retries) await new Promise(r => setTimeout(r, 2000));
     }
 
-    // Jika error 400 dan alasannya karena "sudah absen", jangan fallback ke puppeteer (karena puppeteer pun pasti gagal/duplikat)
-    if (apiResult.pesan && apiResult.pesan.includes("sudah absen")) {
-        return { success: true, sudahAbsen: true, pesan: "Sudah absen hari ini (API Check)" };
-    }
-
-    console.log(chalk.yellow(`[PROCESS] Final API attempt failed. Fallback to Puppeteer for ${email}...`));
+    console.log(chalk.yellow(`[PROCESS] Final API attempt failed (${lastError}). Fallback to Puppeteer for ${email}...`));
     return await puppeteerSubmit(email, password, { aktivitas, pembelajaran, kendala });
 }
 

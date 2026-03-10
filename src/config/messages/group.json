@@ -10,10 +10,10 @@
   "admin_hidetag_not_group": "Perintah ini hanya bisa digunakan di dalam grup.",
   "admin_hidetag_format": "Format: !all [pesan]",
   "admin_hidetag_done": "Broadcast group selesai.",
-  "reaction_wait": "⏳",
-  "reaction_success": "✅",
-  "reaction_fail": "❌",
-  "reaction_rocket": "🚀",
-  "reaction_write": "✍️",
-  "reaction_broadcast": "📢"
-}
+  "reaction_wait": "",
+  "reaction_success": "",
+  "reaction_fail": "",
+  "reaction_rocket": "",
+  "reaction_write": "",
+  "reaction_broadcast": ""
+  }

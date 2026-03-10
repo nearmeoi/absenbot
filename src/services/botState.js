@@ -12,7 +12,7 @@ let cmdMaintenance = []; // Daftar perintah yang sedang maintenance
 
 // --- Anti-Loop ---
 let logPesanKeluar = [];
-const LIMIT_LOOP = 10;
+const LIMIT_LOOP = 30;
 const WINDOW_LOOP_MS = 10000; // 10 detik
 
 // ========== GETTER ==========

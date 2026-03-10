@@ -18,7 +18,7 @@ module.exports = {
 
     async execute(sock, msgObj, context) {
         const { sender, senderNumber, args, isGroup, originalSenderId } = context;
-        let contentToProcess = args ? args.trim() : '';
+        let contentToProcess = (typeof args === 'string' ? args.trim() : '');
 
         // 2. Check if user is registered
         const user = getUserByPhone(senderNumber);

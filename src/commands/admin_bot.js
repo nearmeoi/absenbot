@@ -13,10 +13,10 @@ module.exports = {
     description: 'Admin bot control commands (Dashboard replacement)',
 
     async execute(sock, msgObj, context) {
-        const { sender, commandName, args } = context;
+        const { sender, commandName, args, isOwner } = context;
 
         // ADMIN CHECK
-        if (!ADMIN_NUMBERS.includes(sender)) {
+        if (!isOwner) {
             return sock.sendMessage(sender, { text: '❌ Anda tidak memiliki akses admin!' }, { quoted: msgObj });
         }
 

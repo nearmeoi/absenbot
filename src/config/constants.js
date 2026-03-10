@@ -1,5 +1,5 @@
-require('dotenv').config();
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env'), override: true });
 const fs = require('fs');
 const os = require('os');
 const chalk = require('chalk');
@@ -8,9 +8,13 @@ const chalk = require('chalk');
 // KONFIGURASI ADMIN
 // ========================================
 
-// Nomor admin (format: '628xxx@s.whatsapp.net')
+// Nomor admin (format: '628xxx@s.whatsapp.net' atau '... @lid')
 const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
-    ? process.env.ADMIN_NUMBERS.split(',').map(n => n.trim())
+    ? process.env.ADMIN_NUMBERS.split(',').map(n => {
+        const trimmed = n.trim();
+        if (trimmed.includes('@')) return trimmed;
+        return trimmed + '@s.whatsapp.net';
+    })
     : [];
 
 const APP_URL = process.env.APP_URL || 'https://app.monev-absenbot.my.id';
@@ -233,7 +237,8 @@ module.exports = {
     DIR_TEMP: path.join(ROOT_PROYEK, 'temp'),
     FILE_USER: path.join(ROOT_PROYEK, 'users.json'),
     FILE_GRUP: path.join(ROOT_PROYEK, 'data', 'group_id.txt'),
-    DIR_AUTH: path.join(ROOT_PROYEK, 'SesiWA'),
+    BASE_AUTH_DIR: path.join(ROOT_PROYEK, 'SesiWA'),
+    DIR_AUTH: (sessionId = 'default') => path.join(ROOT_PROYEK, 'SesiWA', sessionId),
     DIR_LOG: path.join(ROOT_PROYEK, 'logs'),
 
     // Puppeteer
@@ -253,22 +258,58 @@ module.exports = {
 
     // AI & Validasi
     AI_CONFIG: {
-        OPENROUTER: {
-            API_URL: 'https://openrouter.ai/api/v1/chat/completions',
-            MODEL: 'openrouter/auto',
-            MAX_TOKENS: 1000,
-            TIMEOUT: 30000
+        SCALEWAY: {
+            API_URL: 'https://api.scaleway.ai/v1/chat/completions',
+            MODELS: [
+                'llama-3.3-70b-instruct',
+                'deepseek-r1-distill-llama-70b',
+                'llama-3.1-8b-instruct',
+                'mistral-nemo-instruct-2407',
+                'gemma-3-27b-it',
+                'mistral-small-3.2-24b-instruct-2506',
+                'pixtral-12b-2409'
+            ],
+            TIMEOUT: 15000
         },
         GROQ: {
             API_URL: 'https://api.groq.com/openai/v1/chat/completions',
             AUDIO_URL: 'https://api.groq.com/openai/v1/audio/transcriptions',
-            MODEL: 'llama-3.3-70b-versatile',
-            MAX_TOKENS: 1000,
-            TIMEOUT: 30000
+            MODELS: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+            TIMEOUT: 10000
+        },
+        CEREBRAS: {
+            API_URL: 'https://api.cerebras.ai/v1/chat/completions',
+            MODEL: 'llama3.1-8b',
+            TIMEOUT: 15000
+        },
+        SAMBANOVA: {
+            API_URL: 'https://api.sambanova.ai/v1/chat/completions',
+            MODELS: [
+                "Meta-Llama-3.1-8B-Instruct",
+                "Meta-Llama-3.3-70B-Instruct",
+                "DeepSeek-R1-Distill-Llama-70B"
+            ],
+            TIMEOUT: 20000
         },
         GEMINI: {
-            API_URL_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',
-            TIMEOUT: 60000
+            API_URL: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+            MODELS: ['gemini-1.5-flash'],
+            TIMEOUT: 30000
+        },
+        GITHUB: {
+            API_URL: 'https://models.inference.ai.azure.com/chat/completions',
+            MODELS: [
+                "gpt-4o-mini",
+                "Cohere-command-r",
+                "AI21-Jamba-1.5-Mini",
+                "Llama-3.2-11B-Vision-Instruct"
+            ],
+            TIMEOUT: 20000
+        },
+        OPENROUTER: {
+            API_URL: 'https://openrouter.ai/api/v1/chat/completions',
+            MODEL: 'openrouter/auto',
+            TIMEOUT: 35000
         },
         REPORT: {
             MIN_CHARS: 110,
@@ -290,7 +331,7 @@ module.exports = {
     TEMP_DIR: path.join(ROOT_PROYEK, 'temp'),
     USERS_FILE: path.join(ROOT_PROYEK, 'users.json'),
     GROUP_ID_FILE: path.join(ROOT_PROYEK, 'data', 'group_id.txt'),
-    AUTH_STATE_DIR: path.join(ROOT_PROYEK, 'SesiWA'),
+    AUTH_STATE_DIR: (sessionId = 'default') => path.join(ROOT_PROYEK, 'SesiWA', sessionId),
     LOGS_DIR: path.join(ROOT_PROYEK, 'logs'),
     CHROMIUM_PATH: ambilPathChromium(),
     PUPPETEER_ARGS: KONFIG_ENV.puppeteerArgs,

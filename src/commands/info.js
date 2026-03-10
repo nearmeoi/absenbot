@@ -12,8 +12,6 @@ module.exports = {
         // 1. Authenticate User (Optional, but good for context)
         const user = getUserByPhone(senderNumber);
         
-        await sock.sendMessage(sender, { react: { text: '⏳', key: msgObj.key } });
-
         // Use 'akmaljie12355@gmail.com' (Akmal) as the source account if the user is not registered
         // Or use the user's own account if registered.
         // For general info, using a known working account (Akmal) is reliable if the requester is not logged in.
@@ -22,7 +20,6 @@ module.exports = {
         const result = await getAnnouncements(sourceEmail);
 
         if (!result.success) {
-            await sock.sendMessage(sender, { react: { text: '❌', key: msgObj.key } });
             await sock.sendMessage(sender, { text: `Gagal mengambil info: ${result.pesan}` }, { quoted: msgObj });
             return;
         }
@@ -30,7 +27,6 @@ module.exports = {
         const announcements = result.data;
 
         if (!announcements || announcements.length === 0) {
-            await sock.sendMessage(sender, { react: { text: '📭', key: msgObj.key } });
             await sock.sendMessage(sender, { text: 'Belum ada pengumuman terbaru dari Kemnaker.' }, { quoted: msgObj });
             return;
         }
@@ -50,7 +46,6 @@ module.exports = {
             }
         });
 
-        await sock.sendMessage(sender, { react: { text: '✅', key: msgObj.key } });
         await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
     }
 };

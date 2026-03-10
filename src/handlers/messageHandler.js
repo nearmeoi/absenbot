@@ -13,8 +13,9 @@ const { processFreeTextToReport } = require('../services/aiService');
 const { getDraft, setDraft, deleteDraft, formatDraftPreview } = require('../services/previewService');
 const botState = require('../services/botState');
 const { getMessage } = require('../services/messageService');
-const { BOT_PREFIX, VALIDATION } = require('../config/constants');
+const { BOT_PREFIX, VALIDATION, ADMIN_NUMBERS } = require('../config/constants');
 const { parseDraftFromMessage, normalizeToStandard } = require('../utils/messageUtils');
+const { ambilInfoGrup, tunjukkanSedangKetik } = require('../utils/whatsappUtils');
 const { laporError } = require('../services/errorReporter');
 
 // Cache user yang ditandai
@@ -96,12 +97,9 @@ const tanganiPesan = async (sock, msg) => {
                             await sock.sendMessage(pengirim, {
                                 sticker: fs.readFileSync(pathStiker)
                             }, { quoted: objPesan });
-                        } else {
-                            await sock.sendMessage(pengirim, { react: { text: "⭐", key: objPesan.key } });
                         }
                         return;
-                    }
-                }
+                    }                }
             } catch (e) {
                 console.error('[HANDLER] Error pada logika user tandai:', e.message);
             }
@@ -117,22 +115,46 @@ const tanganiPesan = async (sock, msg) => {
                 }
 
                 try {
-                    sock.sendMessage(pengirim, {
-                        react: { text: getMessage('reaction_wait') || '⏳', key: objPesan.key }
-                    }).catch(() => { });
+                    // Daripada reaksi emot, gunakan typing status (lebih natural)
+                    await tunjukkanSedangKetik(sock, pengirim, 3000);
                 } catch (e) { }
 
-                const idPengirimAsli = adalahGrup ? (objPesan.key.participant || objPesan.participant) : pengirim;
-                const konteks = { sender: pengirim, senderNumber: noPengirim, isGroup: adalahGrup, args: argumen, textMessage: teksPesan, originalSenderId: idPengirimAsli, BOT_PREFIX };
+                const idPengirimAsliRaw = adalahGrup ? (objPesan.key.participant || objPesan.participant) : pengirim;
+                const idPengirimAsli = normalizeToStandard(idPengirimAsliRaw);
+
+                // --- AUTH CHECKS ---
+                const isOwner = ADMIN_NUMBERS.includes(idPengirimAsli) || ADMIN_NUMBERS.includes(noPengirim);
+                console.log(`[AUTH DEBUG] idPengirimAsli: ${idPengirimAsli}, isOwner: ${isOwner}, ADMIN_LIST: ${JSON.stringify(ADMIN_NUMBERS)}`);
+
+                let isAdmin = isOwner;
+
+                if (adalahGrup && !isAdmin) {
+                    try {
+                        const metadata = await ambilInfoGrup(sock, pengirim);
+                        const participants = metadata.participants || [];
+                        const userPart = participants.find(p => p.id === idPengirimAsli);
+                        isAdmin = userPart && (userPart.admin === 'admin' || userPart.admin === 'superadmin');
+                    } catch (e) {
+                        console.error('[HANDLER] Gagal cek admin grup:', e.message);
+                    }
+                }
+
+                const argsArray = argumen ? argumen.split(/\s+/) : [];
+                const konteks = {
+                    sender: pengirim,
+                    senderNumber: noPengirim,
+                    isGroup: adalahGrup,
+                    commandName: namaCmd,
+                    args: argumen, // Kembali ke string untuk kompatibilitas
+                    argsArray: argsArray, // Opsi baru untuk yang butuh array
+                    textMessage: teksPesan,
+                    originalSenderId: idPengirimAsli,
+                    BOT_PREFIX,
+                    isOwner,
+                    isAdmin
+                };
 
                 await modulCmd.execute(sock, objPesan, konteks);
-
-                const cmdTanpaReaksi = ['cek', 'riwayat', 'broadcast'];
-                if (!cmdTanpaReaksi.includes(namaCmd)) {
-                    try {
-                        await sock.sendMessage(pengirim, { react: { text: "", key: objPesan.key } });
-                    } catch (e) { }
-                }
                 return;
             } else {
                 // --- PENANGAN TYPO ---
@@ -140,7 +162,6 @@ const tanganiPesan = async (sock, msg) => {
                 const terdekat = findClosestMatch(namaCmd, semuaCmd, 2);
                 if (terdekat) {
                     try {
-                        await sock.sendMessage(pengirim, { react: { text: "❓", key: objPesan.key } });
                         await sock.sendMessage(pengirim, {
                             text: `⚠️ Perintah *!${namaCmd}* tidak ditemukan. Mungkin maksud Anda *!${terdekat}*?`
                         }, { quoted: objPesan });
@@ -153,8 +174,7 @@ const tanganiPesan = async (sock, msg) => {
         const draf = getDraft(noPengirim);
         if (konfirmasi && draf) {
             if (draf.type === 'simulation') {
-                await sock.sendMessage(pengirim, { react: { text: "🛠️", key: objPesan.key } });
-                await new Promise(r => setTimeout(r, 1000));
+                await tunjukkanSedangKetik(sock, pengirim, 3500);
                 await sock.sendMessage(pengirim, {
                     text: `✅ *[SIMULASI BERHASIL]*\n\nDraft ini valid, tapi TIDAK dikirim ke server karena ini mode test.\n\n_Draft dihapus dari memori._`
                 }, { quoted: objPesan });
@@ -165,7 +185,7 @@ const tanganiPesan = async (sock, msg) => {
             const user = cariUserHP(noPengirim);
             if (!user) return;
 
-            await sock.sendMessage(pengirim, { react: { text: getMessage('reaction_rocket'), key: objPesan.key } });
+            await tunjukkanSedangKetik(sock, pengirim, 3000);
 
             const hasilLogin = await prosesLoginDanAbsen({
                 email: user.email,
@@ -227,7 +247,7 @@ const tanganiPesan = async (sock, msg) => {
                     const user = cariUserHP(noPengirim);
                     if (!user) return;
 
-                    await sock.sendMessage(pengirim, { react: { text: getMessage('reaction_write', noPengirim), key: objPesan.key } });
+                    await tunjukkanSedangKetik(sock, pengirim, 4500);
                     const riwayat = await getRiwayat(user.email, user.password, 3);
                     const konteksRevisi = (draf && draf.type === 'ai') ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual/baru: ';
                     const hasilAI = await processFreeTextToReport(konteksRevisi + teksPesan, riwayat.success ? riwayat.logs : []);

@@ -67,7 +67,6 @@ module.exports = {
             if (!user) return sock.sendMessage(sender, { text: getMessage('!daftar_not_registered') });
 
             await sock.sendMessage(sender, { text: `🔄 *[TEST]* Menjalankan flow '!absen' (tanpa cerita)...` }, { quoted: msgObj });
-            await sock.sendMessage(sender, { react: { text: "⏳", key: msgObj.key } });
             await new Promise(r => setTimeout(r, 1000));
             await sock.sendMessage(sender, { text: getMessage('!absen_loading') }, { quoted: msgObj });
             await new Promise(r => setTimeout(r, 1500));

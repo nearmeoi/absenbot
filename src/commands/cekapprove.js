@@ -3,6 +3,7 @@ const { getDashboardStats, getRiwayat, detectCycleDay, getParticipantProfile, ge
 const { getMessage } = require('../services/messageService');
 const { isHoliday } = require('../config/holidays');
 const { ADMIN_NUMBERS } = require('../config/constants');
+const { tunjukkanSedangKetik } = require('../utils/whatsappUtils');
 
 const processingUsers = new Set();
 
@@ -28,7 +29,7 @@ module.exports = {
                 return;
             }
 
-            await sock.sendMessage(sender, { react: { text: '⏳', key: msgObj.key } });
+            await tunjukkanSedangKetik(sock, sender, 3000);
             await sock.sendMessage(sender, { text: `🔍 *CEK SEMUA USER*\nMulai mengecek ${users.length} user...` });
 
             let report = `*STATUS APPROVAL SEMUA USER*\n`;
@@ -84,8 +85,8 @@ module.exports = {
                         report = `*Lanjutan Status Approval (${index + 2}-${Math.min(index + 11, users.length)})*\n--------------------------------\n\n`;
                     }
 
-                    // Smaller delay (500ms instead of 2000ms) if using cache
-                    const delay = statsResult.cached ? 500 : 2000;
+                    // Larger delay to avoid spamming and be annoying
+                    const delay = statsResult.cached ? 2000 : 5000;
                     await new Promise(r => setTimeout(r, delay));
                 } catch (err) {
                     report += `${index + 1}. *${user.name || user.email}*: ❌ Crash\n\n`;
@@ -93,14 +94,13 @@ module.exports = {
             }
 
             await sock.sendMessage(sender, { text: report });
-            await sock.sendMessage(sender, { react: { text: '✅', key: msgObj.key } });
             return;
         }
 
         // --- ORIGINAL Logic ---
         // 0. Check Concurrency Lock
         if (processingUsers.has(sender)) {
-            await sock.sendMessage(sender, { react: { text: '✋', key: msgObj.key } });
+            await sock.sendMessage(sender, { text: '✋ Mohon tunggu, pengecekan sedang berlangsung.' }, { quoted: msgObj });
             return;
         }
 
@@ -112,7 +112,7 @@ module.exports = {
         }
 
         processingUsers.add(sender);
-        await sock.sendMessage(sender, { react: { text: '⏳', key: msgObj.key } });
+        await tunjukkanSedangKetik(sock, sender, 4000);
 
         // Cycle Day Detection Logic
         let cycleDay = user.cycle_day;
@@ -171,7 +171,6 @@ module.exports = {
             ]);
 
             if (!statsResult.success) {
-                await sock.sendMessage(sender, { react: { text: '❌', key: msgObj.key } });
                 await sock.sendMessage(sender, { text: `Gagal mengambil data dashboard: ${statsResult.pesan}` }, { quoted: msgObj });
                 return;
             }
@@ -348,12 +347,10 @@ module.exports = {
             reply += `Rapor bulanan: ${stats.rapor || '-'}`;
 
             // 6. Send Response
-            await sock.sendMessage(sender, { react: { text: '✅', key: msgObj.key } });
             await sock.sendMessage(sender, { text: reply }, { quoted: msgObj });
 
         } catch (error) {
             console.error('[CEKAPPROVE] Error:', error);
-            await sock.sendMessage(sender, { react: { text: '❌', key: msgObj.key } });
             await sock.sendMessage(sender, { text: 'Terjadi kesalahan sistem.' }, { quoted: msgObj });
         } finally {
             processingUsers.delete(sender);

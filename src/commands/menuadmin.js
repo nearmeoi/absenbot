@@ -14,7 +14,7 @@ module.exports = {
         const { sender, isOwner } = context;
 
         // Cek apakah pengirim adalah admin (owner)
-        if (!isOwner && !ADMIN_NUMBERS.includes(sender)) {
+        if (!isOwner) {
             await sock.sendMessage(sender, { text: "❌ Maaf, menu ini hanya dapat diakses oleh Admin Bot." }, { quoted: msgObj });
             return;
         }
@@ -22,6 +22,7 @@ module.exports = {
         const menuText = `🛠️ *MENU ADMIN ABSENBOT* 🛠️
 
 *🤖 BOT CONTROL*
+- *!bot <prompt>* : Akses Gemini CLI (OpenClaw style)
 - *!botstatus* : Cek status koneksi & scheduler
 - *!setstatus <online|offline|maintenance>* : Ubah status bot
 - *!maintenance <command>* : Matikan/aktifkan fitur tertentu
@@ -30,9 +31,11 @@ module.exports = {
 
 *👥 GROUP MANAGEMENT*
 - *!grouplist* : Lihat daftar grup yang terdaftar (dijadikan target tag)
+- *!groupfind <nama>* : Cari grup berdasarkan nama (ambil ID)
 - *!groupallow add <GroupID>* : Daftarkan grup baru
 - *!groupallow del <GroupID>* : Hapus grup dari daftar
 - *!groupset <GroupID> <on/off>* : Nyalakan/matikan tag otomatis di grup tersebut
+- *!grouptz <GroupID> <wib/wita/wit>* : Atur zona waktu grup (WIB/WITA/WIT)
 - *!getid* : Ambil ID grup atau ID user (alias: !gid)
 
 *📅 SCHEDULE & HOLIDAY*

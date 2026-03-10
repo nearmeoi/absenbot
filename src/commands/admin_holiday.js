@@ -10,9 +10,9 @@ module.exports = {
     description: 'Admin holiday management',
 
     async execute(sock, msgObj, context) {
-        const { sender, args } = context;
+        const { sender, args, isOwner } = context;
 
-        if (!ADMIN_NUMBERS.includes(sender)) {
+        if (!isOwner) {
             return sock.sendMessage(sender, { text: '❌ Anda tidak memiliki akses admin!' }, { quoted: msgObj });
         }
 

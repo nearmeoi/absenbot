@@ -25,8 +25,6 @@ module.exports = {
         const outputPath = path.join(tempDir, `dl_${timestamp}.mp4`);
 
         try {
-            await sock.sendMessage(sender, { react: { text: '⏳', key: msg.key } });
-
             const ytDlpPath = '/home/ubuntu/.local/bin/yt-dlp';
             const dlCmd = `${ytDlpPath} -4 --no-playlist --max-filesize 50M -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" -o "${outputPath}" "${url}"`;
 
@@ -38,7 +36,6 @@ module.exports = {
                     video: fs.readFileSync(outputPath),
                     caption: `✅ Downloaded: ${url}`
                 }, { quoted: msg });
-                await sock.sendMessage(sender, { react: { text: '✅', key: msg.key } });
             } else {
                 throw new Error('Failed to produce file');
             }
@@ -46,7 +43,6 @@ module.exports = {
         } catch (error) {
             console.error('[DL] Final Error:', error.message);
             await sock.sendMessage(sender, { text: `❌ Gagal download media.\n_Error: ${error.message.substring(0, 100)}_` }, { quoted: msg });
-            await sock.sendMessage(sender, { react: { text: '❌', key: msg.key } });
         } finally {
             if (fs.existsSync(outputPath)) {
                 try { fs.unlinkSync(outputPath); } catch (e) { }

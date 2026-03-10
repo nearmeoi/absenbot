@@ -18,6 +18,13 @@
     "schedulerEnabled": true,
     "autoReply": true,
     "isTesting": false,
-    "skipWeekends": true
+    "skipWeekends": true,
+    "timezone": "Asia/Jakarta"
+  },
+  "120363297953409406@g.us": {
+    "name": "",
+    "schedulerEnabled": true,
+    "autoReply": true,
+    "timezone": "Asia/Makassar"
   }
 }

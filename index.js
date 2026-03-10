@@ -39,8 +39,8 @@ const matikanApp = (sinyal) => {
     process.exit(0);
 };
 
-process.on('SIGTERM', () => matikanApp('SIGTERM'));
-process.on('SIGINT', () => matikanApp('SIGINT'));
+// process.on('SIGTERM', () => matikanApp('SIGTERM'));
+// process.on('SIGINT', () => matikanApp('SIGINT'));
 
 // --- PENANGAN ERROR GLOBAL ---
 process.on('uncaughtException', (err) => {
@@ -74,8 +74,19 @@ setInterval(() => {
 }, 24 * 60 * 60 * 1000);
 
 // --- MULAI APLIKASI ---
-try {
-    sambungKeWhatsApp();
-} catch (error) {
-    console.error("Error kritis saat memulai aplikasi:", error);
+async function start() {
+    try {
+        // Sesi Utama (Default)
+        await sambungKeWhatsApp('default');
+        
+        // Jeda sedikit agar tidak bentrok saat startup
+        await new Promise(r => setTimeout(r, 10000));
+        
+        // Sesi Kedua
+        await sambungKeWhatsApp('kedua');
+    } catch (error) {
+        console.error("Error kritis saat memulai aplikasi:", error);
+    }
 }
+
+start();

@@ -47,7 +47,6 @@ module.exports = {
             .replace('{days2}', daysToBatch2);
 
         if (status.success && status.sudahAbsen) {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_success'), key: msgObj.key } });
             const log = status.data;
             let reply = getMessage('!cek_done', senderNumber)
                 .replace('{date}', log.date || 'Hari ini')
@@ -57,7 +56,6 @@ module.exports = {
         } else if (status.success && !status.sudahAbsen) {
             await sock.sendMessage(sender, { text: getMessage('!cek_pending', senderNumber) + countdownText }, { quoted: msgObj });
         } else {
-            await sock.sendMessage(sender, { react: { text: getMessage('reaction_fail'), key: msgObj.key } });
             await sock.sendMessage(sender, { text: getMessage('!cek_error', senderNumber).replace('{error}', status.pesan) + countdownText }, { quoted: msgObj });
         }
     }

@@ -20,8 +20,6 @@ module.exports = {
         }
 
         try {
-            await sock.sendMessage(sender, { react: { text: '⏳', key: msgObj.key } });
-
             // Download stiker
             const buffer = await downloadMediaMessage(
                 { message: quotedMsg },
@@ -41,7 +39,6 @@ module.exports = {
 
             fs.writeFileSync(stickerPath, buffer);
 
-            await sock.sendMessage(sender, { react: { text: '✅', key: msgObj.key } });
             await sock.sendMessage(sender, { 
                 text: "✅ Stiker khusus untuk Mahabintang berhasil diperbarui!" 
             }, { quoted: msgObj });

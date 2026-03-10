@@ -178,7 +178,9 @@ function shouldSkipGroup(config, timezone) {
 async function broadcastSimpleWithHidetag(sock, groupId, msgKey) {
     try {
         const msgText = getMessage(msgKey);
-        await sock.sendMessage(groupId, { text: msgText });
+        const metadata = await sock.groupMetadata(groupId).catch(() => null);
+        const mentions = metadata ? metadata.participants.map(p => p.id) : [];
+        await sock.sendMessage(groupId, { text: msgText, mentions: mentions });
     } catch (e) {
         console.error(chalk.red(`[SCHEDULER] Failed simple broadcast to ${groupId}:`), e.message);
     }
@@ -222,7 +224,7 @@ async function runEmergencyWarning(sock, task, timezone) {
         }
         try {
             const status = await cekStatusHarian(user.email, user.password);
-            if (!status.success || !status.sudahAbsen) return user;
+            if (status.success && !status.sudahAbsen) return user;
         } catch (e) { }
         return null;
     }, 5)).filter(Boolean);
@@ -230,8 +232,23 @@ async function runEmergencyWarning(sock, task, timezone) {
     if (pendingCriticalUsers.length > 0) {
         const groupId = getGroupId();
         if (groupId) {
-            const mentionedText = pendingCriticalUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
-            const mentions = pendingCriticalUsers.map(u => u.phone);
+            let participantIds = [];
+            try {
+                const metadata = await sock.groupMetadata(groupId);
+                participantIds = metadata.participants.map(p => p.id);
+            } catch (e) {
+                console.warn(chalk.yellow(`[EMERGENCY-WARNING] Failed to fetch group metadata: ${e.message}`));
+            }
+
+            const matchedUsers = pendingCriticalUsers.map(u => {
+                const ids = u.identifiers || [u.phone];
+                if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
+                const matchedId = ids.find(id => participantIds.includes(id)) || u.phone;
+                return { ...u, mentionJid: matchedId };
+            });
+
+            const mentionedText = matchedUsers.map(u => `@${u.mentionJid.split('@')[0]}`).join(' ');
+            const mentions = matchedUsers.map(u => u.mentionJid);
             const warningMsg = `🚨 *PENGINGAT DEADLINE (DEADLINE 17:00)* 🚨\n\nHalo ${mentionedText}\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya sudah mengirimkan *Draf Laporan* ke Chat Pribadi Anda.\n\nSilakan cek DM dan balas *ya* untuk mengirim. Jika sampai jam 16:30 tetap belum absen, saya akan mengirimkannya secara *OTOMATIS* demi mengamankan upah Anda.`;
             await sock.sendMessage(groupId, { text: warningMsg, mentions });
         }
@@ -366,7 +383,7 @@ async function runGroupHidetagJapri(sock, task, timezone) {
     const pendingUsers = (await parallelMap(allUsers, async (user) => {
         try {
             const status = await cekStatusHarian(user.email, user.password);
-            if (!status.success || !status.sudahAbsen) return user;
+            if (status.success && !status.sudahAbsen) return user;
         } catch (e) {
             console.error(`[SCHEDULER] Error checking status for ${user.email}:`, e.message);
         }
@@ -387,15 +404,25 @@ async function runGroupHidetagJapri(sock, task, timezone) {
                     try {
                         const metadata = await sock.groupMetadata(groupId);
                         const participantIds = metadata.participants.map(p => p.id);
-                        groupPendingUsers = pendingUsers.filter(u => participantIds.includes(u.phone));
+                        
+                        groupPendingUsers = [];
+                        for (const u of pendingUsers) {
+                            const ids = u.identifiers || [u.phone];
+                            if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
+                            
+                            const matchedId = ids.find(id => participantIds.includes(id));
+                            if (matchedId) {
+                                groupPendingUsers.push({ ...u, mentionJid: matchedId });
+                            }
+                        }
                     } catch (metaErr) {
                         console.warn(chalk.yellow(`[SCHEDULER] Failed to fetch metadata for ${groupId}: ${metaErr.message}`));
                         continue;
                     }
                     if (groupPendingUsers.length === 0) continue;
 
-                    const mentions = groupPendingUsers.map(u => u.phone);
-                    const mentionedText = groupPendingUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+                    const mentions = groupPendingUsers.map(u => u.mentionJid);
+                    const mentionedText = groupPendingUsers.map(u => `@${u.mentionJid.split('@')[0]}`).join(' ');
                     let messageText = getMessage('REMINDER_GROUP_TARGETED');
                     if (messageText) {
                         messageText = messageText.replace('{users}', mentionedText);
@@ -416,7 +443,11 @@ async function runGroupHidetagJapri(sock, task, timezone) {
         console.log(chalk.cyan('[SCHEDULER] Sending Private Reminders (Japri)...'));
         for (const user of pendingUsers) {
             try {
-                await sock.sendMessage(user.phone, { text: getMessage(task.messageKey, user.phone) });
+                let msg = getMessage(task.messageKey, user.phone);
+                if (msg) {
+                    msg = msg.replace('{nama_users}', user.name || 'Teman');
+                    await sock.sendMessage(user.phone, { text: msg });
+                }
                 await new Promise(r => setTimeout(r, 3000));
             } catch (e) {
                 console.error(`[SCHEDULER] Failed japri to ${user.email}:`, e.message);
@@ -456,10 +487,24 @@ async function runDraftPush(sock, task, timezone) {
     if (isWeekendOrHoliday(timezone)) return;
 
     const allUsers = getAllUsers();
+    console.log(chalk.cyan(`[DRAFT-PUSH] Checking ${allUsers.length} users...`));
+    
     await parallelMap(allUsers, async (user) => {
         try {
             const status = await cekStatusHarian(user.email, user.password);
-            if (status.success && status.sudahAbsen) return;
+            
+            // Fix: If status check fails (success: false), DO NOT proceed to avoid false positives
+            if (!status.success) {
+                console.log(chalk.red(`[DRAFT-PUSH] Could not verify status for ${user.email}: ${status.pesan}. Skipping.`));
+                return;
+            }
+
+            if (status.sudahAbsen) {
+                console.log(chalk.gray(`[DRAFT-PUSH] User ${user.email} already attended.`));
+                return;
+            }
+            
+            console.log(chalk.yellow(`[DRAFT-PUSH] User ${user.email} PENDING. Generating draft...`));
             const riwayatResult = await getRiwayat(user.email, user.password, 3);
             const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
             if (aiResult.success) {
@@ -467,8 +512,12 @@ async function runDraftPush(sock, task, timezone) {
                 setDraft(user.phone, reportData);
                 let msg = getMessage('DRAFT_PUSH_ALERT');
                 if (msg) {
-                    msg = msg.replace('{activity}', aiResult.aktivitas).replace('{pembelajaran}', aiResult.pembelajaran).replace('{kendala}', aiResult.kendala);
+                    msg = msg.replace('{nama_users}', user.name || 'Teman')
+                             .replace('{activity}', aiResult.aktivitas)
+                             .replace('{pembelajaran}', aiResult.pembelajaran)
+                             .replace('{kendala}', aiResult.kendala);
                     await sock.sendMessage(user.phone, { text: msg });
+                    console.log(chalk.green(`[DRAFT-PUSH] Draft sent to ${user.email}`));
                 }
             }
         } catch (e) {
@@ -496,7 +545,7 @@ async function runEmergencySubmit(sock, task, timezone) {
         }
         try {
             const status = await cekStatusHarian(user.email, user.password);
-            if (!status.success || !status.sudahAbsen) return user;
+            if (status.success && !status.sudahAbsen) return user;
         } catch (e) { }
         return null;
     }, 5)).filter(Boolean);
@@ -505,8 +554,23 @@ async function runEmergencySubmit(sock, task, timezone) {
         console.log(chalk.yellow(`[CRITICAL] Found ${pendingCriticalUsers.length} users haven't attended on deadline day!`));
         const groupId = getGroupId();
         if (groupId) {
-            const mentionedText = pendingCriticalUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
-            const mentions = pendingCriticalUsers.map(u => u.phone);
+            let participantIds = [];
+            try {
+                const metadata = await sock.groupMetadata(groupId);
+                participantIds = metadata.participants.map(p => p.id);
+            } catch (e) {
+                console.warn(chalk.yellow(`[CRITICAL] Failed to fetch group metadata: ${e.message}`));
+            }
+
+            const matchedUsers = pendingCriticalUsers.map(u => {
+                const ids = u.identifiers || [u.phone];
+                if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
+                const matchedId = ids.find(id => participantIds.includes(id)) || u.phone;
+                return { ...u, mentionJid: matchedId };
+            });
+
+            const mentionedText = matchedUsers.map(u => `@${u.mentionJid.split('@')[0]}`).join(' ');
+            const mentions = matchedUsers.map(u => u.mentionJid);
             const warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
             await sock.sendMessage(groupId, { text: warningMsg, mentions });
         }

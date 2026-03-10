@@ -36,23 +36,7 @@ function ekstrakPesan(msg) {
 }
 
 // Cache metadata grup
-const cacheGrup = new Map();
-
-async function ambilInfoGrup(sock, jid) {
-    if (cacheGrup.has(jid)) {
-        const cached = cacheGrup.get(jid);
-        if (Date.now() - cached.waktu < 3600000) { // Cache 1 jam
-            return cached.metadata;
-        }
-    }
-    try {
-        const metadata = await sock.groupMetadata(jid);
-        cacheGrup.set(jid, { metadata, waktu: Date.now() });
-        return metadata;
-    } catch (e) {
-        return null;
-    }
-}
+const { ambilInfoGrup } = require('./utils/whatsappUtils');
 
 // Percobaan koneksi ulang
 let hitungKoneksiUlang = 0;
@@ -90,21 +74,21 @@ const ALASAN_DISCONNECT = {
     }
 };
 
-async function sambungKeWhatsApp(awal = true) {
-    const { state, saveCreds } = await useMultiFileAuthState(DIR_AUTH)
+async function sambungKeWhatsApp(sessionId = 'default', awal = true) {
+    const { state, saveCreds } = await useMultiFileAuthState(DIR_AUTH(sessionId))
     const { version } = await fetchLatestBaileysVersion()
 
-    console.log(chalk.cyan(`🤖 Memulai Bot (v${version.join('.')}) + SCHEDULER`))
+    console.log(chalk.cyan(`🤖 Memulai Bot [${sessionId}] (v${version.join('.')})`))
 
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
         printQRInTerminal: !modePairing,
         auth: state,
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
+        browser: ["Ubuntu", "Chrome", sessionId === 'default' ? "20.0.04" : "21.0.01"],
         version,
         generateHighQualityLinkPreview: true,
-        syncFullHistory: true,
-        markOnlineOnConnect: true,
+        syncFullHistory: false,
+        markOnlineOnConnect: false,
         retryRequestDelayMs: 5000,
         connectTimeoutMs: 60000,
         keepAliveIntervalMs: 30000,
@@ -114,55 +98,78 @@ async function sambungKeWhatsApp(awal = true) {
         }
     })
 
+    // Simpan ke sesi global
+    if (!global.sessions) global.sessions = {};
+    global.sessions[sessionId] = sock;
+
     // --- ANTI-LOOP WRAPPER ---
     const kirimAsli = sock.sendMessage.bind(sock);
 
     sock.sendMessage = async (...args) => {
         const loopDetected = catatPesanKeluar();
         if (loopDetected) {
-            console.error(chalk.bgRed.white(" [ANTI-LOOP] KRITIS: Terlalu banyak pesan keluar! Shutdown untuk mencegah spam. "));
+            console.error(chalk.bgRed.white(` [ANTI-LOOP][${sessionId}] KRITIS: Terlalu banyak pesan keluar! Shutdown. `));
 
             try {
                 if (ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
                     await kirimAsli(ADMIN_NUMBERS[0], {
-                        text: "⚠️ *CRITICAL ALERT*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan."
+                        text: `⚠️ *CRITICAL ALERT [${sessionId}]*\n\nBot mendeteksi aktivitas mencurigakan (SPAM LOOP). Proses dihentikan otomatis untuk keamanan.`
                     });
                 }
             } catch (e) { }
 
             process.exit(1);
         }
+        // --- DEBUG LOG UNTUK PESAN KELUAR ---
+        const jid = args[0];
+        const isi = args[1];
+        let teksPreview = '';
+
+        if (isi.text) {
+            teksPreview = isi.text.substring(0, 100).replace(/\n/g, ' ');
+            if (isi.text.length > 100) teksPreview += '...';
+        } else if (isi.caption) {
+            teksPreview = `[Media] ${isi.caption.substring(0, 50)}`;
+        } else if (isi.react) {
+            teksPreview = `[Reaction] ${isi.react.text}`;
+        } else {
+            teksPreview = `[Other: ${Object.keys(isi).join(', ')}]`;
+        }
+
+        console.log(chalk.blue(`[OUTGOING][${sessionId}] Ke: ${jid} | Isi: ${teksPreview}`));
+
         return kirimAsli(...args);
     };
 
     // Pairing code
     if (modePairing && !sock.authState.creds.registered) {
-        let nomorHP = process.env.PAIRING_NUMBER;
+        let nomorHP = sessionId === 'default' ? process.env.PAIRING_NUMBER : process.env[`PAIRING_NUMBER_${sessionId.toUpperCase()}`];
+        
         if (!nomorHP) {
-            nomorHP = await tanya(chalk.green('Nomor WA (628xxx): '))
+            nomorHP = await tanya(chalk.green(`Nomor WA untuk sesi [${sessionId}] (628xxx): `))
         } else {
-            console.log(chalk.cyan(`[PAIRING] Menggunakan nomor dari ENV: ${nomorHP}`));
+            console.log(chalk.cyan(`[PAIRING][${sessionId}] Menggunakan nomor: ${nomorHP}`));
         }
 
         try {
-            console.log(chalk.yellow('[PAIRING] Menunggu 5 detik untuk stabilitas server...'));
+            console.log(chalk.yellow(`[PAIRING][${sessionId}] Menunggu 5 detik untuk stabilitas server...`));
             await new Promise(resolve => setTimeout(resolve, 5000));
             const kode = await sock.requestPairingCode(nomorHP.trim())
-            console.log('\n' + chalk.bgGreen.black(' 🔑 KODE PAIRING ') + ' ' + chalk.yellow.bold(kode) + '\n');
+            console.log('\n' + chalk.bgGreen.black(` 🔑 KODE PAIRING [${sessionId}] `) + ' ' + chalk.yellow.bold(kode) + '\n');
         } catch (err) {
-            console.error(chalk.red('[PAIRING] Gagal meminta kode pairing:'), err.message);
+            console.error(chalk.red(`[PAIRING][${sessionId}] Gagal meminta kode pairing:`), err.message);
         }
     }
 
     sock.ev.on("creds.update", saveCreds)
 
-    sock.ev.on("connection.update", (update) => {
+    sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr && !modePairing) {
-            console.log(chalk.yellow('[QR] QR Code baru dihasilkan.'));
+            console.log(chalk.yellow(`[QR][${sessionId}] QR Code baru dihasilkan.`));
             const { setQRTerakhir } = require('./services/botState');
-            setQRTerakhir(qr);
+            setQRTerakhir(qr); // Perlu disesuaikan jika ingin QR per sesi di dashboard
         }
 
         if (connection === "close") {
@@ -174,44 +181,45 @@ async function sambungKeWhatsApp(awal = true) {
                 info: ''
             };
 
-            console.log(chalk.red(`❌ Koneksi Terputus: ${infoDisconnect.alasan} (${kodeStatus})`));
+            console.log(chalk.red(`❌ [${sessionId}] Koneksi Terputus: ${infoDisconnect.alasan} (${kodeStatus})`));
 
             // Reset percobaan untuk error sementara
             if (kodeStatus === 428 || kodeStatus === 408) {
-                console.log(chalk.yellow(' [SYSTEM] Error sementara terdeteksi. Mereset percobaan... '));
+                console.log(chalk.yellow(` [SYSTEM][${sessionId}] Error sementara terdeteksi. Mereset percobaan... `));
                 hitungKoneksiUlang = 0;
             }
 
             if (infoDisconnect.info) console.log(chalk.yellow(`ℹ️ Info: ${infoDisconnect.info}`));
 
             if (lastDisconnect?.error) {
-                console.log(chalk.gray(`[DEBUG] Detail: ${lastDisconnect.error.message}`));
+                console.log(chalk.gray(`[DEBUG][${sessionId}] Detail: ${lastDisconnect.error.message}`));
             }
 
-            // Update status dashboard
+            // Update status dashboard (perlu perbaikan untuk multi-session)
             setBotConnected(false);
 
             const harusRekoneksi = kodeStatus !== DisconnectReason.loggedOut;
             if (harusRekoneksi && hitungKoneksiUlang < MAKS_KONEKSI_ULANG) {
                 hitungKoneksiUlang++;
-                console.log(chalk.yellow(`🔄 Menyambung ulang (${hitungKoneksiUlang}/${MAKS_KONEKSI_ULANG}) dalam 5 detik...`));
+                console.log(chalk.yellow(`🔄 [${sessionId}] Menyambung ulang (${hitungKoneksiUlang}/${MAKS_KONEKSI_ULANG}) dalam 5 detik...`));
                 setTimeout(() => {
-                    sambungKeWhatsApp(false);
+                    sambungKeWhatsApp(sessionId, false);
                 }, 5000);
             } else if (hitungKoneksiUlang >= MAKS_KONEKSI_ULANG) {
-                console.log(chalk.bgRed('❌ Batas percobaan koneksi ulang tercapai. Cek server secara manual.'));
+                console.log(chalk.bgRed(`❌ [${sessionId}] Batas percobaan koneksi ulang tercapai.`));
             } else {
-                console.log(chalk.bgRed('⛔ Sesi tidak valid / Logout. Hapus folder SesiWA dan restart.'));
+                console.log(chalk.bgRed(`⛔ [${sessionId}] Sesi tidak valid / Logout. Hapus folder SesiWA/${sessionId} dan restart.`));
             }
         } else if (connection === "connecting") {
-            console.log(chalk.cyan("🔄 Sedang menyambung ke WhatsApp..."));
+            console.log(chalk.cyan(`🔄 [${sessionId}] Sedang menyambung ke WhatsApp...`));
         } else if (connection === "open") {
             hitungKoneksiUlang = 0;
-            console.log(chalk.green("✅ KONEKSI STABIL. Scheduler Aktif."))
-            console.log(chalk.gray(`[SYSTEM] Sesi valid terdeteksi. Bot siap digunakan.`));
+            console.log(chalk.green(`✅ [${sessionId}] KONEKSI STABIL.`))
 
-            // Init error reporter
-            initPelaporError(sock);
+            // Init error reporter (Hanya untuk sesi utama atau buat reporter per sesi)
+            if (sessionId === 'default' || !appInitialized) {
+                initPelaporError(sock);
+            }
 
             // Init auth server (sekali saja)
             if (!serverAuthSiap) {
@@ -221,35 +229,41 @@ async function sambungKeWhatsApp(awal = true) {
 
             setBotConnected(true);
 
+            // Pastikan bot tetap offline agar tidak auto-read secara internal oleh WhatsApp
+            try {
+                await sock.sendPresenceUpdate('unavailable');
+            } catch (e) { }
+
             // Kirim pesan tes ke admin (Hanya saat startup awal proses)
             if (awal && ADMIN_NUMBERS && ADMIN_NUMBERS.length > 0) {
                 setTimeout(() => {
-                    sock.sendMessage(ADMIN_NUMBERS[0], { text: '🤖 *Bot Started/Restarted*\n\nSistem telah aktif dan terhubung kembali.' })
+                    sock.sendMessage(ADMIN_NUMBERS[0], { text: `🤖 *Bot [${sessionId}] Started*\n\nSistem telah aktif dan terhubung.` })
                         .catch(err => {
-                            console.error(chalk.red(`[ERROR] Gagal mengirim pesan tes: ${err.message}`));
+                            console.error(chalk.red(`[ERROR][${sessionId}] Gagal mengirim pesan tes: ${err.message}`));
                         });
                 }, 5000);
             }
 
-            // EXPOSE SOCKET GLOBALLY for Dashboard APIs
-            global.botSock = sock;
-            global.restartBot = async () => {
-                console.log(chalk.yellow('[SYSTEM] Restarting bot connection...'));
-                try {
-                    sock.end(new Error('Admin requested restart'));
-                } catch (e) { }
-                sambungKeWhatsApp();
-            };
+            // EXPOSE SOCKET GLOBALLY for Legacy/Dashboard APIs (Hanya sesi default untuk kompatibilitas)
+            if (sessionId === 'default') {
+                global.botSock = sock;
+                global.restartBot = async () => {
+                    console.log(chalk.yellow('[SYSTEM] Restarting default connection...'));
+                    try { sock.end(); } catch (e) { }
+                    sambungKeWhatsApp('default');
+                };
+                
+                // Update socket scheduler
+                setBotSocket(sock);
 
-            // Update socket scheduler
-            setBotSocket(sock);
-
-            // Init scheduler (sekali saja)
-            if (!jadwalSiap) {
-                initScheduler(sock);
-                jadwalSiap = true;
-                appInitialized = true;
+                // Init scheduler (sekali saja)
+                if (!jadwalSiap) {
+                    initScheduler(sock);
+                    jadwalSiap = true;
+                }
             }
+            
+            appInitialized = true;
         }
     })
 
@@ -279,8 +293,8 @@ async function sambungKeWhatsApp(awal = true) {
 
                 const teks = ekstrakPesan(msg);
 
-                // Tandai sudah dibaca
-                try { await sock.readMessages([msg.key]); } catch (e) { }
+                // Tandai sudah dibaca (DINONAKTIFKAN UNTUK SEMUA SESI agar notifikasi tetap muncul di HP)
+                // try { await sock.readMessages([msg.key]); } catch (e) { }
 
                 // Abaikan pesan lama (lebih dari 30 menit sebelum startup)
                 const waktuPesan = (typeof msg.messageTimestamp === 'number')
@@ -290,15 +304,13 @@ async function sambungKeWhatsApp(awal = true) {
                 const TOLERANSI = 1800; // 30 menit
                 if (waktuPesan < (WAKTU_MULAI - TOLERANSI)) continue;
 
-                if (!teks) continue;
-
                 const dariSaya = msg.key.fromMe;
                 const jidTujuan = msg.key.remoteJid;
                 const adalahGrup = jidTujuan.endsWith('@g.us');
 
                 // Ambil nama pengirim
                 let namaPengirim = msg.pushName || 'Unknown';
-                if (dariSaya) namaPengirim = 'ME';
+                if (dariSaya) namaPengirim = 'BOT';
 
                 // Ambil info grup (jika grup)
                 let infoKonteks = '';
@@ -312,11 +324,109 @@ async function sambungKeWhatsApp(awal = true) {
                 // Format timestamp
                 const waktu = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-                // Format log: [WAKTU] [Grup] Pengirim: Pesan
-                const prefix = chalk.gray(`[${waktu}]`);
-                const pengirim = dariSaya ? chalk.blue.bold('ME') : chalk.green.bold(namaPengirim);
+                // Format log: [WAKTU][SESI] [Grup] Pengirim (ID): Pesan
+                const prefix = chalk.gray(`[${waktu}][${sessionId}]`);
+                const idPengirim = msg.key.participant || msg.key.remoteJid;
+                const pengirim = dariSaya ? chalk.blue.bold('ME') : `${chalk.green.bold(namaPengirim)} (${chalk.cyan(idPengirim)})`;
 
-                console.log(`${prefix} ${infoKonteks}${pengirim}: ${teks}`);
+                if (teks) {
+                    console.log(`${prefix} ${infoKonteks}${pengirim}: ${teks}`);
+                }
+
+                // --- LOGIKA AFK & BIG DATA SESI KEDUA ---
+                const afkService = require('./services/afkService');
+                const personaService = require('./services/personaService');
+                const { generateChatResponse } = require('./services/aiService'); // Pastikan fungsi ini ada/siap
+                
+                if (sessionId === 'kedua') {
+                    const targetLidAica = '13241400987789@lid';
+                    const targetLidTest = '268147877761252@lid'; // LID Nomor Utama untuk latihan
+                    
+                    // Jika saya mengirim pesan (nomor kedua sendiri)
+                    if (dariSaya) {
+                        const isAfkCmd = teks.toLowerCase().startsWith('!afk');
+                        if (isAfkCmd) {
+                            const reason = teks.split(' ').slice(1).join(' ') || 'Sibuk';
+                            afkService.setAfk(sessionId, reason);
+                            await sock.sendMessage(jidTujuan, { text: `✅ *Status AFK Aktif*\nAlasan: ${reason}` });
+                            return; 
+                        } else {
+                            const wasAfk = afkService.setUnafk(sessionId);
+                            if (wasAfk) console.log(chalk.green(`[SYSTEM][${sessionId}] Status AFK dimatikan (Auto-Unafk)`));
+
+                            // BIG DATA: Rekam cara saya membalas (Manual)
+                            personaService.recordManualReply(jidTujuan, teks);
+                        }
+                    } else {
+                        // Jika orang lain mengirim pesan
+                        if (adalahGrup) return; // Khusus PM/Japri untuk Sesi Kedua (AI & AFK)
+
+                        personaService.recordIncoming(jidTujuan, teks);
+
+                        // --- FITUR AI AUTO-REPLY (KHUSUS LATIHAN) ---
+                        if (idPengirim === targetLidTest) {
+                            // targetLidAica dinonaktifkan dulu agar fokus latihan di sini
+                            console.log(chalk.magenta(`[AI-CHAT][${sessionId}] Latihan gaya bahasa: ${namaPengirim}`));
+                            
+                            try {
+                                // Ambil data latihan & histori chat
+                                const training = personaService.getTrainingData();
+                                const history = personaService.getChatContext(jidTujuan);
+                                const glossary = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/persona_glossary.json'), 'utf8'));
+                                
+                                const systemPrompt = `Kamu adalah alter-ego pengguna di WhatsApp. Balaslah chat dengan sangat natural dan nyambung.
+
+KONTROL GAYA:
+- Gunakan huruf kecil semua (lowercase).
+- Jawab dengan santai, singkat, dan jangan kaku.
+- Gunakan slang (mi, dehh, bjirr, sassah, nihh, kahh????) HANYA jika sangat pas. Maksimal 1-2 slang per pesan. Jangan dipaksakan.
+- DILARANG mengarang topik (seperti nama orang atau tugas) jika tidak sedang dibahas di histori.
+
+HISTORI CHAT (FOKUS DI SINI):
+${history.map(h => `${h.role === 'user' ? 'User' : 'Kamu'}: ${h.content}`).join('\n')}
+
+PESAN TERAKHIR USER: "${teks}"
+JAWAB SECARA RELEVAN:`;
+
+                                // Generate Response menggunakan AI
+                                const aiReply = await generateChatResponse(teks, systemPrompt);
+                                
+                                if (aiReply) {
+                                    // BERSIHKAN: Hapus proses berpikir AI (<think>...</think>)
+                                    const cleanedReply = aiReply.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+                                    
+                                    const bubbles = cleanedReply.split('|').map(b => b.trim()).filter(b => b && !b.toLowerCase().includes('user:') && !b.toLowerCase().includes('kamu:'));
+                                    
+                                    for (const bubble of bubbles) {
+                                        await sock.sendPresenceUpdate('composing', jidTujuan);
+                                        const delay = Math.min(15000, Math.max(3000, bubble.length * 120)); 
+                                        await new Promise(r => setTimeout(r, delay));
+                                        
+                                        await sock.sendMessage(jidTujuan, { text: bubble });
+                                        // Catat balasan AI ke histori
+                                        personaService.recordReply(jidTujuan, bubble, true);
+                                    }
+                                    return;
+                                }
+                            } catch (aiErr) {
+                                console.error(chalk.red(`[AI-CHAT] Error: ${aiErr.message}`));
+                            }
+                        }
+
+                        // AFK (Fallback jika AI gagal atau bukan target AI)
+                        const afkState = afkService.getAfk(sessionId);
+                        if (afkState && !adalahGrup) { 
+                            const balasan = `Maaf sekarang aku lagi ga aktif karena *${afkState.reason}*, sejak *${afkState.timeAgo}* yang lalu. Nanti ku hubungi balik.`;
+                            await sock.sendMessage(jidTujuan, { text: balasan });
+                            return;
+                        }
+                    }
+                    return;
+                }
+
+                // Jangan teruskan ke handler jika dari diri sendiri (untuk sesi default) agar tidak looping
+                if (dariSaya) continue;
+                if (!teks) continue;
 
                 try {
                     msg.bodyTeks = teks;

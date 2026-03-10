@@ -18,10 +18,10 @@ module.exports = {
             return;
         }
 
-        let userList = `*Daftar User Terdaftar (${allUsers.length})*\n\n`;
+        let userList = `*Daftar User Terdaftar (${users.length})*\n\n`;
         const mentions = [];
 
-        allUsers.forEach((user, index) => {
+        users.forEach((user, index) => {
             const phone = user.phone;
             mentions.push(phone);
             userList += `${index + 1}. @${phone.split('@')[0]}\n`;

@@ -2,12 +2,12 @@
   "REMINDER_MORNING": "*朝, Morning, 아침!, Manhã, 早晨, Pagi, Teman - Teman*\n\nSemangat buat hari ini, kalo ga semangat, semangatin aja🔥\n\n_Mau absen dluan? Cek web app kami, ada scheduler, ketik !absen, jam 4 auto submit._",
   "REMINDER_MORNING_VN_INTRO": "Sebelum memulai pagi alangkah baiknya kita mendengar ini dlu",
   "REMINDER_AFTERNOON": "*MARKIPUL!*\n\nBalik guys, jangan lupa ketik !absen spasi kegiatan mu, kirim ke nomor bot ya🤙🏻",
-  "REMINDER_EVENING": "Halo {nama} kamu belum absen nih, segera absen ya!",
-  "DRAFT_PUSH_ALERT": "Halo? kamu masih belum absen loh, segera absen deadline udah dekat jam 12 Malam\n\nSaya telah membuatkan draf laporan otomatis:\n\n*Aktivitas:* \n{activity}\n*Pembelajaran:* \n{pembelajaran}\n*Kendala:*\n{kendala}\n\nBalas *ya* untuk kirim. (Jika tidak, saya kirim otomatis jam 23:30)",
+  "REMINDER_EVENING": "Halo, {nama_users} kamu belum absen nih, segera absen ya!",
+  "DRAFT_PUSH_ALERT": "Loh {nama_users} belum absen juga? udah jam 11 ini, aku buatin draft nya ya!\n\n*Aktivitas:* \n{activity}\n*Pembelajaran:* \n{pembelajaran}\n*Kendala:*\n{kendala}\n\nBalas *ya* untuk kirim. (Jika tidak, saya kirim otomatis jam 23:30)",
   "AUTO_SUBMIT_SUCCESS": "*AUTO-SUBMIT BERHASIL* ✅\n\nLaporan darurat telah dikirim otomatis oleh sistem{source}.\n\n*Aktivitas:*\n{activity}\n\n*Pembelajaran:* \n{pembelajaran}\n\n*Kendala:* \n{kendala}\n",
   "WEB_SCHEDULE_SUCCESS": "✅ *ABSENSI OTOMATIS BERHASIL*\n\nLaporan yang Anda jadwalkan melalui web telah berhasil dikirim ke MagangHub.",
   "WEB_SCHEDULE_FAILED": "❌ *ABSENSI OTOMATIS GAGAL*\n\nLaporan web gagal dikirim: {error}",
-  "REMINDER_GROUP_TARGETED": "Halo, Teman kita {users} belum absen nih, tolong yang lagi bareng atau yg tau keberadaan beliau, segera di ingatkan, bantu temannya gesya.",
+  "REMINDER_GROUP_TARGETED": "Halo, {users} belum absen nih, yang tau keberadaannya tolong di ingatkan ya!",
   "REMINDER_TAG_ALL": "Selamat Malam\n\nWaktu sudah menunjukkan jam 9 malam. Bagi yang belum absen, yuk segera diselesaikan sebelum deadline jam 23:59!\n\nJangan sampai kelewat!",
   "REMINDER_DRAFT_ALERT": "*DARURAT DRAF ABSENSI OTOMATIS* ⚠️\n\nHampir tengah malam dan kamu belum absen. Saya sudah siapkan draf laporan untukmu. Balas *ya* untuk kirim."
 }

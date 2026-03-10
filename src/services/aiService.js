@@ -1,311 +1,287 @@
-/**
- * AI Service - Generate attendance reports using OpenRouter (Primary) or Groq
- */
-
 const axios = require('axios');
 const chalk = require('chalk');
 const { getMessage } = require('./messageService');
 const { AI_CONFIG } = require('../config/constants');
-
 const FormData = require('form-data');
 const fs = require('fs');
 
-// OpenRouter Config
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_URL = AI_CONFIG.OPENROUTER.API_URL;
-const OPENROUTER_MODEL = AI_CONFIG.OPENROUTER.MODEL;
+// API Keys from Environment
+const KEYS = {
+    SCALEWAY: process.env.SCALEWAY_API_KEY,
+    GROQ: process.env.GROQ_API_KEY,
+    CEREBRAS: process.env.CEREBRAS_API_KEY,
+    SAMBANOVA: process.env.SAMBANOVA_API_KEY,
+    GEMINI: process.env.GEMINI_API_KEY,
+    GITHUB: process.env.GITHUB_TOKEN,
+    OPENROUTER: process.env.OPENROUTER_API_KEY
+};
 
-// Groq Config
-const GROQ_API_URL = AI_CONFIG.GROQ.API_URL;
-const GROQ_AUDIO_URL = AI_CONFIG.GROQ.AUDIO_URL;
-const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
+/**
+ * Generic OpenAI-Compatible Chat Completion Caller
+ */
+async function callOpenAICompatible(providerName, config, systemPrompt, userPrompt, apiKey) {
+    if (!apiKey) return { success: false, error: 'API Key missing' };
 
-if (!OPENROUTER_API_KEY && !GROQ_API_KEY) {
-    console.error(chalk.red('[AI] ❌ No AI API keys found in .env file!'));
+    // Get Model with Rotation (Round-Robin or Random)
+    let model = config.MODEL;
+    if (config.MODELS && Array.isArray(config.MODELS)) {
+        model = config.MODELS[Math.floor(Math.random() * config.MODELS.length)];
+    }
+
+    try {
+        const response = await axios.post(config.API_URL, {
+            model: model,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1500
+        }, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://monev-absenbot.my.id',
+                'X-Title': 'AbsenBot Production'
+            },
+            timeout: config.TIMEOUT || 20000
+        });
+
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) throw new Error('Empty response content');
+
+        const modelName = `${providerName} (${model})`;
+        console.log(chalk.blue(`[AI-RESPONSE] Successfully generated via ${modelName}`));
+
+        return { success: true, content, model: modelName };
+    } catch (err) {
+        const errMsg = err.response?.data?.error?.message || err.message;
+        console.warn(chalk.yellow(`[AI-${providerName}] engine failed (${model}): ${errMsg}`));
+        return { success: false, error: errMsg };
+    }
 }
 
+/**
+ * Audio Transcription using Groq (Whisper)
+ */
 async function transcribeAudio(filePath) {
-    if (!GROQ_API_KEY) return { success: false, error: 'Groq key missing for transcription' };
+    if (!KEYS.GROQ) return { success: false, error: 'Groq key missing' };
     try {
         const formData = new FormData();
         formData.append('file', fs.createReadStream(filePath));
         formData.append('model', 'whisper-large-v3-turbo');
 
-        const response = await axios.post(GROQ_AUDIO_URL, formData, {
+        const response = await axios.post(AI_CONFIG.GROQ.AUDIO_URL, formData, {
             headers: {
                 ...formData.getHeaders(),
-                'Authorization': `Bearer ${GROQ_API_KEY}`,
+                'Authorization': `Bearer ${KEYS.GROQ}`,
             }
         });
 
-        return {
-            success: true,
-            text: response.data.text
-        };
+        return { success: true, text: response.data.text };
     } catch (error) {
-        console.error(chalk.red('[GROQ] Transcribe Error:'), error.response?.data || error.message);
-        return {
-            success: false,
-            error: 'Gagal mendengarkan VN Anda.'
-        };
+        console.error(chalk.red('[GROQ-VOICE] Error:'), error.message);
+        return { success: false, error: 'Gagal mendengarkan VN Anda.' };
     }
 }
 
-// --- GENERATION ENGINES ---
+/**
+ * The Master Waterfall Fallback Engine
+ */
+async function runMasterGeneration(systemPrompt, userPrompt) {
+    // 🥇 Pilar 1: Scaleway (Kapten Utama - Sangat Manusiawi)
+    for (let i = 0; i < 4; i++) {
+        let res = await callOpenAICompatible('SCALEWAY', AI_CONFIG.SCALEWAY, systemPrompt, userPrompt, KEYS.SCALEWAY);
+        if (res.success) return res;
 
-async function runOpenRouterGeneration(systemPrompt, userPrompt) {
-    if (!OPENROUTER_API_KEY) return { success: false };
-    try {
-        console.log(chalk.cyan('[AI] Trying OpenRouter...'));
-        const response = await axios.post(OPENROUTER_URL, {
-            model: OPENROUTER_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ]
-        }, {
-            headers: { 
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://monev-absenbot.my.id',
-                'X-Title': 'AbsenBot'
-            },
-            timeout: AI_CONFIG.OPENROUTER.TIMEOUT
-        });
-        return { success: true, content: response.data.choices[0]?.message?.content, model: 'OpenRouter' };
-    } catch (err) {
-        console.warn(chalk.yellow(`[OPENROUTER] engine failed: ${err.response?.data?.error?.message || err.message}`));
-        return { success: false };
-    }
-}
-
-async function runGroqGeneration(systemPrompt, userPrompt) {
-    if (!GROQ_API_KEY) return { success: false };
-    try {
-        console.log(chalk.cyan('[AI] Trying Groq...'));
-        const response = await axios.post(GROQ_API_URL, {
-            model: GROQ_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userPrompt }
-            ],
-            temperature: 0.6,
-            max_tokens: 600
-        }, {
-            headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-            timeout: AI_CONFIG.GROQ.TIMEOUT
-        });
-        return { success: true, content: response.data.choices[0]?.message?.content, model: 'Groq' };
-    } catch (err) {
-        console.warn(chalk.yellow(`[GROQ] engine failed: ${err.message}`));
-        return { success: false };
-    }
-}
-
-async function runAIRefinement(content, userStory, previousLogs) {
-    console.log(chalk.cyan('[AI] Refinement (Double Check)...'));
-    let historySummary = "-";
-    if (previousLogs && previousLogs.length > 0) {
-        historySummary = previousLogs.map(l => `[${l.date}] ${l.activity_log.substring(0, 50)}...`).join('; ');
-    }
-
-    const refinementPrompt = getMessage('AI_REFINEMENT_WITH_CONTEXT_PROMPT')
-        .replace('{content}', content)
-        .replace('{user_story}', userStory)
-        .replace('{history_summary}', historySummary);
-
-    const systemPrompt = "Kamu adalah Supervisor Editor. Pastikan konten akurat, logis, dan TIDAK HALUSINASI.";
-
-    // Try OpenRouter first for refinement
-    let res = await runOpenRouterGeneration(systemPrompt, refinementPrompt);
-    if (!res.success) {
-        res = await runGroqGeneration(systemPrompt, refinementPrompt);
-    }
-
-    if (res.success && res.content) {
-        console.log(chalk.green(`[AI] Refinement Successful (${res.model}).`));
-        return res.content;
-    }
-    
-    return content;
-}
-
-const parseAndClamp = (content) => {
-    const parseSection = (label, text) => {
-        try {
-            const regexStr = `(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*${label}[*: ]*[ \t]*([^]*?)(?=(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*(?:AKTIVITAS|PEMBELAJARAN|KENDALA)|$)`;
-            const regex = new RegExp(regexStr, 'i');
-            const match = text.match(regex);
-            if (match && match[1] && match[1].trim().length > 0) {
-                return match[1].trim();
-            }
-        } catch (e) {
-            console.error(`[AI-PARSE] Error parsing ${label}:`, e.message);
+        if (res.error && (res.error.includes('429') || res.error.includes('limit'))) {
+            console.log(chalk.yellow(`[AI-RETRY] Scaleway limit, mencoba rotasi model lain (${i + 1}/4)...`));
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+            break;
         }
+    }
+
+    // 🥈 Pilar 2: Groq (Tercepat di dunia)
+    let res = await callOpenAICompatible('GROQ', AI_CONFIG.GROQ, systemPrompt, userPrompt, KEYS.GROQ);
+    if (res.success) return res;
+
+    // 🥉 Pilar 3: SambaNova (Rotasi Sehat & Cerdas)
+    res = await callOpenAICompatible('SAMBANOVA', AI_CONFIG.SAMBANOVA, systemPrompt, userPrompt, KEYS.SAMBANOVA);
+    if (res.success) return res;
+
+    // 🛡️ Pilar 4: GitHub Models (OpenAI Grade AI)
+    res = await callOpenAICompatible('GITHUB', AI_CONFIG.GITHUB, systemPrompt, userPrompt, KEYS.GITHUB);
+    if (res.success) return res;
+
+    // 💎 Pilar 5: Google Gemini (Kaku tapi Stabil)
+    res = await callOpenAICompatible('GEMINI', AI_CONFIG.GEMINI, systemPrompt, userPrompt, KEYS.GEMINI);
+    if (res.success) return res;
+
+    // 🚑 Pilar 6: Cerebras (Obat Darurat)
+    res = await callOpenAICompatible('CEREBRAS', AI_CONFIG.CEREBRAS, systemPrompt, userPrompt, KEYS.CEREBRAS);
+    if (res.success) return res;
+
+    return { success: false, error: 'Semua layanan AI (6 Pilar) sedang mati atau over-limit.' };
+}
+
+/**
+ * AI Refinement
+ */
+async function runAIRefinement(content, userStory, previousLogs = []) {
+    console.log(chalk.cyan('[AI] Running Refinement...'));
+
+    const refinementPrompt = `TUGAS: Poles draf ini agar panjang setiap bagian ideal (110-140 karakter).
+
+DRAF KASAR: "${content}"
+CERITA USER HARI INI: "${userStory}"
+
+ATURAN REFINEMENT (WAJIB PATUH):
+1. FOKUS: Hanya bahas apa yang ada di "CERITA USER HARI INI". JANGAN masukkan aktivitas dari riwayat lama (seperti WebVR, Review Kode, dll) jika tidak disebutkan user hari ini.
+2. MINIMAL KARAKTER: Bagian AKTIVITAS dan PEMBELAJARAN wajib di atas 110 karakter.
+3. GAYA: Gunakan kata kerja berawalan 'Me-'. JANGAN gunakan angka/list.
+4. KENDALA: Gunakan kalimat profesional yang panjang (min 110 karakter) untuk menjelaskan kelancaran pengerjaan tugas.
+5. OUTPUT: Hanya format AKTIVITAS, PEMBELAJARAN, KENDALA.`;
+
+    const systemPrompt = "Kamu adalah Supervisor Editor Laporan Magang. Tugasmu mengubah draf kasar menjadi laporan detail dan manusiawi.";
+
+    const res = await runMasterGeneration(systemPrompt, refinementPrompt);
+    return res.success ? res.content : content;
+}
+
+/**
+ * Parse AI text output into structured report object
+ */
+const parseAndClamp = (content) => {
+    if (!content) return { success: false, error: 'Empty content from AI' };
+    console.log(chalk.yellow('\n[DEBUG-RAW-AI-OUTPUT]:\n' + content + '\n'));
+
+    const parseSection = (labels, text) => {
+        try {
+            for (const label of labels) {
+                const regexStr = `${label}[*: ]*([^]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA|Pekerjaan|Pelajaran|Hambatan|Kegiatan|\\d\\.)|$)`;
+                const regex = new RegExp(regexStr, 'i');
+                const match = text.match(regex);
+                if (match && match[1] && match[1].trim().length > 10) {
+                    return match[1].trim().replace(/^[:\-* \t\n\r]+/, '');
+                }
+            }
+        } catch (e) { }
         return '';
     };
 
-    let aktivitas = parseSection('AKTIVITAS', content);
-    let pembelajaran = parseSection('PEMBELAJARAN', content);
-    let kendala = parseSection('KENDALA', content);
+    let aktivitas = parseSection(['AKTIVITAS', 'Pekerjaan yang Dilaksanakan', 'Kegiatan', 'Pekerjaan'], content);
+    let pembelajaran = parseSection(['PEMBELAJARAN', 'Pelajaran yang Diambil', 'Hal yang dipelajari', 'Pelajaran'], content);
+    let kendala = parseSection(['KENDALA', 'Hambatan', 'Masalah', 'Kendala'], content);
 
-    if (!aktivitas && !pembelajaran && !kendala) {
-        console.log(chalk.cyan('[AI-PARSE] Regex failed, using manual line split fallback...'));
+    if (!aktivitas || !pembelajaran || !kendala) {
         const lines = content.split('\n');
-        let currentSection = null;
-        let a_temp = '', p_temp = '', k_temp = '';
-
+        let currentMode = null;
         lines.forEach(line => {
-            const l = line.trim().toUpperCase();
-            if (l.match(/[*#\-.0-9]*\s*AKTIVITAS[*: ]*/)) {
-                currentSection = 'A';
-                a_temp = line.replace(/.*AKTIVITAS[*: ]*/i, '').trim();
-            }
-            else if (l.match(/[*#\-.0-9]*\s*PEMBELAJARAN[*: ]*/)) {
-                currentSection = 'P';
-                p_temp = line.replace(/.*PEMBELAJARAN[*: ]*/i, '').trim();
-            }
-            else if (l.match(/[*#\-.0-9]*\s*KENDALA[*: ]*/)) {
-                currentSection = 'K';
-                k_temp = line.replace(/.*KENDALA[*: ]*/i, '').trim();
-            }
-            else if (currentSection && line.trim()) {
-                if (currentSection === 'A') a_temp += ' ' + line.trim();
-                else if (currentSection === 'P') p_temp += ' ' + line.trim();
-                else if (currentSection === 'K') k_temp += ' ' + line.trim();
-            }
+            const cleanLine = line.trim();
+            const upperLine = cleanLine.toUpperCase();
+            if (upperLine.includes('AKTIVITAS')) {
+                currentMode = 'A';
+                aktivitas += ' ' + cleanLine.replace(/.*AKTIVITAS[*: ]*/i, '');
+            } else if (upperLine.includes('PEMBELAJARAN')) {
+                currentMode = 'P';
+                pembelajaran += ' ' + cleanLine.replace(/.*PEMBELAJARAN[*: ]*/i, '');
+            } else if (upperLine.includes('KENDALA')) {
+                currentMode = 'K';
+                kendala += ' ' + cleanLine.replace(/.*KENDALA[*: ]*/i, '');
+            } else if (currentMode === 'A') aktivitas += ' ' + cleanLine;
+            else if (currentMode === 'P') pembelajaran += ' ' + cleanLine;
+            else if (currentMode === 'K') kendala += ' ' + cleanLine;
         });
-
-        if (a_temp) aktivitas = a_temp;
-        if (p_temp) pembelajaran = p_temp;
-        if (k_temp) kendala = k_temp;
     }
 
-    const MAX_CHARS = AI_CONFIG.REPORT.MAX_CHARS;
-    const clamp = (text) => {
-        let result = (text || '').trim();
-        if (result.length > MAX_CHARS) {
-            result = result.substring(0, MAX_CHARS).trim();
-            const lastSpace = result.lastIndexOf(' ');
-            if (lastSpace > MAX_CHARS - AI_CONFIG.REPORT.TRUNCATE_BUFFER) result = result.substring(0, lastSpace);
+    const MAX_CHARS = AI_CONFIG.REPORT.MAX_CHARS || 300;
+    const finalize = (text) => {
+        let res = (text || '').trim().replace(/[*#]/g, '').replace(/\s+/g, ' ');
+        const sentences = res.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 5);
+        const uniqueSentences = [...new Set(sentences)];
+        if (uniqueSentences.length > 0) res = uniqueSentences.join('. ') + '.';
+        if (res.length > MAX_CHARS) {
+            res = res.substring(0, MAX_CHARS).trim();
+            const lastDot = res.lastIndexOf('.');
+            if (lastDot > 200) res = res.substring(0, lastDot + 1);
         }
-        return result;
+        return res;
     };
 
-    return {
-        success: true,
-        aktivitas: clamp(aktivitas),
-        pembelajaran: clamp(pembelajaran),
-        kendala: clamp(kendala)
+    const finalAktivitas = finalize(aktivitas);
+    const finalPembelajaran = finalize(pembelajaran);
+    let finalKendala = finalize(kendala);
+
+    const isNoObstacle = (text) => {
+        const lower = text.toLowerCase();
+        return lower.includes('tidak ada') || lower.includes('lancar') || lower.includes('signifikan') || text.length < 80;
     };
+
+    if (isNoObstacle(finalKendala)) {
+        finalKendala = "Seluruh proses pengerjaan tugas pada hari ini berjalan dengan sangat lancar dan saya tidak menemukan adanya hambatan teknis maupun kendala komunikasi yang berarti selama pelaksanaan kegiatan magang.";
+    }
+
+    if (finalAktivitas.length < 15 || finalPembelajaran.length < 15) {
+        return { success: false, error: 'AI tidak memberikan format yang benar.' };
+    }
+
+    return { success: true, aktivitas: finalAktivitas, pembelajaran: finalPembelajaran, kendala: finalKendala };
 };
 
+/**
+ * Generate report from history
+ */
 async function generateAttendanceReport(previousLogs = []) {
-    let context = '';
-    if (previousLogs.length > 0) {
-        context = 'Berikut adalah riwayat laporan sebelumnya:\n\n';
-        previousLogs.forEach((log, i) => {
-            if (log && log.activity_log) {
-                context += `--- ${log.date} ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
-            }
-        });
-    }
+    let context = 'RIWAYAT TERAKHIR (Gunakan ini sebagai referensi gaya saja):\n';
+    previousLogs.slice(0, 5).forEach(log => { context += `- ${log.activity_log.substring(0, 100)}\n`; });
 
-    const systemPrompt = getMessage('AI_SYSTEM_PROMPT');
-    const userPrompt = getMessage('AI_USER_PROMPT').replace('{context}', context);
+    const systemPrompt = `Kamu adalah Asisten Penulis Laporan Magang Profesional. 
+    ATURAN: JANGAN pakai angka/list. Gunakan 'Me-'. Format HANYA: AKTIVITAS, PEMBELAJARAN, KENDALA. JANGAN tuliskan intro/penutup apapun.`;
 
-    // Prefer OpenRouter
-    let res = await runOpenRouterGeneration(systemPrompt, userPrompt);
-    if (!res.success) {
-        res = await runGroqGeneration(systemPrompt, userPrompt);
-    }
+    // Perbaikan: Konteks riwayat harus dimasukkan ke prompt user agar AI tidak bingung.
+    const userPrompt = `${context}\n\nBerdasarkan riwayat di atas dan pahami polanya, buatkan satu set laporan riwayat baru untuk kegiatan hari ini (karangan relevan). JANGAN COPAS, buat aktivitas baru yang mirip dengan riwayat.`;
 
-    let content = res.content;
-    if (!content) return { success: false, error: 'Layanan AI sedang sibuk/gagal.' };
-
-    content = await runAIRefinement(content, "(Manual Input Context)", previousLogs);
-    return parseAndClamp(content);
+    const res = await runMasterGeneration(systemPrompt, userPrompt);
+    if (!res.success) return res;
+    return parseAndClamp(res.content);
 }
 
+/**
+ * Process story to report
+ */
 async function processFreeTextToReport(userText, previousLogs = []) {
-    const contextMessages = [];
-    if (previousLogs.length > 0) {
-        let historyText = "RIWAYAT LAPORAN TERAKHIR USER:\n";
-        previousLogs.forEach((log, i) => {
-            historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
-        });
-        if (historyText.length > 2000) {
-            historyText = historyText.substring(0, 2000) + "\n...(Riwayat dipotong)...";
-        }
-        contextMessages.push(historyText);
-    }
+    const systemPrompt = `Kamu adalah Draft Writer. 
+    TUGAS: Fokus HANYA pada: "${userText}". 
+    JANGAN masukkan riwayat lama. FORMAT: AKTIVITAS, PEMBELAJARAN, KENDALA.`;
 
-    const systemPrompt = getMessage('AI_SYSTEM_PROMPT_STORY');
-    const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: \"${userText}\"\n\nBuatkan laporan dengan gaya saya!`;
+    const fullPrompt = `Cerita User Hari Ini: "${userText}"\n\nBuatkan draf laporan singkat.`;
 
-    // Prefer OpenRouter
-    let res = await runOpenRouterGeneration(systemPrompt, fullPrompt);
-    if (!res.success) {
-        res = await runGroqGeneration(systemPrompt, fullPrompt);
-    }
+    const res = await runMasterGeneration(systemPrompt, fullPrompt);
+    if (!res.success) return res;
 
-    let content = res.content;
-    if (!content) return { success: false, error: 'Gagal memproses laporan (Engine AI sibuk).' };
+    console.log(chalk.cyan(`[AI] Memulai Refinement...`));
+    const refinedContent = await runAIRefinement(res.content, userText, []);
 
-    const wordCount = userText.trim().split(/\s+/).length;
-    const skipRefinement = wordCount < 50;
-
-    if (!skipRefinement) {
-        content = await runAIRefinement(content, userText, previousLogs);
-    }
-
-    let report = parseAndClamp(content);
-
-    // Expansion logic if needed
-    if (report.aktivitas.length < 100 || report.pembelajaran.length < 100 || report.kendala.length < 100) {
-        console.log(chalk.cyan('[AI] Sections too short, running expansion...'));
-        const expansionPrompt = `Laporan magang ini perlu diperpanjang.
-DRAFT SAAT INI:
-AKTIVITAS: ${report.aktivitas}
-PEMBELAJARAN: ${report.pembelajaran}
-KENDALA: ${report.kendala}
-
-INSTRUKSI:
-1. Perpanjang SETIAP bagian agar mencapai 110-150 karakter.
-2. Tambahkan detail teknis yang WAJAR dan REALISTIS.
-Format output:
-AKTIVITAS: [isi]
-PEMBELAJARAN: [isi]
-KENDALA: [isi]`;
-
-        const expansionSystem = "Kamu adalah Editor laporan magang. TUGASMU: perpanjang setiap bagian agar mencapai 110-150 karakter. Output HANYA format AKTIVITAS/PEMBELAJARAN/KENDALA.";
-
-        let expRes = await runOpenRouterGeneration(expansionSystem, expansionPrompt);
-        if (!expRes.success) {
-            expRes = await runGroqGeneration(expansionSystem, expansionPrompt);
-        }
-
-        if (expRes.success && expRes.content) {
-            console.log(chalk.green(`[AI] Expansion successful (${expRes.model}).`));
-            report = parseAndClamp(expRes.content);
-        }
-    }
-
-    return report;
+    return parseAndClamp(refinedContent);
 }
 
+/**
+ * Summarize content
+ */
 async function summarizeIslamicContent(text) {
-    if (!text || text.length < 250) return text;
-    const prompt = `Ringkas hadits/ayat berikut menjadi 1-2 kalimat pendek yang berisi "Hikmah" utama saja.\n\nTeks Asli: "${text}"`;
-    
-    let res = await runOpenRouterGeneration("Kamu adalah asisten pengingat ibadah.", prompt);
-    if (!res.success) {
-        res = await runGroqGeneration("Kamu adalah asisten pengingat ibadah.", prompt);
-    }
+    if (!text || text.length < 300) return text;
+    const prompt = `Ringkas teks berikut menjadi 1 kalimat hikmah pendek:\n\n"${text}"`;
+    const res = await runMasterGeneration("Kamu adalah asisten bijak.", prompt);
+    return res.success ? res.content.trim() : text;
+}
 
-    if (res.success && res.content) return res.content.trim();
-    return text;
+/**
+ * Generate Chat Response (Chatbot Mode)
+ */
+async function generateChatResponse(userPrompt, systemPrompt = '') {
+    const res = await runMasterGeneration(systemPrompt, userPrompt);
+    return res.success ? res.content : null;
 }
 
 module.exports = {
@@ -313,11 +289,8 @@ module.exports = {
     processFreeTextToReport,
     summarizeIslamicContent,
     transcribeAudio,
+    generateChatResponse,
     smartChat: async (prompt, systemPrompt = '') => {
-        let res = await runOpenRouterGeneration(systemPrompt, prompt);
-        if (!res.success) {
-            res = await runGroqGeneration(systemPrompt, prompt);
-        }
-        return res;
+        return await runMasterGeneration(systemPrompt, prompt);
     }
 };

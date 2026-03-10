@@ -14,9 +14,9 @@ module.exports = {
     description: 'Admin schedule & broadcast control',
 
     async execute(sock, msgObj, context) {
-        const { sender, commandName, args, fullArgs } = context;
+        const { sender, commandName, args, fullArgs, isOwner } = context;
 
-        if (!ADMIN_NUMBERS.includes(sender)) {
+        if (!isOwner) {
             return sock.sendMessage(sender, { text: '❌ Anda tidak memiliki akses admin!' }, { quoted: msgObj });
         }
 
@@ -34,7 +34,7 @@ module.exports = {
                 try {
                     await sock.sendMessage(user.phone, { text: `[BROADCAST ADMIN]\n\n${fullArgs}` });
                     sent++;
-                    await new Promise(r => setTimeout(r, 1000)); // anti-spam delay
+                    await new Promise(r => setTimeout(r, 3000)); // anti-spam delay
                 } catch (e) { failed++; }
             }
 
@@ -44,7 +44,7 @@ module.exports = {
                 try {
                     await sock.sendMessage(groupId, { text: `[BROADCAST ADMIN]\n\n${fullArgs}` });
                     sent++;
-                    await new Promise(r => setTimeout(r, 1000));
+                    await new Promise(r => setTimeout(r, 3000));
                 } catch (e) { failed++; }
             }
 

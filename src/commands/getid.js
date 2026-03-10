@@ -18,8 +18,6 @@ module.exports = {
         // Sub-command: !getid all (Hanya untuk grup)
         if (isGroup && args && args.toLowerCase() === 'all') {
             try {
-                await sock.sendMessage(sender, { react: { text: '🔍', key: msgObj.key } });
-                
                 const metadata = await sock.groupMetadata(sender);
                 const participants = metadata.participants;
                 
