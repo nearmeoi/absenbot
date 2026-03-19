@@ -154,6 +154,29 @@ async function ensureParticipantId(email, client, session) {
 }
 
 /**
+ * Centralized API Error Handler
+ */
+function handleApiError(error) {
+    const status = error.response?.status;
+    const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+    const isDown = status === 504 || status === 502 || status === 503 || isTimeout;
+    
+    if (isDown) {
+        return { 
+            success: false, 
+            needsLogin: false, 
+            pesan: "Website Kemnaker sedang down/gangguan (504/Timeout). Silakan coba beberapa saat lagi." 
+        };
+    }
+    
+    return { 
+        success: false, 
+        needsLogin: status === 401, 
+        pesan: error.message 
+    };
+}
+
+/**
  * Fast API login - Skip Puppeteer if possible
  * Performs the full 3-step OIDC flow to get access and refresh tokens
  */
@@ -166,7 +189,8 @@ async function directLogin(email, password) {
             'User-Agent': USER_AGENT,
             'Accept': 'application/json, text/plain, */*',
             'Origin': 'https://account.kemnaker.go.id'
-        }
+        },
+        timeout: 30000
     }));
 
     try {
@@ -259,7 +283,7 @@ async function directLogin(email, password) {
             throw new Error(`Login failed. Status: ${loginRes.status}`);
         }
     } catch (error) {
-        return { success: false, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -323,13 +347,15 @@ async function checkAttendanceStatus(email) {
                 }
             } catch (e) {
                 console.log(chalk.yellow(`[API] Failed to check detailed attendances: ${e.message}`));
+                const err = handleApiError(e);
+                if (err.pesan.includes("down")) return err;
             }
         }
 
         return { success: true, sudahAbsen: false };
 
     } catch (error) {
-        return { success: false, needsLogin: true, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -360,7 +386,7 @@ async function submitAttendanceReport(email, reportData, targetDate = null) {
             console.error(chalk.red(`[API] 400 Bad Request for ${email}:`), JSON.stringify(error.response.data, null, 2));
             return { success: false, needsLogin: false, pesan: "Bad Request (Input tidak valid atau sudah absen)", data: error.response.data };
         }
-        return { success: false, needsLogin: true, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -381,7 +407,7 @@ async function scrapeAndSaveDailyLogs(email) {
         }
         return { success: false, pesan: "Gagal mengambil log" };
     } catch (error) {
-        return { success: false, needsLogin: true, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -422,8 +448,10 @@ async function getAttendanceHistory(email, days = 1, retries = 2) {
         // Return all logs, the consumer will filter/process them as needed
         return { success: true, logs: allLogs };
     } catch (error) {
+        const err = handleApiError(error);
+        if (err.pesan.includes("down")) return err;
         if (retries > 0) return getAttendanceHistory(email, days, retries - 1);
-        return { success: false, logs: [], pesan: error.message };
+        return err;
     }
 }
 
@@ -441,7 +469,7 @@ async function getAttendances(email, startDate, endDate) {
         if (response.status === 200 && response.data?.data) return { success: true, data: response.data.data };
         return { success: false, pesan: "Gagal mengambil data" };
     } catch (error) {
-        return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -465,7 +493,7 @@ async function getMonthlyReports(email) {
         }
         return { success: false, pesan: "Gagal mengambil laporan bulanan" };
     } catch (error) {
-        return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -486,7 +514,7 @@ async function getAnnouncements(email) {
         }
         return { success: false, pesan: "Gagal mengambil pengumuman" };
     } catch (error) {
-        return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -510,7 +538,7 @@ async function getParticipantProfile(email) {
         }
         return { success: false, pesan: "Gagal mengambil profil peserta" };
     } catch (error) {
-        return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+        return handleApiError(error);
     }
 }
 
@@ -531,7 +559,7 @@ async function getUserProfile(email) {
         }
         return { success: false, pesan: "Gagal mengambil profil user" };
     } catch (error) {
-        return { success: false, needsLogin: error.response?.status === 401, pesan: error.message };
+        return handleApiError(error);
     }
 }
 

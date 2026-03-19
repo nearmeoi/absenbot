@@ -12,11 +12,10 @@ module.exports = {
     hidden: true,
 
     async execute(sock, msgObj, context) {
-        const { sender, senderNumber, textMessage, BOT_PREFIX } = context;
+        const { sender, senderNumber, textMessage, BOT_PREFIX, isOwner } = context;
 
         // Security: Only allow admin numbers
-        const senderDigits = senderNumber.split('@')[0];
-        if (!ADMIN_NUMBERS.includes(senderDigits)) {
+        if (!isOwner) {
             return; // Silent fail
         }
 

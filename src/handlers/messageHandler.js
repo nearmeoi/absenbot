@@ -146,6 +146,7 @@ const tanganiPesan = async (sock, msg) => {
                     isGroup: adalahGrup,
                     commandName: namaCmd,
                     args: argumen, // Kembali ke string untuk kompatibilitas
+                    fullArgs: argumen, // Full string after command
                     argsArray: argsArray, // Opsi baru untuk yang butuh array
                     textMessage: teksPesan,
                     originalSenderId: idPengirimAsli,
@@ -250,7 +251,7 @@ const tanganiPesan = async (sock, msg) => {
                     await tunjukkanSedangKetik(sock, pengirim, 4500);
                     const riwayat = await getRiwayat(user.email, user.password, 3);
                     const konteksRevisi = (draf && draf.type === 'ai') ? 'Revisi dari draft AI sebelumnya: ' : 'Revisi manual/baru: ';
-                    const hasilAI = await processFreeTextToReport(konteksRevisi + teksPesan, riwayat.success ? riwayat.logs : []);
+                    const hasilAI = await processFreeTextToReport(konteksRevisi + teksPesan, riwayat.success ? riwayat.logs : [], user.context);
 
                     if (hasilAI.success) {
                         const dataLaporan = { aktivitas: hasilAI.aktivitas, pembelajaran: hasilAI.pembelajaran, kendala: hasilAI.kendala, type: 'ai' };

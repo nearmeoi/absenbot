@@ -12,10 +12,10 @@ module.exports = {
     adminOnly: true,
 
     async execute(sock, msgObj, context) {
-        const { sender, args } = context;
+        const { sender, args, isOwner } = context;
 
         // Check if admin
-        if (!ADMIN_NUMBERS.includes(sender.replace('@s.whatsapp.net', ''))) {
+        if (!isOwner) {
             await sock.sendMessage(sender, { text: getMessage('admin_only') }, { quoted: msgObj });
             return;
         }

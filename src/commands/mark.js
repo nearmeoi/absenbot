@@ -8,13 +8,10 @@ module.exports = {
     hidden: true,
 
     async execute(sock, msgObj, context) {
-        const { sender, args, isGroup } = context;
-        const { ADMIN_NUMBERS } = require('../config/constants');
+        const { sender, args, isGroup, isOwner } = context;
 
         // Security: Admin Only
-        const senderJid = msgObj.key.participant || msgObj.key.remoteJid;
-        console.log(`[DEBUG:MARK] Sender: ${senderJid} | Admins: ${JSON.stringify(ADMIN_NUMBERS)}`);
-        if (!ADMIN_NUMBERS.includes(senderJid)) return;
+        if (!isOwner) return;
 
         let targetJid = '';
         let targetName = 'User';

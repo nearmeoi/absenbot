@@ -262,8 +262,8 @@ async function runEmergencyWarning(sock, task, timezone) {
                         const parsed = parseTagBasedReport(user.template);
                         if (parsed) { reportData = parsed; source = "Template Anda"; }
                         else {
-                            const history = await getRiwayat(user.email, user.password, 3);
-                            const res = await processFreeTextToReport(user.template, history.success ? history.logs : []);
+                            const history = await getRiwayat(user.email, user.password, 7);
+                            const res = await processFreeTextToReport(user.template, history.success ? history.logs : [], user.context);
                             if (res.success) {
                                 reportData = { aktivitas: res.aktivitas, pembelajaran: res.pembelajaran, kendala: res.kendala };
                                 source = "Template (AI Refined)";
@@ -271,8 +271,8 @@ async function runEmergencyWarning(sock, task, timezone) {
                         }
                     }
                     if (!reportData) {
-                        const riwayatResult = await getRiwayat(user.email, user.password, 3);
-                        const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+                        const riwayatResult = await getRiwayat(user.email, user.password, 7);
+                        const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : [], user.context);
                         if (aiResult.success) {
                             reportData = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala };
                             source = "Generasi AI (Berdasarkan Riwayat)";
@@ -505,8 +505,8 @@ async function runDraftPush(sock, task, timezone) {
             }
             
             console.log(chalk.yellow(`[DRAFT-PUSH] User ${user.email} PENDING. Generating draft...`));
-            const riwayatResult = await getRiwayat(user.email, user.password, 3);
-            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+            const riwayatResult = await getRiwayat(user.email, user.password, 7);
+            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : [], user.context);
             if (aiResult.success) {
                 const reportData = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala, type: 'ai' };
                 setDraft(user.phone, reportData);
@@ -595,16 +595,16 @@ async function executeAutoSubmit(sock, user) {
             const manualParsed = parseTagBasedReport(user.template);
             if (manualParsed) { finalReport = manualParsed; }
             else {
-                const history = await getRiwayat(user.email, user.password, 3);
-                const processResult = await processFreeTextToReport(user.template, history.success ? history.logs : []);
+                const history = await getRiwayat(user.email, user.password, 7);
+                const processResult = await processFreeTextToReport(user.template, history.success ? history.logs : [], user.context);
                 if (processResult.success) {
                     finalReport = { aktivitas: processResult.aktivitas, pembelajaran: processResult.pembelajaran, kendala: processResult.kendala };
                 }
             }
         }
         if (!finalReport) {
-            const riwayatResult = await getRiwayat(user.email, user.password, 3);
-            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
+            const riwayatResult = await getRiwayat(user.email, user.password, 7);
+            const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : [], user.context);
             if (aiResult.success) {
                 finalReport = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala };
             }

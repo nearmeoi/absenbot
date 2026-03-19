@@ -363,7 +363,8 @@ async function sambungKeWhatsApp(sessionId = 'default', awal = true) {
 
                         personaService.recordIncoming(jidTujuan, teks);
 
-                        // --- FITUR AI AUTO-REPLY (KHUSUS LATIHAN) ---
+                        // --- FITUR AI AUTO-REPLY (KHUSUS LATIHAN - DIMATIKAN) ---
+                        /* 
                         if (idPengirim === targetLidTest) {
                             // targetLidAica dinonaktifkan dulu agar fokus latihan di sini
                             console.log(chalk.magenta(`[AI-CHAT][${sessionId}] Latihan gaya bahasa: ${namaPengirim}`));
@@ -412,6 +413,7 @@ JAWAB SECARA RELEVAN:`;
                                 console.error(chalk.red(`[AI-CHAT] Error: ${aiErr.message}`));
                             }
                         }
+                        */
 
                         // AFK (Fallback jika AI gagal atau bukan target AI)
                         const afkState = afkService.getAfk(sessionId);

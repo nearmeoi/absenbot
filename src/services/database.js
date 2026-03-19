@@ -218,6 +218,26 @@ const simpanTemplateUser = (nomorHP, templateData) => {
     return false;
 };
 
+/**
+ * Simpan konteks/persona khusus user (biar AI ingat dia siapa & ngerjain apa)
+ */
+const simpanKonteksUser = (email, konteks) => {
+    const users = muatUser();
+    const idx = users.findIndex(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+
+    if (idx !== -1) {
+        users[idx].context = konteks;
+        perbaruiUser(users);
+        return true;
+    }
+    return false;
+};
+
+const ambilKonteksUser = (email) => {
+    const user = cariUserEmail(email);
+    return user ? user.context : null;
+};
+
 module.exports = {
     // Nama baru
     cariUserHP,
@@ -228,6 +248,8 @@ module.exports = {
     semuaUser,
     hapusUser,
     simpanTemplateUser,
+    simpanKonteksUser,
+    ambilKonteksUser,
 
     // Alias backward compat
     getUserByPhone: cariUserHP,

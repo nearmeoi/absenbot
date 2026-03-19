@@ -14,7 +14,7 @@ module.exports = {
     description: 'Admin schedule & broadcast control',
 
     async execute(sock, msgObj, context) {
-        const { sender, commandName, args, fullArgs, isOwner } = context;
+        const { sender, commandName, argsArray: args, fullArgs, isOwner } = context;
 
         if (!isOwner) {
             return sock.sendMessage(sender, { text: '❌ Anda tidak memiliki akses admin!' }, { quoted: msgObj });

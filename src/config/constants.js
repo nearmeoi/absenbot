@@ -308,12 +308,12 @@ module.exports = {
         },
         OPENROUTER: {
             API_URL: 'https://openrouter.ai/api/v1/chat/completions',
-            MODEL: 'openrouter/auto',
+            MODELS: ['arcee-ai/trinity-large-preview:free'],
             TIMEOUT: 35000
         },
         REPORT: {
             MIN_CHARS: 110,
-            MAX_CHARS: 300,
+            MAX_CHARS: 1000,
             TRUNCATE_BUFFER: 50
         }
     },

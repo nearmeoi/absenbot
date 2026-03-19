@@ -4,6 +4,7 @@ const { getMessage } = require('../services/messageService');
 const { isHoliday } = require('../config/holidays');
 const { ADMIN_NUMBERS } = require('../config/constants');
 const { tunjukkanSedangKetik } = require('../utils/whatsappUtils');
+const chalk = require('chalk');
 
 const processingUsers = new Set();
 
@@ -17,8 +18,8 @@ module.exports = {
 
         // --- NEW: Handle !cekapprove all (Admin only) ---
         if (args && args.toLowerCase().trim() === 'all') {
-            const senderDigits = senderNumber.replace('@s.whatsapp.net', '');
-            if (!ADMIN_NUMBERS.includes(senderDigits)) {
+            const { isOwner } = context;
+            if (!isOwner) {
                 await sock.sendMessage(sender, { text: '🚫 Perintah ini hanya untuk Admin.' }, { quoted: msgObj });
                 return;
             }
@@ -163,12 +164,14 @@ module.exports = {
 
             // 2. Fetch Data (Try Cache First)
             // Pass 'today' as reference date for stats
+            console.log(chalk.cyan(`[CEKAPPROVE] Fetching data for ${user.email}...`));
             const [statsResult, historyResult, profileResult, userProfileResult] = await Promise.all([
                 getDashboardStats(user.email, user.password, today),
                 getRiwayat(user.email, user.password, 45),
                 getParticipantProfile(user.email),
                 getUserProfile(user.email)
             ]);
+            console.log(chalk.green(`[CEKAPPROVE] Data fetched for ${user.email}. Stats: ${statsResult.success}, History: ${historyResult.success}`));
 
             if (!statsResult.success) {
                 await sock.sendMessage(sender, { text: `Gagal mengambil data dashboard: ${statsResult.pesan}` }, { quoted: msgObj });
@@ -184,8 +187,8 @@ module.exports = {
 
             const cal = stats.calendar || { approved: [], rejected: [], revision: [], pending: [], alpha: [] };
             // Use full_attendances from API if available (contains both months)
-            const fullLogs = stats.full_attendances || [];
-            const historyLogs = historyResult.success ? historyResult.logs : [];
+            const fullLogsData = stats.full_attendances || [];
+            const historyLogsData = historyResult.success ? historyResult.logs : [];
 
             // 3. Determine Cycle Range: CycleDay Previous Month -> CycleDay Current Month
             const startPeriod = new Date(today);
@@ -231,37 +234,32 @@ module.exports = {
             // 4. Iterate through the cycle day by day
             // This is the most accurate way to merge "Calendar" and "History"
             let tempDate = new Date(startPeriod);
-            const realTodayStr = new Date().toISOString().split('T')[0];
+            const realTodayStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
             
             // Map available data for fast lookup
+            // Combine all sources: Dashboard stats, Daily logs API, and History logs API
             const logsMap = new Map();
             
-            // Priority 1: Full API Attendances (contains status like APPROVED)
-            fullLogs.forEach(l => logsMap.set(l.date, l));
+            // Priority 1: Full Attendances from Dashboard Stats (most detailed for ON_LEAVE, etc.)
+            fullLogsData.forEach(l => logsMap.set(l.date, l));
             
-            // Priority 2: History Logs (contains state like COMPLETED, fallback if API missing)
-            historyLogs.forEach(l => {
-                if (!logsMap.has(l.date)) {
-                    logsMap.set(l.date, l);
-                }
+            // Priority 2: History Logs (fallback)
+            historyLogsData.forEach(l => {
+                if (!logsMap.get(l.date)) logsMap.set(l.date, l);
             });
 
             while (tempDate <= iterationEnd) {
-                const dStr = tempDate.toISOString().split('T')[0];
+                const dStr = tempDate.toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
                 const isWorkDay = !isHoliday(dStr);
                 const dayLabel = `${tempDate.getDate()} ${tempDate.toLocaleString('id-ID', { month: 'short' })}`;
                 
                 const log = logsMap.get(dStr);
 
                 if (log && !log.missing) {
-                    // Check status
-                    // API uses: approval_status (APPROVED, REJECTED, REVISION) and status (PRESENT, ON_LEAVE)
-                    // History uses: state (COMPLETED, PRESENT)
-                    
                     const approvalStatus = (log.approval_status || log.state || '').toUpperCase();
                     const attendanceStatus = (log.status || '').toUpperCase();
 
-                    if (attendanceStatus === 'ON_LEAVE' || attendanceStatus === 'SICK' || attendanceStatus === 'PERMIT') {
+                    if (['ON_LEAVE', 'SICK', 'PERMIT', 'IZIN', 'SAKIT'].includes(attendanceStatus)) {
                         totalPermission++;
                         lists.permission.push(dayLabel);
                     } else if (approvalStatus === 'APPROVED') {
@@ -281,14 +279,10 @@ module.exports = {
                 } else if (isWorkDay) {
                     // No log on a workday = Alpha
                     // Skip today if no log yet
-                    if (dStr !== realTodayStr) {
+                    if (dStr < realTodayStr) {
                         totalAlpha++;
                         lists.alpha.push(dayLabel);
                     }
-                } else {
-                    // Holiday/Weekend and no log
-                    totalLibur++;
-                    lists.libur.push(dayLabel);
                 }
 
                 tempDate.setDate(tempDate.getDate() + 1);
@@ -306,8 +300,6 @@ module.exports = {
             };
 
             // 5. Construct Message
-            const formatDate = (d) => `${d.getDate()} ${d.toLocaleString('id-ID', { month: 'short' })} ${d.getFullYear()}`;
-            const rangeStr = `${formatDate(startPeriod)} - ${formatDate(displayEndPeriod)}`;
             const batchNum = cycleDay === 16 ? '3' : (cycleDay === 24 ? '2' : '-');
 
             // Helper for Capitalize Each Word
@@ -321,7 +313,7 @@ module.exports = {
             const logToday = logsMap.get(realTodayStr);
             if (logToday) {
                 const attStatus = (logToday.status || '').toUpperCase();
-                if (attStatus === 'ON_LEAVE' || attStatus === 'SICK' || attStatus === 'PERMIT') {
+                if (['ON_LEAVE', 'SICK', 'PERMIT', 'IZIN', 'SAKIT'].includes(attStatus)) {
                     statusAbsenToday = 'Izin/Sakit';
                 } else {
                     statusAbsenToday = 'Sudah Absen';

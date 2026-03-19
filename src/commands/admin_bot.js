@@ -13,7 +13,7 @@ module.exports = {
     description: 'Admin bot control commands (Dashboard replacement)',
 
     async execute(sock, msgObj, context) {
-        const { sender, commandName, args, isOwner } = context;
+        const { sender, commandName, argsArray: args, isOwner } = context;
 
         // ADMIN CHECK
         if (!isOwner) {

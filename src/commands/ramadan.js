@@ -7,7 +7,7 @@ module.exports = {
     description: 'Fitur Ramadhan: Jadwal Imsak, Buka Puasa, Doa, dan Pengingat',
     async execute(sock, message, context) {
         const { remoteJid } = message.key;
-        const { args, BOT_PREFIX } = context;
+        const { argsArray: args, BOT_PREFIX } = context;
         const command = message.message.conversation || message.message.extendedTextMessage?.text || '';
         const cmdName = command.split(' ')[0].replace(BOT_PREFIX, '').toLowerCase();
 

@@ -89,9 +89,17 @@ async function transcribeAudio(filePath) {
  * The Master Waterfall Fallback Engine
  */
 async function runMasterGeneration(systemPrompt, userPrompt) {
-    // 🥇 Pilar 1: Scaleway (Kapten Utama - Sangat Manusiawi)
+    // 🏆 Pilar Utama: Groq (Tercepat & Akurat - Permintaan User)
+    let res = await callOpenAICompatible('GROQ', AI_CONFIG.GROQ, systemPrompt, userPrompt, KEYS.GROQ);
+    if (res.success) return res;
+
+    // 🥇 Pilar 1: OpenRouter (Trinity - Sangat Powerfull)
+    res = await callOpenAICompatible('OPENROUTER', AI_CONFIG.OPENROUTER, systemPrompt, userPrompt, KEYS.OPENROUTER);
+    if (res.success) return res;
+
+    // 🥈 Pilar 2: Scaleway (Sangat Manusiawi)
     for (let i = 0; i < 4; i++) {
-        let res = await callOpenAICompatible('SCALEWAY', AI_CONFIG.SCALEWAY, systemPrompt, userPrompt, KEYS.SCALEWAY);
+        res = await callOpenAICompatible('SCALEWAY', AI_CONFIG.SCALEWAY, systemPrompt, userPrompt, KEYS.SCALEWAY);
         if (res.success) return res;
 
         if (res.error && (res.error.includes('429') || res.error.includes('limit'))) {
@@ -101,10 +109,6 @@ async function runMasterGeneration(systemPrompt, userPrompt) {
             break;
         }
     }
-
-    // 🥈 Pilar 2: Groq (Tercepat di dunia)
-    let res = await callOpenAICompatible('GROQ', AI_CONFIG.GROQ, systemPrompt, userPrompt, KEYS.GROQ);
-    if (res.success) return res;
 
     // 🥉 Pilar 3: SambaNova (Rotasi Sehat & Cerdas)
     res = await callOpenAICompatible('SAMBANOVA', AI_CONFIG.SAMBANOVA, systemPrompt, userPrompt, KEYS.SAMBANOVA);
@@ -128,10 +132,10 @@ async function runMasterGeneration(systemPrompt, userPrompt) {
 /**
  * AI Refinement
  */
-async function runAIRefinement(content, userStory, previousLogs = []) {
+async function runAIRefinement(content, userStory, previousLogs = [], userContext = null) {
     console.log(chalk.cyan('[AI] Running Refinement...'));
 
-    const refinementPrompt = `TUGAS: Poles draf ini agar panjang setiap bagian ideal (110-140 karakter).
+    const refinementPrompt = `TUGAS: Poles draf ini agar panjang setiap bagian ideal (min 110 karakter).
 
 DRAF KASAR: "${content}"
 CERITA USER HARI INI: "${userStory}"
@@ -143,8 +147,20 @@ ATURAN REFINEMENT (WAJIB PATUH):
 4. KENDALA: Gunakan kalimat profesional yang panjang (min 110 karakter) untuk menjelaskan kelancaran pengerjaan tugas.
 5. OUTPUT: Hanya format AKTIVITAS, PEMBELAJARAN, KENDALA.`;
 
-    const systemPrompt = "Kamu adalah Supervisor Editor Laporan Magang. Tugasmu mengubah draf kasar menjadi laporan detail dan manusiawi.";
-
+    const systemPrompt = `Kamu adalah Supervisor Editor Laporan Magang.
+    TUGAS: Poles draf ini agar menjadi laporan yang logis dan personal bagi user.
+    
+    ATURAN DINAMIS:
+    - ANALISIS PROFIL: ${userContext || 'Gunakan gaya bahasa profesional umum.'}
+    - JANGAN PERNAH membuat aktivitas teknis (Database/Coding) jika User menyatakan sedang di tahap Research atau jika Riwayat menunjukkan user baru saja memulai.
+    - FOKUS: Hanya poles poin yang relevan dengan CERITA USER hari ini.
+    
+    WAJIB GUNAKAN LABEL: AKTIVITAS, PEMBELAJARAN, KENDALA.
+    WAJIB MULAI SETIAP KALIMAT DENGAN KATA KERJA BERAWALAN 'Me-'.
+    Format HANYA:
+    AKTIVITAS: [isi]
+    PEMBELAJARAN: [isi]
+    KENDALA: [isi]`;
     const res = await runMasterGeneration(systemPrompt, refinementPrompt);
     return res.success ? res.content : content;
 }
@@ -159,11 +175,12 @@ const parseAndClamp = (content) => {
     const parseSection = (labels, text) => {
         try {
             for (const label of labels) {
-                const regexStr = `${label}[*: ]*([^]*?)(?=(?:AKTIVITAS|PEMBELAJARAN|KENDALA|Pekerjaan|Pelajaran|Hambatan|Kegiatan|\\d\\.)|$)`;
+                // Regex improved to handle start of line or labels more strictly
+                const regexStr = `(?:^|\\n)${label}[*: ]*([^]*?)(?=(?:\\n(?:AKTIVITAS|PEMBELAJARAN|KENDALA|KENDELA|Pekerjaan|Pelajaran|Hambatan|Kegiatan|\\d\\.))|$)`;
                 const regex = new RegExp(regexStr, 'i');
                 const match = text.match(regex);
                 if (match && match[1] && match[1].trim().length > 10) {
-                    return match[1].trim().replace(/^[:\-* \t\n\r]+/, '');
+                    return match[1].trim().replace(/^[:\-* \t\r\n]+/, '');
                 }
             }
         } catch (e) { }
@@ -172,7 +189,7 @@ const parseAndClamp = (content) => {
 
     let aktivitas = parseSection(['AKTIVITAS', 'Pekerjaan yang Dilaksanakan', 'Kegiatan', 'Pekerjaan'], content);
     let pembelajaran = parseSection(['PEMBELAJARAN', 'Pelajaran yang Diambil', 'Hal yang dipelajari', 'Pelajaran'], content);
-    let kendala = parseSection(['KENDALA', 'Hambatan', 'Masalah', 'Kendala'], content);
+    let kendala = parseSection(['KENDALA', 'KENDELA', 'Hambatan', 'Masalah', 'Kendala'], content);
 
     if (!aktivitas || !pembelajaran || !kendala) {
         const lines = content.split('\n');
@@ -186,25 +203,29 @@ const parseAndClamp = (content) => {
             } else if (upperLine.includes('PEMBELAJARAN')) {
                 currentMode = 'P';
                 pembelajaran += ' ' + cleanLine.replace(/.*PEMBELAJARAN[*: ]*/i, '');
-            } else if (upperLine.includes('KENDALA')) {
+            } else if (upperLine.includes('KENDALA') || upperLine.includes('KENDELA')) {
                 currentMode = 'K';
-                kendala += ' ' + cleanLine.replace(/.*KENDALA[*: ]*/i, '');
+                kendala += ' ' + cleanLine.replace(/.*KENDEL?A[*: ]*/i, '');
             } else if (currentMode === 'A') aktivitas += ' ' + cleanLine;
             else if (currentMode === 'P') pembelajaran += ' ' + cleanLine;
             else if (currentMode === 'K') kendala += ' ' + cleanLine;
         });
     }
 
-    const MAX_CHARS = AI_CONFIG.REPORT.MAX_CHARS || 300;
+    const MAX_CHARS = AI_CONFIG.REPORT.MAX_CHARS || 1000;
     const finalize = (text) => {
         let res = (text || '').trim().replace(/[*#]/g, '').replace(/\s+/g, ' ');
+        // Clean up redundant "Me-me" or "Me-melakukan" -> "Melakukan"
+        res = res.replace(/Me-([me]{2,})/gi, (match, p1) => {
+            return p1.charAt(0).toUpperCase() + p1.slice(1);
+        });
         const sentences = res.split(/[.!?]+/).map(s => s.trim()).filter(s => s.length > 5);
         const uniqueSentences = [...new Set(sentences)];
         if (uniqueSentences.length > 0) res = uniqueSentences.join('. ') + '.';
         if (res.length > MAX_CHARS) {
             res = res.substring(0, MAX_CHARS).trim();
             const lastDot = res.lastIndexOf('.');
-            if (lastDot > 200) res = res.substring(0, lastDot + 1);
+            if (lastDot > (MAX_CHARS * 0.7)) res = res.substring(0, lastDot + 1);
         }
         return res;
     };
@@ -232,15 +253,37 @@ const parseAndClamp = (content) => {
 /**
  * Generate report from history
  */
-async function generateAttendanceReport(previousLogs = []) {
+async function generateAttendanceReport(previousLogs = [], userContext = null) {
     let context = 'RIWAYAT TERAKHIR (Gunakan ini sebagai referensi gaya saja):\n';
     previousLogs.slice(0, 5).forEach(log => { context += `- ${log.activity_log.substring(0, 100)}\n`; });
 
-    const systemPrompt = `Kamu adalah Asisten Penulis Laporan Magang Profesional. 
-    ATURAN: JANGAN pakai angka/list. Gunakan 'Me-'. Format HANYA: AKTIVITAS, PEMBELAJARAN, KENDALA. JANGAN tuliskan intro/penutup apapun.`;
+    const systemPrompt = `Kamu adalah Asisten Penulis Laporan Magang Profesional.
+    TUGAS UTAMA: Buatkan laporan yang merupakan KELANJUTAN LOGIS dari riwayat dan profil user.
+    
+    ANALISIS INPUT:
+    1. PROFIL USER: ${userContext || 'Tidak ada profil khusus.'} (Gunakan ini untuk memahami peran & fase proyek).
+    2. RIWAYAT: (Lihat riwayat di bawah).
+    
+    PRINSIP PENULISAN:
+    - Jika riwayat/profil menunjukkan user baru memulai sesuatu, fokuslah pada aktivitas persiapan/riset.
+    - Jika riwayat/profil menunjukkan user sudah di tahap teknis, lanjutkan ke aktivitas teknis yang relevan.
+    - JANGAN PERNAH membuat aktivitas yang melompat terlalu jauh dari status terakhir yang ada di riwayat atau profil.
+    - Pastikan tone bahasa profesional dan deskriptif (minimal 110 karakter per bagian).
+    
+    WAJIB GUNAKAN LABEL: AKTIVITAS, PEMBELAJARAN, KENDALA.
+    WAJIB MULAI SETIAP KALIMAT DENGAN KATA KERJA BERAWALAN 'Me-'.
+    JANGAN pakai angka/list/bullet point.
+    Format HANYA:
+    AKTIVITAS: [isi]
+    PEMBELAJARAN: [isi]
+    KENDALA: [isi]`;
 
     // Perbaikan: Konteks riwayat harus dimasukkan ke prompt user agar AI tidak bingung.
-    const userPrompt = `${context}\n\nBerdasarkan riwayat di atas dan pahami polanya, buatkan satu set laporan riwayat baru untuk kegiatan hari ini (karangan relevan). JANGAN COPAS, buat aktivitas baru yang mirip dengan riwayat.`;
+    const userPrompt = `${context}\n\nBerdasarkan riwayat di atas, buatkan laporan untuk langkah selanjutnya yang LOGIS dan BERTAHAP. 
+    ATURAN PENTING:
+    1. JANGAN melompat terlalu jauh dari progress terakhir (misal: jika baru bergabung, jangan langsung bahas fitur kompleks atau optimasi).
+    2. Fokus pada aktivitas persiapan, instalasi, pemahaman struktur, atau koordinasi jika proyek baru saja dimulai.
+    3. JANGAN COPAS, buat aktivitas baru yang merupakan kelanjutan alami dari riwayat.`;
 
     const res = await runMasterGeneration(systemPrompt, userPrompt);
     if (!res.success) return res;
@@ -250,10 +293,17 @@ async function generateAttendanceReport(previousLogs = []) {
 /**
  * Process story to report
  */
-async function processFreeTextToReport(userText, previousLogs = []) {
+async function processFreeTextToReport(userText, previousLogs = [], userContext = null) {
     const systemPrompt = `Kamu adalah Draft Writer. 
-    TUGAS: Fokus HANYA pada: "${userText}". 
-    JANGAN masukkan riwayat lama. FORMAT: AKTIVITAS, PEMBELAJARAN, KENDALA.`;
+    ${userContext ? `PROFIL USER: ${userContext}` : ''}
+    WAJIB GUNAKAN LABEL: AKTIVITAS, PEMBELAJARAN, KENDALA.
+    WAJIB MULAI SETIAP KALIMAT DENGAN KATA KERJA BERAWALAN 'Me-'.
+    JANGAN pakai angka/list/bullet point.
+    TUGAS: Fokus HANYA pada: "${userText}".
+    Format HANYA:
+    AKTIVITAS: [isi]
+    PEMBELAJARAN: [isi]
+    KENDALA: [isi]`;
 
     const fullPrompt = `Cerita User Hari Ini: "${userText}"\n\nBuatkan draf laporan singkat.`;
 
@@ -261,7 +311,7 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     if (!res.success) return res;
 
     console.log(chalk.cyan(`[AI] Memulai Refinement...`));
-    const refinedContent = await runAIRefinement(res.content, userText, []);
+    const refinedContent = await runAIRefinement(res.content, userText, [], userContext);
 
     return parseAndClamp(refinedContent);
 }

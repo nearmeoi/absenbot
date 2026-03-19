@@ -44,7 +44,7 @@ module.exports = {
                 console.error("[CMD:ABSEN] Error pre-check:", e.message);
                 return { success: false };
             }),
-            getRiwayat(user.email, user.password, 3).catch(e => ({ success: false, logs: [] }))
+            getRiwayat(user.email, user.password, 7).catch(e => ({ success: false, logs: [] }))
         ]);
 
         if (statusCheck.success && statusCheck.sudahAbsen) {
@@ -84,7 +84,7 @@ module.exports = {
             }
         } else {
             // AI mode — history already fetched in parallel above
-            const aiResult = await processFreeTextToReport(contentToProcess, history.success ? history.logs : []);
+            const aiResult = await processFreeTextToReport(contentToProcess, history.success ? history.logs : [], user.context);
 
             if (!aiResult.success) {
                 await sock.sendMessage(sender, { text: getMessage('!absen_failed_ai', senderNumber).replace('{error}', aiResult.error) }, { quoted: msgObj });

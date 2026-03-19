@@ -130,7 +130,7 @@ router.post('/api/generate-ai', async (req, res) => {
         const history = riwayatResult.success ? riwayatResult.logs : [];
 
         // Generate report
-        const aiResult = await processFreeTextToReport(story, history);
+        const aiResult = await processFreeTextToReport(story, history, user.context);
 
         if (aiResult.success) {
             res.json({

@@ -15,6 +15,17 @@ const apiService = require("./apiService");
 const { isHoliday } = require("../config/holidays");
 const { getDashboardCache, setDashboardCache } = require("./dashboardCache");
 
+/**
+ * Centralized Error Handler for Magang Service
+ */
+function handleMagangError(error) {
+    const msg = error.message || "";
+    if (msg.includes("Timeout") || msg.includes("timeout") || msg.includes("504") || msg.includes("502") || msg.includes("503") || msg.includes("Navigation failed")) {
+        return "Website Kemnaker sedang down/gangguan (Timeout/Down). Silakan coba beberapa saat lagi.";
+    }
+    return msg;
+}
+
 // Queue to ensure only ONE browser instance opens at a time
 class BrowserQueue {
     constructor() {
@@ -281,7 +292,7 @@ async function _puppeteerLoginCore(email, password, takeScreenshot) {
         return { success: true, foto: screenshotPath };
     } catch (error) {
         if (browser) await browser.close();
-        return { success: false, pesan: error.message };
+        return { success: false, pesan: handleMagangError(error) };
     }
 }
 
@@ -361,7 +372,7 @@ async function _puppeteerSubmitCore(email, password, reportData) {
         throw new Error("Tombol simpan tidak ditemukan");
     } catch (error) {
         if (browser) await browser.close();
-        return { success: false, pesan: error.message };
+        return { success: false, pesan: handleMagangError(error) };
     }
 }
 
@@ -383,6 +394,9 @@ async function cekStatusHarian(email, password, retries = 3) {
         
         // If successful or explicitly confirmed already attended, return immediately
         if (apiResult.success) return apiResult;
+
+        // If it's a "down" error, return it immediately
+        if (apiResult.pesan && apiResult.pesan.includes("down")) return apiResult;
 
         // If it's a login issue, try to fix it once
         if (apiResult.needsLogin) {
@@ -429,6 +443,9 @@ async function prosesLoginDanAbsen(dataUser, retries = 2) {
             return apiResult;
         }
 
+        // If it's a "down" error, return it immediately
+        if (apiResult.pesan && apiResult.pesan.includes("down")) return apiResult;
+
         // Jika error 400 dan alasannya karena "sudah absen", jangan retry atau fallback
         if (apiResult.pesan && apiResult.pesan.toLowerCase().includes("sudah absen")) {
             console.log(chalk.blue(`[PROCESS] User ${email} confirmed already attended via API.`));
@@ -459,6 +476,10 @@ async function prosesLoginDanAbsen(dataUser, retries = 2) {
 async function getRiwayat(email, password, days = 1) {
     const apiResult = await apiService.getAttendanceHistory(email, days);
     if (apiResult.success) return apiResult;
+    
+    // If it's a "down" error, return it immediately
+    if (apiResult.pesan && apiResult.pesan.includes("down")) return apiResult;
+
     if (apiResult.needsLogin) {
         const directResult = await apiService.directLogin(email, password);
         if (directResult.success) {
@@ -518,7 +539,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
             if (monthlyReportsRes.data.some(r => r.year_month === targetYearMonth)) raporStatus = 'Sudah ada';
         }
 
-        const currentMonthData = uniqueData.filter(d => d.date >= startOfMonth && d.date <= endOfMonth);
         const results = {
             hadir: 0, izin: 0, revisi: 0, tidakHadirKet: 0, tidakHadirTanpaKet: 0, ditolak: 0, rapor: raporStatus,
             periode: today.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
@@ -526,32 +546,64 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
             full_attendances: uniqueData
         };
 
-        currentMonthData.forEach(item => {
-            const day = new Date(item.date).getDate().toString();
-            const status = (item.approval_status || '').toUpperCase();
-            const attStatus = (item.status || '').toUpperCase();
-            if (['ON_LEAVE', 'SICK', 'PERMIT'].includes(attStatus)) { results.izin++; results.calendar.permission.push(day); return; }
-            if (status === 'APPROVED') { results.hadir++; results.calendar.approved.push(day); }
-            else if (status === 'REJECTED' || status === 'DITOLAK') { results.ditolak++; results.calendar.rejected.push(day); }
-            else if (status === 'REVISION' || status.includes('REVISI')) { results.revisi++; results.calendar.revision.push(day); }
-            else results.calendar.pending.push(day);
-        });
+        // Calculate ALPA across the cycle
+        // A cycle is defined as 24th of previous month to current date (if <= 24)
+        // OR 24th of current month to current date (if > 24)
+        let cycleStart;
+        const cycleDay = 24;
+        if (today.getDate() > cycleDay) {
+            cycleStart = new Date(today.getFullYear(), today.getMonth(), cycleDay + 1);
+        } else {
+            cycleStart = new Date(today.getFullYear(), today.getMonth() - 1, cycleDay + 1);
+        }
 
-        const lastDay = today.getDate();
-        const realTodayStr = new Date().toISOString().split('T')[0];
-        for (let i = 1; i <= lastDay; i++) {
-            const d = new Date(today.getFullYear(), today.getMonth(), i);
-            if (d > today) break;
-            const dStr = d.toISOString().split('T')[0];
-            if (dStr === realTodayStr) continue;
-            if (!isHoliday(dStr) && !currentMonthData.some(item => item.date === dStr)) {
-                results.tidakHadirTanpaKet++; results.calendar.alpha.push(i.toString());
+        const realTodayStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
+        
+        // Clear counts to recalculate across full range
+        results.hadir = 0;
+        results.izin = 0;
+        results.revisi = 0;
+        results.tidakHadirTanpaKet = 0;
+        results.ditolak = 0;
+        results.calendar = { approved: [], rejected: [], revision: [], pending: [], permission: [], alpha: [] };
+
+        for (let d = new Date(cycleStart); d <= today; d.setDate(d.getDate() + 1)) {
+            const dStr = d.toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
+            if (dStr === realTodayStr) continue; // Don't count today as Alpa yet
+
+            const item = uniqueData.find(it => it.date === dStr);
+            const isWorkDay = !isHoliday(dStr);
+
+            if (item) {
+                const status = (item.approval_status || item.state || '').toUpperCase();
+                const attStatus = (item.status || '').toUpperCase();
+                const dayLabel = d.getDate().toString();
+
+                if (['ON_LEAVE', 'SICK', 'PERMIT'].includes(attStatus)) { 
+                    results.izin++; 
+                    results.calendar.permission.push(dayLabel); 
+                } else if (status === 'APPROVED') { 
+                    results.hadir++; 
+                    results.calendar.approved.push(dayLabel); 
+                } else if (status === 'REJECTED' || status === 'DITOLAK') { 
+                    results.ditolak++; 
+                    results.calendar.rejected.push(dayLabel); 
+                } else if (status === 'REVISION' || status.includes('REVISI')) { 
+                    results.revisi++; 
+                    results.calendar.revision.push(dayLabel); 
+                } else {
+                    results.calendar.pending.push(dayLabel);
+                }
+            } else if (isWorkDay) {
+                results.tidakHadirTanpaKet++;
+                results.calendar.alpha.push(d.getDate().toString());
             }
         }
+
         if (isCurrentMonth) setDashboardCache(email, results);
         return { success: true, data: results };
     } catch (error) {
-        return { success: false, pesan: error.message };
+        return { success: false, pesan: handleMagangError(error) };
     }
 }
 
