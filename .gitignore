@@ -1,7 +1,7 @@
 # Dependencies
 node_modules/
 
-# WhatsApp Session (PENTING! Jangan di-push)
+# WhatsApp Session
 SesiWA/
 
 # User data & sessions (sensitif)
@@ -37,7 +37,16 @@ safety_backups/
 # Debug files
 debug_*
 
-# Old/unused
-kemnaker.css
+# Runtime data (regenerated)
+data/dashboard_cache.json
+data/last_info_id.txt
+data/marked_users.json
+data/media/morning_state.json
 data/push_subscriptions.json
 data/scheduled_reports.json
+
+# Built frontend (removed - no dashboard)
+client/
+
+# Old/unused
+kemnaker.css

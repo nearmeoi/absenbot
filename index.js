@@ -1,10 +1,16 @@
 // Load environment variables first
-require('dotenv').config();
-const chalk = require('chalk');
-const figlet = require('figlet');
+import 'dotenv/config';
+import chalk from 'chalk';
+import figlet from 'figlet';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'url';
 
-const connectToWhatsApp = require('./src/app');
-const { reportError } = require('./src/services/errorReporter');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+import connectToWhatsApp from './src/app.js';
+import { reportError } from './src/services/errorReporter.js';
+import { shutdownAuthServer } from './src/services/secureAuth.js';
 
 // Graceful Shutdown Handler (important for VPS with limited resources)
 const gracefulShutdown = (signal) => {
@@ -12,7 +18,6 @@ const gracefulShutdown = (signal) => {
 
     // Attempt to close auth server
     try {
-        const { shutdownAuthServer } = require('./src/services/secureAuth');
         shutdownAuthServer();
     } catch (e) { }
 
@@ -38,8 +43,6 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // --- AUTO LOG CLEANUP (Every 24 Hours) ---
 setInterval(() => {
-    const fs = require('fs');
-    const path = require('path');
     const logDir = path.join(__dirname, 'logs');
     if (fs.existsSync(logDir)) {
         const files = fs.readdirSync(logDir);

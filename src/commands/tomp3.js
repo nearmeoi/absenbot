@@ -1,9 +1,9 @@
-const { downloadMediaMessage } = require('wileys');
-const fs = require('fs');
-const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
+import { downloadMediaMessage } from 'wileys';
+import fs from 'fs';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
 
-module.exports = {
+export default {
     name: ['tomp3', 'mp3'],
     description: 'Ekstrak audio dari video atau ubah audio menjadi MP3',
     async execute(sock, msg, context) {

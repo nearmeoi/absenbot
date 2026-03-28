@@ -2,18 +2,18 @@
  * Command: !absen
  * Main attendance submission command
  */
-const chalk = require('chalk');
-const { getUserByPhone } = require('../services/database');
-const { prosesLoginDanAbsen, cekStatusHarian, getRiwayat } = require('../services/magang');
-const { generateAttendanceReport, processFreeTextToReport } = require('../services/aiService');
-const { setDraft, getDraft, deleteDraft, formatDraftPreview } = require('../services/previewService');
-const { isHoliday } = require('../config/holidays');
-const { getMessage } = require('../services/messageService');
-const { parseTagBasedReport } = require('../utils/messageUtils');
-const { setUserState, clearUserState } = require('../services/stateService');
-const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+import chalk from 'chalk';
+import { getUserByPhone, getUserPassword } from '../services/database.js';
+import { prosesLoginDanAbsen, cekStatusHarian, getRiwayat } from '../services/magang.js';
+import { generateAttendanceReport, processFreeTextToReport } from '../services/aiService.js';
+import { setDraft, getDraft, deleteDraft, formatDraftPreview } from '../services/previewService.js';
+import { isHoliday } from '../config/holidays.js';
+import { getMessage } from '../services/messageService.js';
+import { parseTagBasedReport } from '../utils/messageUtils.js';
+import { setUserState, clearUserState } from '../services/stateService.js';
+import { sendInteractiveMessage } from '../utils/interactiveMessage.js';
 
-module.exports = {
+export default {
     name: 'absen',
     description: 'Submit laporan harian',
 
@@ -50,8 +50,8 @@ module.exports = {
 
         // 3. Pre-check + History fetch
         const [statusCheck, history] = await Promise.all([
-            cekStatusHarian(user.email, user.password).catch(() => ({ success: false })),
-            getRiwayat(user.email, user.password, 3).catch(() => ({ success: false, logs: [] }))
+            cekStatusHarian(user.email, getUserPassword(user)).catch(() => ({ success: false })),
+            getRiwayat(user.email, getUserPassword(user), 3).catch(() => ({ success: false, logs: [] }))
         ]);
 
         if (statusCheck.success && statusCheck.sudahAbsen) {

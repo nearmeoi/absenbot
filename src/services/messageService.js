@@ -1,6 +1,9 @@
-const fs = require('fs');
-const path = require('path');
-const { getUserByPhone } = require('./database');
+import fs from 'node:fs';
+import path from 'node:path';
+import { getUserByPhone } from './database.js';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEBUG = process.env.DEBUG === 'true';
 
 const MESSAGES_DIR = path.join(__dirname, '../config/messages');
@@ -49,8 +52,8 @@ function loadMessages(forceReload = false) {
 /**
  * Get Web App URL helper
  */
-function getAppUrl(phone = '') {
-    const { APP_URL } = require('../config/constants');
+async function getAppUrl(phone = '') {
+    const { APP_URL } = await import('../config/constants.js');
     if (!phone) return APP_URL;
 
     // Try to find user to get slug
@@ -76,12 +79,12 @@ function getAppUrl(phone = '') {
 /**
  * Get message content by key
  */
-function getMessage(key, phone = '') {
+async function getMessage(key, phone = '') {
     const messages = loadMessages();
     let msg = messages[key] || '';
 
     if (msg && msg.includes('{app_url}')) {
-        const url = getAppUrl(phone);
+        const url = await getAppUrl(phone);
         msg = msg.split('{app_url}').join(url);
     }
 
@@ -91,7 +94,7 @@ function getMessage(key, phone = '') {
 /**
  * Get message and replace {app_url} placeholder (Alias for getMessage)
  */
-function getMessageWithUrl(key, phone = '') {
+async function getMessageWithUrl(key, phone = '') {
     return getMessage(key, phone);
 }
 
@@ -154,7 +157,7 @@ function updateMessage(key, content) {
     return loadMessages();
 }
 
-module.exports = {
+export {
     loadMessages,
     getMessage,
     updateMessage,

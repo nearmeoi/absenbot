@@ -2,12 +2,12 @@
  * Command: !cek
  * Check if user has submitted attendance today
  */
-const { getUserByPhone } = require('../services/database');
-const { cekStatusHarian } = require('../services/magang');
-const { getMessage } = require('../services/messageService');
-const chalk = require('chalk');
+import { getUserByPhone, getUserPassword } from '../services/database.js';
+import { cekStatusHarian } from '../services/magang.js';
+import { getMessage } from '../services/messageService.js';
+import chalk from 'chalk';
 
-module.exports = {
+export default {
     name: 'cek',
     description: 'Cek status absensi hari ini',
 
@@ -47,8 +47,8 @@ module.exports = {
             .replace('{days3}', daysToBatch3)
             .replace('{days2}', daysToBatch2);
 
-        const { getAppUrl } = require('../services/messageService');
-        const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+        const { getAppUrl } = await import('../services/messageService.js');
+        const { sendInteractiveMessage } = await import('../utils/interactiveMessage.js');
         const userUrl = getAppUrl(senderNumber);
         const buttonsData = [];
         let footerText = "";

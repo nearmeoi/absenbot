@@ -2,18 +2,18 @@
  * Command: !test
  * System testing commands
  */
-const fs = require('fs');
-const path = require('path');
-const { getUserByPhone } = require('../services/database');
-const { cekStatusHarian, getRiwayat } = require('../services/magang');
-const { processFreeTextToReport } = require('../services/aiService');
-const { setDraft } = require('../services/previewService');
-const { getMessage } = require('../services/messageService');
+import fs from 'fs';
+import path from 'path';
+import { getUserByPhone } from '../services/database.js';
+import { cekStatusHarian, getRiwayat } from '../services/magang.js';
+import { processFreeTextToReport } from '../services/aiService.js';
+import { setDraft } from '../services/previewService.js';
+import { getMessage } from '../services/messageService.js';
 
 // Import utils
-const { parseDraftFromMessage } = require('../utils/messageUtils');
+import { parseDraftFromMessage } from '../utils/messageUtils.js';
 
-module.exports = {
+export default {
     name: 'test',
     description: 'System testing menu',
 
@@ -40,7 +40,7 @@ module.exports = {
 
         // 2. !TEST MENU
         if (subCommand === 'menu') {
-            const coverPath = path.join(__dirname, '../../public/img/cover.png');
+            const coverPath = path.join(process.cwd(), 'public/img/cover.png');
             const info = `*[TEST MODE] MAIN MENU*\n\n` + getMessage('!menu');
 
             if (fs.existsSync(coverPath)) {
@@ -53,7 +53,7 @@ module.exports = {
 
         // 3. !TEST DAFTAR
         if (subCommand === 'daftar') {
-            const { generateAuthUrl } = require('../services/secureAuth');
+            const { generateAuthUrl } = await import('../services/secureAuth.js');
             await sock.sendMessage(sender, { text: "🔄 *[TEST]* Generating Registration Link..." }, { quoted: msgObj });
             const authUrl = await generateAuthUrl(senderNumber, async () => { });
             const response = getMessage('!daftar_link_private').replace('{url}', authUrl);

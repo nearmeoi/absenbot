@@ -1,8 +1,8 @@
-const { getAnnouncements } = require('../services/apiService');
-const { getUserByPhone } = require('../services/database');
-const { getMessage } = require('../services/messageService');
+import { getAnnouncements } from '../services/apiService.js';
+import { getUserByPhone } from '../services/database.js';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'info',
     description: 'Menampilkan info/pengumuman terbaru dari Kemnaker',
 

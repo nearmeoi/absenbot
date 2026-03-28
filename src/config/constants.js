@@ -1,16 +1,15 @@
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const chalk = require('chalk');
-const envPath = path.resolve(__dirname, '../../.env');
-require('dotenv').config({ path: envPath, override: true });
+import { fileURLToPath } from 'url';
+import path from 'node:path';
+import fs from 'node:fs';
+import os from 'node:os';
+import chalk from 'chalk';
+import dotenv from 'dotenv';
 
-// ========================================
-// ADMIN CONFIGURATION
-// ========================================
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Admin phone numbers (add your number here)
-// Format: '628xxxxxxxxxx@s.whatsapp.net'
+dotenv.config({ path: path.resolve(__dirname, '../../.env'), override: true });
+
 const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
     ? process.env.ADMIN_NUMBERS.split(',').map(n => {
         const num = n.trim();
@@ -20,31 +19,19 @@ const ADMIN_NUMBERS = process.env.ADMIN_NUMBERS
 
 const APP_URL = process.env.APP_URL || 'https://app.monev-absenbot.my.id';
 
-// Bot Command Prefix (Default: !)
 const BOT_PREFIX = process.env.BOT_PREFIX || '!';
 
-// ========================================
-// ENVIRONMENT DETECTION
-// ========================================
-
-/**
- * Detect the current running environment
- * @returns {'termux' | 'windows' | 'vps' | 'linux' | 'macos' | 'unknown'}
- */
 const detectEnvironment = () => {
-    // Allow manual override via .env
     if (process.env.ENVIRONMENT) {
         return process.env.ENVIRONMENT.toLowerCase();
     }
 
-    // Detect Termux (Android)
     if (process.env.TERMUX_VERSION ||
         process.env.PREFIX?.includes('com.termux') ||
         fs.existsSync('/data/data/com.termux/files/usr')) {
         return 'termux';
     }
 
-    // Detect platform
     const platform = process.platform;
 
     if (platform === 'win32') {
@@ -56,7 +43,6 @@ const detectEnvironment = () => {
     }
 
     if (platform === 'linux') {
-        // Check if running on VPS/server (headless environment)
         const isHeadless = !process.env.DISPLAY;
         const isSSH = process.env.SSH_CLIENT || process.env.SSH_TTY || process.env.SSH_CONNECTION;
         const isDocker = fs.existsSync('/.dockerenv');
@@ -73,10 +59,6 @@ const detectEnvironment = () => {
 
 const CURRENT_ENV = detectEnvironment();
 
-// ========================================
-// ENVIRONMENT-SPECIFIC CONFIGURATIONS
-// ========================================
-
 const ENVIRONMENT_CONFIGS = {
     termux: {
         name: 'Termux (Android)',
@@ -90,8 +72,8 @@ const ENVIRONMENT_CONFIGS = {
             '--disable-setuid-sandbox',
             '--disable-gpu',
             '--disable-dev-shm-usage',
-            '--single-process',  // Required for Termux
-            '--no-zygote'        // Required for Termux
+            '--single-process',
+            '--no-zygote'
         ],
         headless: 'new'
     },
@@ -127,20 +109,17 @@ const ENVIRONMENT_CONFIGS = {
         ],
         defaultProjectRoot: process.cwd(),
         puppeteerArgs: [
-            // Essential for VPS
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--single-process',
             '--no-zygote',
-            // GPU & Rendering (save memory)
             '--disable-gpu',
             '--disable-accelerated-2d-canvas',
             '--disable-canvas-aa',
             '--disable-2d-canvas-clip-aa',
             '--disable-gl-drawing-for-tests',
             '--disable-software-rasterizer',
-            // Features off
             '--disable-background-networking',
             '--disable-default-apps',
             '--disable-extensions',
@@ -150,10 +129,8 @@ const ENVIRONMENT_CONFIGS = {
             '--disable-ipc-flooding-protection',
             '--disable-renderer-backgrounding',
             '--disable-backgrounding-occluded-windows',
-            // Memory optimization
             '--js-flags=--max-old-space-size=128',
             '--memory-pressure-off',
-            // UI
             '--no-first-run',
             '--hide-scrollbars',
             '--mute-audio'
@@ -199,18 +176,9 @@ const ENVIRONMENT_CONFIGS = {
     }
 };
 
-// Get current environment config
 const ENV_CONFIG = ENVIRONMENT_CONFIGS[CURRENT_ENV] || ENVIRONMENT_CONFIGS.unknown;
 
-// ========================================
-// PATH RESOLUTION FUNCTIONS
-// ========================================
-
-/**
- * Find the first existing Chromium path
- */
 const getChromiumPath = () => {
-    // Priority 1: Environment variable override
     if (process.env.CHROMIUM_PATH) {
         if (fs.existsSync(process.env.CHROMIUM_PATH)) {
             return process.env.CHROMIUM_PATH;
@@ -218,37 +186,25 @@ const getChromiumPath = () => {
         console.warn(`[CONFIG] ⚠️ CHROMIUM_PATH not found: ${process.env.CHROMIUM_PATH}`);
     }
 
-    // Priority 2: Auto-detect from environment config
     for (const chromePath of ENV_CONFIG.chromiumPaths) {
         if (fs.existsSync(chromePath)) {
             return chromePath;
         }
     }
 
-    // Fallback: Return first path (may not exist)
     console.warn(`[CONFIG] ⚠️ No Chromium found, using fallback: ${ENV_CONFIG.chromiumPaths[0]}`);
     return ENV_CONFIG.chromiumPaths[0];
 };
 
-/**
- * Get project root directory
- */
 const getProjectRoot = () => {
-    // Priority 1: Environment variable override
     if (process.env.PROJECT_ROOT) {
         return process.env.PROJECT_ROOT;
     }
-    // Priority 2: Current working directory (most reliable)
     return process.cwd();
 };
 
-// ========================================
-// RESOLVED PATHS
-// ========================================
-
 const PROJECT_ROOT = getProjectRoot();
 
-// API Endpoints for MagangHub
 const API_BASE_URL = 'https://monev.maganghub.kemnaker.go.id';
 const SIAPKERJA_URL = 'https://siapkerja.kemnaker.go.id';
 
@@ -263,80 +219,71 @@ const API_ENDPOINTS = {
     USER_ME: `${API_BASE_URL}/api/users/me`
 };
 
-// Session timeout (default 24 hours)
 const SESSION_TIMEOUT_MS = parseInt(process.env.SESSION_TIMEOUT_MS) || 24 * 60 * 60 * 1000;
-
-// ========================================
-// LOGGING ENVIRONMENT INFO
-// ========================================
 
 const printEnvironmentInfo = () => {
     console.log(`\n🌍 ${ENV_CONFIG.name} | ${CURRENT_ENV} | Node ${process.version}`);
     console.log(`   Root: ${PROJECT_ROOT} | Chromium: ${getChromiumPath()}\n`);
 };
 
-// Print on startup (can be disabled via env)
 if (process.env.SILENT_STARTUP !== 'true') {
     printEnvironmentInfo();
 }
 
-// ========================================
-// EXPORTS
-// ========================================
+const SESSION_DIR = path.join(PROJECT_ROOT, 'sessions');
+const TEMP_DIR = path.join(PROJECT_ROOT, 'temp');
+const USERS_FILE = path.join(PROJECT_ROOT, 'users.json');
+const GROUP_ID_FILE = path.join(PROJECT_ROOT, 'group_id.txt');
+const AUTH_STATE_DIR = path.join(PROJECT_ROOT, 'SesiWA');
+const LOGS_DIR = path.join(PROJECT_ROOT, 'logs');
+const CHROMIUM_PATH = getChromiumPath();
+const PUPPETEER_ARGS = ENV_CONFIG.puppeteerArgs;
+const PUPPETEER_HEADLESS = ENV_CONFIG.headless;
 
-module.exports = {
-    // Environment info
+const AI_CONFIG = {
+    GROQ: {
+        API_URL: 'https://api.groq.com/openai/v1/chat/completions',
+        AUDIO_URL: 'https://api.groq.com/openai/v1/audio/transcriptions',
+        MODEL: 'llama-3.3-70b-versatile',
+        MAX_TOKENS: 1000,
+        TIMEOUT: 30000
+    },
+    GEMINI: {
+        API_URL_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',
+        TIMEOUT: 60000
+    },
+    REPORT: {
+        MIN_CHARS: 110,
+        MAX_CHARS: 300,
+        TRUNCATE_BUFFER: 50
+    }
+};
+
+const VALIDATION = {
+    MANUAL_MIN_CHARS: 100
+};
+
+export {
     CURRENT_ENV,
     ENV_CONFIG,
     detectEnvironment,
     printEnvironmentInfo,
-
-    // Paths
     PROJECT_ROOT,
-    SESSION_DIR: path.join(PROJECT_ROOT, 'sessions'),
-    TEMP_DIR: path.join(PROJECT_ROOT, 'temp'),
-    USERS_FILE: '/home/ubuntu/absenbot/users.json',
-    GROUP_ID_FILE: '/home/ubuntu/absenbot/group_id.txt',
-    AUTH_STATE_DIR: '/home/ubuntu/absenbot/SesiWA',
-    LOGS_DIR: path.join(PROJECT_ROOT, 'logs'), // Directory for individual user logs
-
-    // Puppeteer config
-    CHROMIUM_PATH: getChromiumPath(),
-    PUPPETEER_ARGS: ENV_CONFIG.puppeteerArgs,
-    PUPPETEER_HEADLESS: ENV_CONFIG.headless,
-
-    // API
+    SESSION_DIR,
+    TEMP_DIR,
+    USERS_FILE,
+    GROUP_ID_FILE,
+    AUTH_STATE_DIR,
+    LOGS_DIR,
+    CHROMIUM_PATH,
+    PUPPETEER_ARGS,
+    PUPPETEER_HEADLESS,
     API_BASE_URL,
     API_ENDPOINTS,
     SESSION_TIMEOUT_MS,
-
-    // New addition
     APP_URL,
     ADMIN_NUMBERS,
     BOT_PREFIX,
-
-    // ========================================
-    // AI & VALIDATION CONFIGURATION
-    // ========================================
-    AI_CONFIG: {
-        GROQ: {
-            API_URL: 'https://api.groq.com/openai/v1/chat/completions',
-            AUDIO_URL: 'https://api.groq.com/openai/v1/audio/transcriptions',
-            MODEL: 'llama-3.3-70b-versatile',
-            MAX_TOKENS: 1000,
-            TIMEOUT: 30000
-        },
-        GEMINI: {
-            API_URL_BASE: 'https://generativelanguage.googleapis.com/v1beta/models',
-            TIMEOUT: 60000
-        },
-        REPORT: {
-            MIN_CHARS: 110, // Buffer to ensure > 100
-            MAX_CHARS: 300,
-            TRUNCATE_BUFFER: 50 // Increase buffer to find a better cut-off point
-        }
-    },
-    VALIDATION: {
-        MANUAL_MIN_CHARS: 100
-    }
+    AI_CONFIG,
+    VALIDATION
 };

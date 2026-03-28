@@ -141,7 +141,7 @@ function getMessageContent(m) {
     return '';
 }
 
-module.exports = {
+export {
     parseDraftFromMessage,
     parseTagBasedReport,
     normalizeToStandard,

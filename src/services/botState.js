@@ -1,21 +1,13 @@
-/**
- * Bot State Management
- * Centralized state to avoid circular dependencies
- */
-
-// Bot state variables
 let schedulerEnabled = true;
-let botStatus = 'online'; // 'online' | 'offline' | 'maintenance'
+let botStatus = 'online';
 let botConnected = false;
 let lastQR = null;
-let maintenanceCommands = []; // List of commands under maintenance, e.g., ['absen', 'daftar']
+let maintenanceCommands = [];
 
-// Anti-Loop State
 let sentMessagesHistory = [];
-const LOOP_THRESHOLD = 50; // Increased to 50
-const LOOP_WINDOW_MS = 10000; // 10 seconds
+const LOOP_THRESHOLD = 50;
+const LOOP_WINDOW_MS = 10000;
 
-// Getters
 const isSchedulerEnabled = () => schedulerEnabled;
 const getBotStatus = () => botStatus;
 const isBotConnected = () => botConnected;
@@ -23,15 +15,10 @@ const getLastQR = () => lastQR;
 const getMaintenanceCommands = () => maintenanceCommands;
 const isCommandUnderMaintenance = (cmd) => maintenanceCommands.includes(cmd.toLowerCase());
 
-/**
- * Record a sent message and check for spam loops
- * @returns {boolean} true if loop detected
- */
 const recordSentMessage = () => {
     const now = Date.now();
     sentMessagesHistory.push(now);
     
-    // Clean up history older than the window
     sentMessagesHistory = sentMessagesHistory.filter(timestamp => (now - timestamp) < LOOP_WINDOW_MS);
     
     if (sentMessagesHistory.length >= LOOP_THRESHOLD) {
@@ -41,7 +28,6 @@ const recordSentMessage = () => {
     return false;
 };
 
-// Setters
 const setSchedulerEnabled = (enabled) => {
     schedulerEnabled = enabled;
 };
@@ -54,7 +40,7 @@ const setBotStatus = (status) => {
 
 const setBotConnected = (connected) => {
     botConnected = connected;
-    if (connected) lastQR = null; // Clear QR when connected
+    if (connected) lastQR = null;
 };
 
 const setLastQR = (qr) => {
@@ -76,7 +62,7 @@ const toggleCommandMaintenance = (cmd) => {
     }
 };
 
-module.exports = {
+export {
     isSchedulerEnabled,
     getBotStatus,
     isBotConnected,

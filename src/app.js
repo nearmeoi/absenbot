@@ -1,33 +1,45 @@
-const { 
-    makeWASocket, 
-    useMultiFileAuthState, 
-    fetchLatestBaileysVersion, 
+import {
+    makeWASocket,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion,
     DisconnectReason,
     generateWAMessageFromContent,
     proto,
     prepareWAMessageMedia
-} = require("wileys")
-const pino = require("pino")
-const { Boom } = require("@hapi/boom")
-const fs = require("fs")
-const chalk = require("chalk")
-const path = require("path")
-const { initAuthServer } = require('./services/secureAuth')
-const { initScheduler, setBotSocket } = require('./services/scheduler')
-const { setBotConnected } = require('./services/botState')
-const { initErrorReporter } = require('./services/errorReporter')
-const messageHandler = require('./handlers/messageHandler')
-const { getMessageContent } = require('./utils/messageUtils')
+} from 'wileys';
+import pino from 'pino';
+import fs from 'node:fs';
+import chalk from 'chalk';
+import path from 'node:path';
+import NodeCache from 'node-cache';
+import { initAuthServer, setBotSocket as setAuthSocket } from './services/secureAuth.js';
+import { initScheduler, setBotSocket } from './services/scheduler.js';
+import { setBotConnected } from './services/botState.js';
+import { initErrorReporter } from './services/errorReporter.js';
+import messageHandler from './handlers/messageHandler.js';
+import { getMessageContent } from './utils/messageUtils.js';
+import { initCommands } from './commands/index.js';
+
+// Group metadata cache (5 min TTL)
+const groupMetaCache = new Map();
+async function getCachedGroupMeta(sock, jid) {
+    const cached = groupMetaCache.get(jid);
+    if (cached && Date.now() - cached.ts < 300000) return cached.data;
+    const meta = await sock.groupMetadata(jid).catch(() => null);
+    if (meta) groupMetaCache.set(jid, { data: meta, ts: Date.now() });
+    return meta;
+}
 
 const usePairingCode = process.env.USE_PAIRING_CODE === 'true';
 const phoneNumberForPairing = process.env.PHONE_NUMBER;
 const DEBUG = process.env.DEBUG === 'true';
 
 async function connectToWhatsApp(isFirstStart = true) {
+    await initCommands();
     const { state, saveCreds } = await useMultiFileAuthState('SesiWA')
     const { version, isLatest } = await fetchLatestBaileysVersion()
 
-    const msgRetryCounterCache = new (require("node-cache"))()
+    const msgRetryCounterCache = new NodeCache()
 
     const sock = makeWASocket({
         logger: pino({ level: "silent" }),
@@ -136,7 +148,7 @@ async function connectToWhatsApp(isFirstStart = true) {
         if (connection === "close") {
             setBotConnected(false);
             const error = lastDisconnect?.error;
-            let reason = new Boom(error)?.output?.statusCode;
+            let reason = error?.output?.statusCode || error?.data?.statusCode || 408;
             console.log(chalk.red(`❌ Koneksi Terputus (${reason})`));
             if (error) {
                 console.log(chalk.red(`   Detail: ${error.message || error}`));
@@ -150,13 +162,9 @@ async function connectToWhatsApp(isFirstStart = true) {
             setBotConnected(true);
             console.log(chalk.green("✔ Bot Terhubung"));
             initErrorReporter(sock);
-            if (!isFirstStart === false) { 
-                // Do nothing
-            }
-            // Check if auth server or scheduler already running
             initAuthServer();
             setBotSocket(sock);
-            require('./routes/dashboardRoutes').setBotSocket(sock);
+            setAuthSocket(sock);
             initScheduler(sock);
         }
     })
@@ -192,7 +200,7 @@ async function connectToWhatsApp(isFirstStart = true) {
             let groupName = "";
             if (isGroup) {
                 try {
-                    const groupMetadata = await sock.groupMetadata(remoteJid).catch(() => null);
+                    const groupMetadata = await getCachedGroupMeta(sock, remoteJid);
                     groupName = groupMetadata ? groupMetadata.subject : "Grup";
                 } catch (e) {}
             }
@@ -230,4 +238,4 @@ async function connectToWhatsApp(isFirstStart = true) {
 let authServerInitialized = false;
 let schedulerInitialized = false;
 
-module.exports = connectToWhatsApp;
+export default connectToWhatsApp;

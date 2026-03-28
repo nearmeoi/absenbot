@@ -1,7 +1,7 @@
-const chalk = require('chalk');
-const { getPrayerTimes, getRandomContent } = require('../services/ramadanService');
+import chalk from 'chalk';
+import { getPrayerTimes, getRandomContent } from '../services/ramadanService.js';
 
-module.exports = {
+export default {
     name: 'ramadan',
     aliases: ['imsak', 'imsakiyah', 'buka', 'berbuka', 'sholat', 'jadwalsholat', 'sahur', 'puasa', 'jadwal', 'doa'],
     description: 'Fitur Ramadhan: Jadwal Imsak, Buka Puasa, Doa, dan Pengingat',
@@ -13,8 +13,8 @@ module.exports = {
 
         // --- COMMAND: !sahur-on / !sahur-off ---
         if (['sahur-on', 'sahur-off'].includes(cmdName)) {
-            const { updateSahurPreference, getUserByPhone } = require('../services/database');
-            const { resolveLocation } = require('../services/ramadanService');
+            const { updateSahurPreference, getUserByPhone } = await import('../services/database.js');
+            const { resolveLocation } = await import('../services/ramadanService.js');
             const senderNumber = context.senderNumber;
 
             if (cmdName === 'sahur-off') {
@@ -40,7 +40,7 @@ module.exports = {
 
         // --- COMMAND: !doa ---
         if (cmdName === 'doa') {
-            const { getRandomDoa } = require('../services/ramadanService');
+            const { getRandomDoa } = await import('../services/ramadanService.js');
             const res = await getRandomDoa();
             if (res.success) {
                 const d = res.content;

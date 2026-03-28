@@ -3,7 +3,7 @@
  * Supports All Platforms (Android, iOS, PC)
  */
 
-const chalk = require('chalk');
+import chalk from 'chalk';
 
 /**
  * Sends a message with interactive buttons
@@ -61,6 +61,6 @@ async function sendInteractiveMessage(sock, jid, content, options = {}) {
     return message;
 }
 
-module.exports = {
+export {
     sendInteractiveMessage
 };

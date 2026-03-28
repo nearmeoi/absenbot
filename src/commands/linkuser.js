@@ -1,9 +1,9 @@
-const { saveUser, getAllUsers, getUserByEmail } = require('../services/database');
-const { ADMIN_NUMBERS } = require('../config/constants');
-const { getUserProfile } = require('../services/magang');
-const chalk = require('chalk');
+import { saveUser, getAllUsers, getUserByEmail } from '../services/database.js';
+import { ADMIN_NUMBERS } from '../config/constants.js';
+import { getUserProfile } from '../services/magang.js';
+import chalk from 'chalk';
 
-module.exports = {
+export default {
     name: 'link',
     description: 'Tautkan nomor WA secara otomatis atau manual',
     

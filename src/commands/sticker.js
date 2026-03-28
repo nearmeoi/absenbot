@@ -1,22 +1,34 @@
-const { downloadMediaMessage } = require('wileys');
-const { Sticker, StickerTypes } = require('wa-sticker-formatter');
-const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
+import { downloadMediaMessage } from 'wileys';
+import fs from 'node:fs';
+import path from 'node:path';
+import { exec } from 'node:child_process';
 const execAsync = (cmd, opts) => new Promise((resolve, reject) => {
     exec(cmd, opts, (err, stdout, stderr) => {
         if (err) return reject(err);
         resolve({ stdout, stderr });
     });
 });
-const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
+
+// Dynamic imports for optional dependencies (may fail on some platforms)
+let Sticker, StickerTypes, sharp;
+try {
+    const stickerMod = await import('wa-sticker-formatter');
+    Sticker = stickerMod.Sticker;
+    StickerTypes = stickerMod.StickerTypes;
+} catch (e) {
+    console.warn('[STICKER] wa-sticker-formatter not available:', e.message);
+}
+try {
+    sharp = (await import('sharp')).default;
+} catch (e) {
+    console.warn('[STICKER] sharp not available:', e.message);
+}
 
 // Load Apple Color Emoji font once at startup (if available)
 const EMOJI_FONT_PATH = '/home/ubuntu/.local/share/fonts/AppleColorEmoji.ttf';
 try {
-    const fontFs = require('fs');
-    if (fontFs.existsSync(EMOJI_FONT_PATH)) {
+    if (fs.existsSync(EMOJI_FONT_PATH)) {
         GlobalFonts.registerFromPath(EMOJI_FONT_PATH, 'AppleEmoji');
         console.log('[STICKER] Apple Color Emoji font loaded ✅');
     }
@@ -59,7 +71,7 @@ async function renderTextToImage(text) {
  * Convert MP4 video buffer to animated WebP using FFmpeg with optional text overlay
  */
 async function videoToWebp(inputBuffer, textOverlayBuffer = null) {
-    const tmpDir = path.join(__dirname, '../../temp');
+    const tmpDir = path.join(process.cwd(), 'temp');
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
     const id = Date.now();
@@ -91,9 +103,9 @@ async function videoToWebp(inputBuffer, textOverlayBuffer = null) {
     }
 }
 
-const { reportError } = require('../services/errorReporter');
+import { reportError } from '../services/errorReporter.js';
 
-module.exports = {
+export default {
     name: ['s', 'sticker', 'stiker', 'sf', 'sfull', 'stickerfull'],
     description: 'Ubah gambar/video ke sticker (!sf untuk pertahankan dimensi asli)',
     async execute(sock, msg, context) {

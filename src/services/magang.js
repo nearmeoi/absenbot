@@ -1,8 +1,9 @@
-const puppeteer = require("puppeteer-core");
-const fs = require("fs");
-const path = require("path");
-const chalk = require("chalk");
-const {
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'url';
+import chalk from 'chalk';
+import {
     SESSION_DIR,
     TEMP_DIR,
     CHROMIUM_PATH,
@@ -10,10 +11,12 @@ const {
     PUPPETEER_HEADLESS,
     CURRENT_ENV,
     API_ENDPOINTS
-} = require("../config/constants");
-const apiService = require("./apiService");
-const { isHoliday } = require("../config/holidays");
-const { getDashboardCache, setDashboardCache } = require("./dashboardCache");
+} from '../config/constants.js';
+import * as apiService from './apiService.js';
+import { isHoliday } from '../config/holidays.js';
+import { getDashboardCache, setDashboardCache } from './dashboardCache.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Queue to ensure only ONE browser instance opens at a time
 class BrowserQueue {
@@ -363,18 +366,13 @@ async function _puppeteerSubmitCore(email, password, reportData) {
 }
 
 async function cekKredensial(email, password) {
-    // 1. Try Direct Login first (it's fast)
-    // We don't clear the session here because directLogin will update it
     const directResult = await apiService.directLogin(email, password);
 
-    // If it's fully successful (including SSO), we are done!
     if (directResult.success && directResult.sso_completed) {
         console.log(chalk.green(`[MAGANG] ✅ Direct Login (Fast) successful for ${email}`));
         return directResult;
     }
 
-    // 2. If Account login succeeded but SSO failed, proceed to Puppeteer
-    // Puppeteer will use the cookies we just saved to skip the login form
     console.log(chalk.yellow(`[MAGANG] Direct Login partially successful. Completing via browser for ${email}...`));
     return await puppeteerLogin(email, password, true);
 }
@@ -384,16 +382,12 @@ async function cekStatusHarian(email, password) {
     if (apiResult.success) return apiResult;
 
     if (apiResult.needsLogin) {
-        // Try Direct Login (Fast Account Refresh)
         const directResult = await apiService.directLogin(email, password);
 
-        // Even if Direct Login succeeded, if SSO handshake failed, 
-        // we still need Puppeteer to get the full session (Monev tokens)
         if (directResult.success && directResult.sso_completed) {
             return await apiService.checkAttendanceStatus(email);
         }
 
-        // Fallback to Puppeteer for full session
         console.log(chalk.yellow(`[MAGANG] Direct Login incomplete. Completing via Puppeteer...`));
         const loginResult = await puppeteerLogin(email, password, false);
 
@@ -412,12 +406,10 @@ async function prosesLoginDanAbsen(dataUser) {
         return { success: true, nama: email, foto: null, pesan_tambahan: "(MODE SIMULASI)" };
     }
 
-    // 1. Try submitting via API using existing session
     console.log(chalk.cyan(`[PROCESS] Trying API submission for ${email}...`));
     let apiResult = await apiService.submitAttendanceReport(email, { aktivitas, pembelajaran, kendala });
     if (apiResult.success) return apiResult;
 
-    // 2. If API failed due to auth, try Direct Login (Refresh Session)
     if (apiResult.needsLogin) {
         console.log(chalk.yellow(`[PROCESS] API failed (needs login). Attempting Direct Login for ${email}...`));
         const loginResult = await apiService.directLogin(email, password);
@@ -433,7 +425,6 @@ async function prosesLoginDanAbsen(dataUser) {
         }
     }
 
-    // 3. Fallback to Puppeteer if all else fails
     console.log(chalk.yellow(`[PROCESS] Fallback to Puppeteer for ${email}...`));
     return await puppeteerSubmit(email, password, { aktivitas, pembelajaran, kendala });
 }
@@ -452,17 +443,13 @@ async function getRiwayat(email, password, days = 1) {
     return { success: false, logs: [], pesan: "Gagal mengambil riwayat" };
 }
 
-/**
- * Get Dashboard Stats using the NEW API endpoint discovered (Much faster & reliable)
- */
 async function getDashboardStats(email, password, referenceDate = null, useCache = true) {
     try {
         const today = referenceDate ? new Date(referenceDate) : new Date();
         const isCurrentMonth = today.getMonth() === new Date().getMonth() && today.getFullYear() === new Date().getFullYear();
 
-        // 0. Check Cache First (Only for CURRENT month, and if requested)
         if (useCache && isCurrentMonth) {
-            const cached = getDashboardCache(email, 2); // 2 hours max age
+            const cached = getDashboardCache(email, 2);
             if (cached) {
                 console.log(chalk.green(`[STATS] Using cached dashboard stats for ${email}`));
                 return { success: true, data: cached, cached: true };
@@ -474,20 +461,17 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
         const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
 
-        // Previous Month for Supplement (Dec 24 - Jan 24 cycle)
         const prevMonthDate = new Date(today);
         prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
         const startOfPrevMonth = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth(), 1).toISOString().split('T')[0];
         const endOfPrevMonth = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0).toISOString().split('T')[0];
 
-        // Fetch BOTH months in parallel AND Monthly Reports
         let [currentMonthRes, prevMonthRes, monthlyReportsRes] = await Promise.all([
             apiService.getAttendances(email, startOfMonth, endOfMonth),
             apiService.getAttendances(email, startOfPrevMonth, endOfPrevMonth),
             apiService.getMonthlyReports(email)
         ]);
 
-        // Re-login if session expired
         if ((!currentMonthRes.success && currentMonthRes.needsLogin) ||
             (!prevMonthRes.success && prevMonthRes.needsLogin) ||
             (!monthlyReportsRes.success && monthlyReportsRes.needsLogin)) {
@@ -498,7 +482,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
                 await puppeteerLogin(email, password, false);
             }
 
-            // Retry fetch
             [currentMonthRes, prevMonthRes, monthlyReportsRes] = await Promise.all([
                 apiService.getAttendances(email, startOfMonth, endOfMonth),
                 apiService.getAttendances(email, startOfPrevMonth, endOfPrevMonth),
@@ -511,27 +494,15 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
         const data = [...(currentMonthRes.data || []), ...(prevMonthRes.data || [])];
         const uniqueData = Array.from(new Map(data.map(item => [item.date, item])).values());
 
-        // Process Monthly Reports Status (Check for Specific Month)
         let raporStatus = 'Belum ada';
 
         if (monthlyReportsRes.success && monthlyReportsRes.data && Array.isArray(monthlyReportsRes.data)) {
-            // Determine Target Month based on Cycle
-            // Cycle: 24th Prev Month -> 24th This Month
-            // User Rule: "Desember-Januari ya bulan Januari"
-            // So we target the month where the cycle ENDS.
-
             let targetDate = new Date(today);
             if (today.getDate() <= 24) {
-                // If today is 1-24, we are in the cycle ending THIS month.
-                // e.g. Jan 15 -> Cycle Dec 24 - Jan 24. Target: Jan.
-                // No change needed to targetDate (it is Jan).
             } else {
-                // If today is 25-31, we are in the cycle ending NEXT month.
-                // e.g. Jan 25 -> Cycle Jan 24 - Feb 24. Target: Feb.
                 targetDate.setMonth(targetDate.getMonth() + 1);
             }
 
-            // Format target YYYY-MM-01
             const yyyy = targetDate.getFullYear();
             const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
             const targetYearMonth = `${yyyy}-${mm}-01`;
@@ -542,7 +513,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
             }
         }
 
-        // Filter for Current Month stats (compatibility)
         const currentMonthData = uniqueData.filter(d => d.date >= startOfMonth && d.date <= endOfMonth);
 
         const results = {
@@ -565,7 +535,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
             full_attendances: uniqueData
         };
 
-        // Map current month status
         currentMonthData.forEach(item => {
             const day = new Date(item.date).getDate().toString();
             const status = (item.approval_status || '').toUpperCase();
@@ -591,7 +560,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
             }
         });
 
-        // Determine Alphas (Missing reports on workdays - Current Month)
         const lastDay = today.getDate();
         const realTodayStr = new Date().toISOString().split('T')[0];
 
@@ -600,7 +568,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
             if (d > today) break;
             const dStr = d.toISOString().split('T')[0];
 
-            // Skip today for Alpha calculation (don't flag as Alpha if check is done before submission)
             if (dStr === realTodayStr) continue;
 
             if (!isHoliday(dStr)) {
@@ -613,7 +580,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
 
         console.log(chalk.green(`[STATS] API Extraction complete: Hadir=${results.hadir}, Izin=${results.izin}, Rapor=${results.rapor}`));
 
-        // Save to cache (only if it's the current month)
         if (isCurrentMonth) {
             setDashboardCache(email, results);
         }
@@ -627,7 +593,6 @@ async function getDashboardStats(email, password, referenceDate = null, useCache
 }
 
 async function getAnnouncements(email) {
-    // Delegate to API service (or Puppeteer fallback if we ever implement it)
     return await apiService.getAnnouncements(email);
 }
 
@@ -639,10 +604,6 @@ async function getUserProfile(email) {
     return await apiService.getUserProfile(email);
 }
 
-/**
- * Automatically detect Cycle Day (Batch 2 vs Batch 3)
- * Analyzes monthly reports from Kemnaker
- */
 async function detectCycleDay(email, password) {
     try {
         console.log(chalk.cyan(`[CYCLE] Detecting cycle day for ${email}...`));
@@ -657,7 +618,6 @@ async function detectCycleDay(email, password) {
         }
 
         if (reportsRes.success && reportsRes.data && Array.isArray(reportsRes.data) && reportsRes.data.length > 0) {
-            // Check the last 3 reports to be sure
             const samples = reportsRes.data.slice(0, 3);
             let count16 = 0;
             let count24 = 0;
@@ -674,7 +634,6 @@ async function detectCycleDay(email, password) {
             if (count24 > count16) return 24;
         }
 
-        // Fallback default
         return 24;
     } catch (e) {
         console.error(`[CYCLE] Detection error: ${e.message}`);
@@ -682,7 +641,7 @@ async function detectCycleDay(email, password) {
     }
 }
 
-module.exports = {
+export {
     prosesLoginDanAbsen,
     cekKredensial,
     cekStatusHarian,

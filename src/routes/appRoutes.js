@@ -1,11 +1,15 @@
-const express = require('express');
+import express from 'express';
+import { processFreeTextToReport } from '../services/aiService.js';
+import { getUserByPhone, getUserBySlug, getAllUsers, getUserPassword } from '../services/database.js';
+import { getRiwayat, prosesLoginDanAbsen } from '../services/magang.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import webpush from 'web-push';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const router = express.Router();
-const { processFreeTextToReport } = require('../services/aiService');
-const { getUserByPhone, getUserBySlug, getAllUsers } = require('../services/database');
-const { getRiwayat, prosesLoginDanAbsen } = require('../services/magang');
-const fs = require('fs');
-const path = require('path');
-const webpush = require('web-push');
 
 // WEB PUSH CONFIGURATION
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -126,7 +130,7 @@ router.post('/api/generate-ai', async (req, res) => {
         if (!user) return res.status(404).json({ error: 'Nomor WhatsApp belum terdaftar di sistem bot.' });
 
         // Get history to provide context to AI
-        const riwayatResult = await getRiwayat(user.email, user.password, 5);
+        const riwayatResult = await getRiwayat(user.email, getUserPassword(user), 5);
         const history = riwayatResult.success ? riwayatResult.logs : [];
 
         // Generate report
@@ -198,7 +202,7 @@ router.post('/api/submit', async (req, res) => {
 
         const result = await prosesLoginDanAbsen({
             email: user.email,
-            password: user.password,
+            password: getUserPassword(user),
             aktivitas,
             pembelajaran,
             kendala,
@@ -270,4 +274,4 @@ router.post('/api/schedule', async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

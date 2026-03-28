@@ -2,7 +2,7 @@
  * User State Service
  * Manages temporary states for interactive flows (e.g. awaiting text input)
  */
-const chalk = require('chalk');
+import chalk from 'chalk';
 
 // In-memory state storage
 // Key: senderNumber, Value: { state: string, data: object, expires: number }
@@ -52,7 +52,7 @@ function clearUserState(userId) {
     console.log(chalk.gray(`[STATE] State cleared for user ${userId}`));
 }
 
-module.exports = {
+export {
     setUserState,
     getUserState,
     clearUserState

@@ -1,8 +1,8 @@
-const { downloadMediaMessage } = require('wileys');
-const fs = require('fs');
-const path = require('path');
-const sharp = require('sharp');
-const { exec } = require('child_process');
+import { downloadMediaMessage } from 'wileys';
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
+import { exec } from 'child_process';
 const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
     exec(cmd, opts, (err, stdout, stderr) => {
         if (err) return reject(err);
@@ -10,7 +10,7 @@ const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
     });
 });
 
-module.exports = {
+export default {
     name: ['tovid', 'tovideo', 'vid'],
     description: 'Ubah sticker animasi menjadi video (MP4) - Ultra Fast',
     async execute(sock, msg, context) {

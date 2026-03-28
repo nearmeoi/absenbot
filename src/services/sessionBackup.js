@@ -1,6 +1,9 @@
-const fs = require('fs');
-const path = require('path');
-const chalk = require('chalk');
+import fs from 'node:fs';
+import path from 'node:path';
+import chalk from 'chalk';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const SESSION_DIR = path.join(__dirname, '../../SesiWA');
 const BACKUP_DIR = path.join(__dirname, '../../data/backups');
@@ -46,4 +49,4 @@ const restoreSession = () => {
     return false;
 };
 
-module.exports = { backupSession, restoreSession };
+export { backupSession, restoreSession };

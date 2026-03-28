@@ -1,10 +1,10 @@
-const { downloadMediaMessage } = require('wileys');
-const fs = require('fs');
-const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
-const { generateWaveform } = require('../utils/generateWaveform');
+import { downloadMediaMessage } from 'wileys';
+import fs from 'fs';
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
+import { generateWaveform } from '../utils/generateWaveform.js';
 
-module.exports = {
+export default {
     name: ['tovn', 'vn'],
     description: 'Ekstrak audio dari video atau ubah audio menjadi Voice Note (VN)',
     async execute(sock, msg, context) {

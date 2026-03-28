@@ -1,5 +1,6 @@
-const fs = require("fs");
-const { USERS_FILE } = require('../config/constants');
+import fs from 'node:fs';
+import { USERS_FILE } from '../config/constants.js';
+import { encrypt, decrypt } from '../utils/crypto.js';
 
 // Write queue to prevent race conditions
 let writeQueue = Promise.resolve();
@@ -95,6 +96,21 @@ const getUserByEmail = (email) => {
     return users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
 };
 
+/**
+ * Get decrypted password for a user
+ * @param {Object} user - User object
+ * @returns {string|null} Decrypted password or null
+ */
+const getUserPassword = (user) => {
+    if (!user) return null;
+    // Try encrypted password first
+    if (user.encryptedPassword) {
+        return decrypt(user.encryptedPassword);
+    }
+    // Fallback to plain password (migration support)
+    return user.password || null;
+};
+
 // Cari user berdasarkan slug
 const getUserBySlug = (slug) => {
     const users = loadUsers();
@@ -119,8 +135,8 @@ const getAllUsers = () => {
 };
 
 // Simpan atau update user
-const saveUser = (phoneNumber, email, password) => {
-    const { slugify } = require('./apiService');
+const saveUser = async (phoneNumber, email, password) => {
+    const { slugify } = await import('./apiService.js');
     const users = loadUsers();
 
     // Normalisasi phone
@@ -136,7 +152,7 @@ const saveUser = (phoneNumber, email, password) => {
     if (existingByEmail !== -1) {
         // Email sudah ada - tambahkan identifier baru
         const user = users[existingByEmail];
-        
+
         // Ensure user has a slug even if they were registered before slug feature
         if (!user.slug && user.name) {
             user.slug = slugify(user.name);
@@ -154,7 +170,7 @@ const saveUser = (phoneNumber, email, password) => {
         // Tambahkan phone baru ke identifiers jika belum ada
         const isNewLid = phoneNumber.includes('@lid');
         const normalizedNew = isNewLid ? phoneNumber : normalizePhone(phoneNumber);
-        
+
         const alreadyExists = user.identifiers.some(id => {
             if (isNewLid) return id === phoneNumber;
             return !id.includes('@lid') && normalizePhone(id) === normalizedNew;
@@ -169,7 +185,10 @@ const saveUser = (phoneNumber, email, password) => {
             user.phone = phoneNumber;
         }
 
-        user.password = password;
+        // ENCRYPT password before storage
+        user.encryptedPassword = encrypt(password);
+        // Keep password field for backward compatibility during migration
+        delete user.password;
         user.lastLogin = new Date().toISOString();
 
     } else {
@@ -178,7 +197,7 @@ const saveUser = (phoneNumber, email, password) => {
         users.push({
             phone: phoneNumber,
             email,
-            password,
+            encryptedPassword: encrypt(password),
             slug: slugify(defaultName),
             identifiers: [phoneNumber],
             registeredAt: new Date().toISOString(),
@@ -210,11 +229,10 @@ const updateUserLid = (realPhoneNumber, lid) => {
     return false;
 };
 
-const deleteUser = (phoneNumber) => {
-    const users = loadUsers();
+// Helper: Cari index user berdasarkan phone, LID, atau identifiers
+const findUserIndex = (users, phoneNumber) => {
     const normalizedPhone = normalizePhone(phoneNumber);
-
-    const index = users.findIndex(u => {
+    return users.findIndex(u => {
         if (normalizePhone(u.phone) === normalizedPhone) return true;
         if (u.lid && normalizePhone(u.lid) === normalizedPhone) return true;
         if (u.identifiers) {
@@ -222,6 +240,11 @@ const deleteUser = (phoneNumber) => {
         }
         return false;
     });
+};
+
+const deleteUser = (phoneNumber) => {
+    const users = loadUsers();
+    const index = findUserIndex(users, phoneNumber);
 
     if (index !== -1) {
         users.splice(index, 1);
@@ -233,15 +256,7 @@ const deleteUser = (phoneNumber) => {
 
 const saveUserTemplate = (phoneNumber, templateData) => {
     const users = loadUsers();
-    const normalizedPhone = normalizePhone(phoneNumber);
-    const index = users.findIndex(u => {
-        if (normalizePhone(u.phone) === normalizedPhone) return true;
-        if (u.lid && normalizePhone(u.lid) === normalizedPhone) return true;
-        if (u.identifiers) {
-            return u.identifiers.some(id => normalizePhone(id) === normalizedPhone);
-        }
-        return false;
-    });
+    const index = findUserIndex(users, phoneNumber);
 
     if (index !== -1) {
         users[index].template = templateData;
@@ -256,15 +271,7 @@ const saveUserTemplate = (phoneNumber, templateData) => {
  */
 const updateSahurPreference = (phoneNumber, enabled, location = null) => {
     const users = loadUsers();
-    const normalizedPhone = normalizePhone(phoneNumber);
-    const index = users.findIndex(u => {
-        if (normalizePhone(u.phone) === normalizedPhone) return true;
-        if (u.lid && normalizePhone(u.lid) === normalizedPhone) return true;
-        if (u.identifiers) {
-            return u.identifiers.some(id => normalizePhone(id) === normalizedPhone);
-        }
-        return false;
-    });
+    const index = findUserIndex(users, phoneNumber);
 
     if (index !== -1) {
         users[index].remindSahur = enabled;
@@ -275,10 +282,11 @@ const updateSahurPreference = (phoneNumber, enabled, location = null) => {
     return false;
 };
 
-module.exports = {
+export {
     getUserByPhone,
     getUserByEmail,
     getUserBySlug,
+    getUserPassword,
     saveUser,
     updateUserLid,
     getAllUsers,

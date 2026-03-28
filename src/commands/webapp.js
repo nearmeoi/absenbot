@@ -2,11 +2,11 @@
  * Command: !webapp
  * Sends the direct webapp URL to the user
  */
-const { getAppUrl } = require('../services/messageService');
-const { cekStatusHarian } = require('../services/magang');
-const { getUserByPhone } = require('../services/database');
+import { getAppUrl } from '../services/messageService.js';
+import { cekStatusHarian } from '../services/magang.js';
+import { getUserByPhone } from '../services/database.js';
 
-module.exports = {
+export default {
     name: 'webapp',
     description: 'Dapatkan link Webapp Absensi',
 

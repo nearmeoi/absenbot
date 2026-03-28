@@ -1,9 +1,9 @@
-const { downloadMediaMessage } = require('wileys');
-const path = require('path');
-const fs = require('fs');
-const sharp = require('sharp');
+import { downloadMediaMessage } from 'wileys';
+import path from 'path';
+import fs from 'fs';
+import sharp from 'sharp';
 
-module.exports = {
+export default {
     name: ['toimg', 'img'],
     description: 'Ubah sticker menjadi gambar (PNG)',
     async execute(sock, msg, context) {

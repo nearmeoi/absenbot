@@ -2,9 +2,9 @@
  * Command: !help
  * Shows detailed help information
  */
-const { getMessage } = require('../services/messageService');
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'help',
     description: 'Tampilkan bantuan detail',
 

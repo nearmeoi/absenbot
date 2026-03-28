@@ -1,7 +1,7 @@
-const chalk = require('chalk');
-const puppeteer = require('puppeteer-core');
-const fs = require('fs');
-const { USERS_FILE, CHROMIUM_PATH, PUPPETEER_ARGS, PUPPETEER_HEADLESS } = require('../config/constants');
+import chalk from 'chalk';
+import puppeteer from 'puppeteer-core';
+import fs from 'node:fs';
+import { USERS_FILE, CHROMIUM_PATH, PUPPETEER_ARGS, PUPPETEER_HEADLESS } from '../config/constants.js';
 
 async function launchBrowser() {
     return await puppeteer.launch({
@@ -11,11 +11,6 @@ async function launchBrowser() {
     });
 }
 
-/**
- * Scrape user name from Monev dashboard using Puppeteer
- * @param {Object} user - User object with email and password
- * @returns {Promise<string|null>} - Scraped name or null
- */
 async function scrapeNamePuppeteer(user) {
     console.log(chalk.cyan(`[PUPPETEER] Processing ${user.email}...`));
     let browser = null;
@@ -26,7 +21,6 @@ async function scrapeNamePuppeteer(user) {
         const page = await browser.newPage();
         await page.setViewport({ width: 1280, height: 800 });
 
-        // 1. Login Logic
         await page.goto('https://account.kemnaker.go.id/auth/login', { waitUntil: 'domcontentloaded' });
 
         const usernameSelector = '#username';
@@ -49,7 +43,6 @@ async function scrapeNamePuppeteer(user) {
             console.log(chalk.yellow(`[PUPPETEER] Login form not found or already logged in: ${e.message}`));
         }
 
-        // 2. Go to Monev Dashboard
         console.log(chalk.yellow(`[PUPPETEER] Navigating to Dashboard...`));
         try {
             await page.goto('https://monev.maganghub.kemnaker.go.id/dashboard', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -68,10 +61,8 @@ async function scrapeNamePuppeteer(user) {
              console.log(chalk.red(`[PUPPETEER] Dashboard nav error: ${e.message}`));
         }
 
-        // 3. Scrape Name
         await new Promise(r => setTimeout(r, 5000));
 
-        // Precise Scrape Logic
         name = await page.evaluate(() => {
             const labels = Array.from(document.querySelectorAll('div'));
             const nameLabel = labels.find(el => el.textContent.trim() === 'Nama Peserta Magang');
@@ -87,7 +78,6 @@ async function scrapeNamePuppeteer(user) {
             return '';
         });
 
-        // Regex Fallback
         if (!name) {
              name = await page.evaluate(() => {
                 const bodyText = document.body.innerText;
@@ -97,7 +87,6 @@ async function scrapeNamePuppeteer(user) {
         }
 
         if (name) {
-            // Title Case Formatting
             name = name.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             console.log(chalk.green(`[PUPPETEER] Found name: ${name}`));
         }
@@ -111,9 +100,6 @@ async function scrapeNamePuppeteer(user) {
     return name;
 }
 
-/**
- * Scrape name and update user in database
- */
 async function scrapeAndSaveUser(user) {
     const realName = await scrapeNamePuppeteer(user);
     if (realName) {
@@ -123,9 +109,7 @@ async function scrapeAndSaveUser(user) {
         if (index !== -1) {
             users[index].name = realName;
             
-            // Also generate slug
             let slug = realName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            // Simple uniqueness check (not perfect for concurrent but fine here)
             let counter = 1;
             let finalSlug = slug;
             while (users.some(u => u.slug === finalSlug && u.email !== user.email)) {
@@ -141,4 +125,4 @@ async function scrapeAndSaveUser(user) {
     return false;
 }
 
-module.exports = { scrapeNamePuppeteer, scrapeAndSaveUser };
+export { scrapeNamePuppeteer, scrapeAndSaveUser };

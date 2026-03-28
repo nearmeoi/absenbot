@@ -1,8 +1,8 @@
-const fs = require('fs');
-const path = require('path');
-const { downloadMediaMessage } = require('wileys');
+import fs from 'fs';
+import path from 'path';
+import { downloadMediaMessage } from 'wileys';
 
-module.exports = {
+export default {
     name: 'setsticker',
     description: 'Set stiker khusus untuk user yang ditandai',
 
@@ -33,7 +33,7 @@ module.exports = {
                 }
             );
 
-            const stickerPath = path.join(__dirname, '../../public/img/stiker_bintang.webp');
+            const stickerPath = path.join(process.cwd(), 'public/img/stiker_bintang.webp');
             
             // Pastikan folder ada
             const imgDir = path.dirname(stickerPath);

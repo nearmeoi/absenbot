@@ -1,8 +1,8 @@
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     name: 'exportlid',
     description: 'Export semua LID grup ke JSON',
 
@@ -32,11 +32,11 @@ module.exports = {
             };
 
             const fileName = `export_lid_${metadata.id.split('@')[0]}.json`;
-            const filePath = path.join(__dirname, '../../temp', fileName);
+            const filePath = path.join(process.cwd(), 'temp', fileName);
 
             // Ensure temp dir exists
-            if (!fs.existsSync(path.join(__dirname, '../../temp'))) {
-                fs.mkdirSync(path.join(__dirname, '../../temp'));
+            if (!fs.existsSync(path.join(process.cwd(), 'temp'))) {
+                fs.mkdirSync(path.join(process.cwd(), 'temp'));
             }
 
             fs.writeFileSync(filePath, JSON.stringify(data, null, 2));

@@ -1,14 +1,16 @@
 /**
  * Group Settings Management
- * Handles per-group configurations and migration from old list-based format
+ * Handles per-group configurations
  */
 
-const fs = require('fs');
-const path = require('path');
-const chalk = require('chalk');
+import fs from 'node:fs';
+import path from 'node:path';
+import chalk from 'chalk';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const SETTINGS_FILE = path.join(__dirname, '../../data/group_settings.json');
-const OLD_GROUPS_FILE = path.join(__dirname, '../../data/allowed_groups.json');
 
 // Ensure data directory exists
 const dataDir = path.join(__dirname, '../../data');
@@ -29,33 +31,9 @@ let cachedSettings = null;
 
 /**
  * Load all group settings
- * Performs migration from old file if needed
  */
 function loadGroupSettings(forceReload = false) {
     if (cachedSettings && !forceReload) return cachedSettings;
-
-    // MIGRATION: Check if old file exists and new one doesn't
-    if (fs.existsSync(OLD_GROUPS_FILE) && !fs.existsSync(SETTINGS_FILE)) {
-        try {
-            console.log(chalk.yellow('[GROUPS] Migrating allowed_groups.json to group_settings.json...'));
-            const oldList = JSON.parse(fs.readFileSync(OLD_GROUPS_FILE, 'utf8'));
-            const newSettings = {};
-
-            if (Array.isArray(oldList)) {
-                oldList.forEach(groupId => {
-                    newSettings[groupId] = { ...DEFAULT_SETTINGS };
-                });
-            }
-
-            fs.writeFileSync(SETTINGS_FILE, JSON.stringify(newSettings, null, 2));
-            console.log(chalk.green('[GROUPS] Migration complete.'));
-
-            // Optional: Rename old file to .bak so we don't migrate again but keep backup
-            fs.renameSync(OLD_GROUPS_FILE, OLD_GROUPS_FILE + '.bak');
-        } catch (e) {
-            console.error(chalk.red('[GROUPS] Migration failed:'), e);
-        }
-    }
 
     if (!fs.existsSync(SETTINGS_FILE)) {
         fs.writeFileSync(SETTINGS_FILE, JSON.stringify({}, null, 2));
@@ -140,7 +118,7 @@ function getAllGroupIds() {
     return Object.keys(loadGroupSettings());
 }
 
-module.exports = {
+export {
     loadGroupSettings,
     updateGroup,
     removeGroup,

@@ -3,14 +3,14 @@
  * Uses saved cookies from Puppeteer login for authentication
  */
 
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
-const chalk = require("chalk");
-const crypto = require("crypto");
-const { SESSION_DIR, API_ENDPOINTS, API_BASE_URL, SESSION_TIMEOUT_MS, LOGS_DIR } = require("../config/constants");
-const { wrapper } = require('axios-cookiejar-support');
-const { CookieJar } = require('tough-cookie');
+import axios from "axios";
+import fs from "node:fs";
+import path from "node:path";
+import chalk from "chalk";
+import crypto from "node:crypto";
+import { SESSION_DIR, API_ENDPOINTS, API_BASE_URL, SESSION_TIMEOUT_MS, LOGS_DIR } from "../config/constants.js";
+import { wrapper } from 'axios-cookiejar-support';
+import { CookieJar } from 'tough-cookie';
 
 // In-memory Session Cache
 const sessionCache = new Map();
@@ -184,7 +184,7 @@ function slugify(text) {
  */
 async function syncProfileToDb(email) {
     try {
-        const { getAllUsers, updateUsers } = require('./database');
+        const { getAllUsers, updateUsers } = await import('./database.js');
         
         // Use getUserProfile function exported from this file
         const profileRes = await getUserProfile(email);
@@ -614,7 +614,7 @@ async function getUserProfile(email) {
  */
 async function syncProfileToDbFromData(email, data) {
     try {
-        const { getAllUsers, updateUsers } = require('./database');
+        const { getAllUsers, updateUsers } = await import('./database.js');
         const nameCandidate = data?.name || data?.nama;
         
         if (nameCandidate) {
@@ -642,7 +642,7 @@ async function syncProfileToDbFromData(email, data) {
     }
 }
 
-module.exports = {
+export {
     loadSession,
     saveSession,
     checkAttendanceStatus,

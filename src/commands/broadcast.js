@@ -2,11 +2,11 @@
  * Command: !broadcast
  * Send message to all registered users (Admin only)
  */
-const { getAllUsers } = require('../services/database');
-const { ADMIN_NUMBERS } = require('../config/constants');
-const { getMessage } = require('../services/messageService');
+import { getAllUsers } from '../services/database.js';
+import { ADMIN_NUMBERS } from '../config/constants.js';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'broadcast',
     description: 'Kirim pesan ke semua user (Admin)',
     adminOnly: true,

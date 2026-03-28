@@ -2,10 +2,10 @@
  * Command: !getid
  * Membantu user mengetahui JID/LID mereka dan memindai anggota grup
  */
-const { updateUserLid } = require('../services/database');
-const chalk = require('chalk');
+import { updateUserLid } from '../services/database.js';
+import chalk from 'chalk';
 
-module.exports = {
+export default {
     name: ['getid', 'getlid', 'mylid'],
     description: 'Mengetahui ID WhatsApp/LID Anda atau daftar LID grup',
 

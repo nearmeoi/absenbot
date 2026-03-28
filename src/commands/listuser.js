@@ -2,10 +2,10 @@
  * Command: !listuser
  * List all registered users
  */
-const { getAllUsers } = require('../services/database');
-const { getMessage } = require('../services/messageService');
+import { getAllUsers } from '../services/database.js';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'listuser',
     description: 'Lihat daftar user terdaftar',
 

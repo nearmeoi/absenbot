@@ -2,20 +2,17 @@
  * AI Service - Generate attendance reports using Groq (Primary)
  */
 
-const axios = require('axios');
-const chalk = require('chalk');
-const { getMessage } = require('./messageService');
-const { AI_CONFIG } = require('../config/constants');
+import axios from 'axios';
+import chalk from 'chalk';
+import { getMessage } from './messageService.js';
+import { AI_CONFIG } from '../config/constants.js';
+import FormData from 'form-data';
+import fs from 'node:fs';
 
-const FormData = require('form-data');
-const fs = require('fs');
-
-// Use constants from config
 const GROQ_API_URL = AI_CONFIG.GROQ.API_URL;
 const GROQ_AUDIO_URL = AI_CONFIG.GROQ.AUDIO_URL;
 const GROQ_MODEL = AI_CONFIG.GROQ.MODEL;
 
-// Validate API keys on startup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -95,7 +92,6 @@ async function runBlackboxGeneration(systemPrompt, userPrompt) {
         let content = response.data;
         if (typeof content !== 'string') content = JSON.stringify(content);
 
-        // Clean up blackbox specific markers if any
         content = content.replace(/\$~~~\$\[.*?\]\$~~~\$/gs, '');
 
         return { success: true, content };
@@ -131,10 +127,7 @@ async function transcribeAudio(filePath) {
     }
 }
 
-// --- SHARED LOGIC ---
-
 async function runGroqGeneration(systemPrompt, userPrompt) {
-    // 1. Try Groq (Primary)
     if (GROQ_API_KEY) {
         try {
             console.log(chalk.cyan('[AI] Trying Groq...'));
@@ -157,11 +150,9 @@ async function runGroqGeneration(systemPrompt, userPrompt) {
         }
     }
 
-    // 2. Try Gemini (Secondary Fallback)
     const geminiRes = await runGeminiGeneration(systemPrompt, userPrompt);
     if (geminiRes.success) return geminiRes;
 
-    // 3. Try Blackbox (Tertiary Fallback - No Key Needed)
     return await runBlackboxGeneration(systemPrompt, userPrompt);
 }
 
@@ -186,7 +177,7 @@ async function runGroqRefinement(content, userStory, previousLogs) {
                 { role: 'system', content: "Kamu adalah Supervisor Editor. Pastikan konten akurat, logis, dan TIDAK HALUSINASI." },
                 { role: 'user', content: refinementPrompt }
             ],
-            temperature: 0.5, // Lower temperature for accuracy
+            temperature: 0.5,
             max_tokens: AI_CONFIG.GROQ.MAX_TOKENS
         }, {
             headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
@@ -207,21 +198,6 @@ async function runGroqRefinement(content, userStory, previousLogs) {
 const parseAndClamp = (content) => {
     const parseSection = (label, text) => {
         try {
-            // BACKSLASH-SAFE REGEX STRATEGY:
-            // Avoid \s because of backslash hell. Use [ \t] instead.
-            // Avoid [\s\S] because of backslash hell. Use [^] (any char).
-
-            // Regex logic:
-            // (?:^|[\n\r])  -> Start of line or string
-            // [ \t]*        -> Optional spaces/tabs
-            // [*#\-.0-9]*   -> Optional markdown/list markers
-            // [ \t]*        -> Optional spaces/tabs
-            // ${label}      -> "AKTIVITAS", etc
-            // [*: ]*        -> Optional suffix (colon, star, space)
-            // [ \t]*        -> Optional spaces/tabs
-            // ([^]*?)       -> Capture EVERYTHING until...
-            // (?=...)       -> Lookahead for next section header or end of string
-
             const regexStr = `(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*${label}[*: ]*[ \t]*([^]*?)(?=(?:^|[\\n\\r])[ \t]*[*#\\-.0-9]*[ \t]*(?:AKTIVITAS|PEMBELAJARAN|KENDALA)|$)`;
 
             const regex = new RegExp(regexStr, 'i');
@@ -240,21 +216,17 @@ const parseAndClamp = (content) => {
     let pembelajaran = parseSection('PEMBELAJARAN', content);
     let kendala = parseSection('KENDALA', content);
 
-    // FINAL FALLBACK: Manual line-by-line check if everything is empty
     if (!aktivitas && !pembelajaran && !kendala) {
         console.log(chalk.cyan('[AI-PARSE] Regex failed, using manual line split fallback...'));
         const lines = content.split('\n');
         let currentSection = null;
 
-        // Reset variables for fallback
         let a_temp = '', p_temp = '', k_temp = '';
 
         lines.forEach(line => {
             const l = line.trim().toUpperCase();
-            // Check headers with flexible matching
             if (l.match(/[*#\-.0-9]*\s*AKTIVITAS[*: ]*/)) {
                 currentSection = 'A';
-                // Remove header and keep content
                 a_temp = line.replace(/.*AKTIVITAS[*: ]*/i, '').trim();
             }
             else if (l.match(/[*#\-.0-9]*\s*PEMBELAJARAN[*: ]*/)) {
@@ -266,7 +238,6 @@ const parseAndClamp = (content) => {
                 k_temp = line.replace(/.*KENDALA[*: ]*/i, '').trim();
             }
             else if (currentSection && line.trim()) {
-                // Append continuation lines
                 if (currentSection === 'A') a_temp += ' ' + line.trim();
                 else if (currentSection === 'P') p_temp += ' ' + line.trim();
                 else if (currentSection === 'K') k_temp += ' ' + line.trim();
@@ -297,11 +268,7 @@ const parseAndClamp = (content) => {
     };
 };
 
-/**
- * Generate attendance report (Manual Points)
- */
 async function generateAttendanceReport(previousLogs = []) {
-    // Build context
     let context = '';
     if (previousLogs.length > 0) {
         context = 'Berikut adalah riwayat laporan sebelumnya:\n\n';
@@ -315,22 +282,16 @@ async function generateAttendanceReport(previousLogs = []) {
     const systemPrompt = getMessage('AI_SYSTEM_PROMPT');
     const userPrompt = getMessage('AI_USER_PROMPT').replace('{context}', context);
 
-    // 1. Try Groq
     let res = await runGroqGeneration(systemPrompt, userPrompt);
     let content = res.content;
 
     if (!content) return { success: false, error: 'Layanan AI sedang sibuk/gagal.' };
 
-    // 2. Double Check
     content = await runGroqRefinement(content, "(Manual Input Context)", previousLogs);
 
     return parseAndClamp(content);
 }
 
-/**
- * Process free text input into a structured attendance report (Story Mode)
- * Optimized: skips separate refinement for short input, combines with expansion
- */
 async function processFreeTextToReport(userText, previousLogs = []) {
     const contextMessages = [];
     if (previousLogs.length > 0) {
@@ -339,7 +300,6 @@ async function processFreeTextToReport(userText, previousLogs = []) {
             historyText += `--- Log ${i + 1} (${log.date}) ---\nAktivitas: ${log.activity_log}\nPembelajaran: ${log.lesson_learned}\nKendala: ${log.obstacles}\n\n`;
         });
 
-        // Truncate history to avoid URL length limits
         if (historyText.length > 2000) {
             historyText = historyText.substring(0, 2000) + "\n...(Riwayat dipotong)...";
         }
@@ -347,16 +307,13 @@ async function processFreeTextToReport(userText, previousLogs = []) {
     }
 
     const systemPrompt = getMessage('AI_SYSTEM_PROMPT_STORY');
-    const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: \"${userText}\"\n\nBuatkan laporan dengan gaya saya!`;
+    const fullPrompt = `${contextMessages.join('\n')}\n\n${systemPrompt}\n\nCerita User: "${userText}"\n\nBuatkan laporan dengan gaya saya!`;
 
-    // 1. Try Groq (Primary)
     let res = await runGroqGeneration(systemPrompt, fullPrompt);
     let content = res.content;
 
     if (!content) return { success: false, error: 'Gagal memproses laporan (Engine AI sibuk).' };
 
-    // 3. Smart Refinement: Skip separate refinement if input is short
-    //    (expansion will handle both refinement + lengthening in one call)
     const wordCount = userText.trim().split(/\s+/).length;
     const skipRefinement = wordCount < 50;
 
@@ -368,11 +325,9 @@ async function processFreeTextToReport(userText, previousLogs = []) {
 
     let report = parseAndClamp(content);
 
-    // --- COMBINED REFINEMENT + EXPANSION if sections too short ---
     if (GROQ_API_KEY && (report.aktivitas.length < 100 || report.pembelajaran.length < 100 || report.kendala.length < 100)) {
         console.log(chalk.cyan('[AI] Sections too short, running combined refinement+expansion...'));
 
-        // For very short user input, allow more creative elaboration
         const isMinimalInput = wordCount < 10;
         const expansionPrompt = `Laporan magang ini perlu diperpanjang.${isMinimalInput ? `\nUser hanya bilang: "${userText}". Elaborasi dengan detail teknis yang WAJAR dan REALISTIS untuk kegiatan tersebut.` : `\nCERITA ASLI USER: "${userText}"`}
 
@@ -411,13 +366,7 @@ KENDALA: [isi]`;
     return report;
 }
 
-/**
- * Summarize Islamic Content (Hadith/Ayat)
- * @param {string} text - Full text
- * @returns {Promise<string>} - Summarized text (Hikmah/Intisari)
- */
 async function summarizeIslamicContent(text) {
-    // If text is short enough, return as is
     if (!text || text.length < 250) return text;
 
     console.log(chalk.cyan(`[AI] Summarizing Islamic content (${text.length} chars)...`));
@@ -432,7 +381,7 @@ async function summarizeIslamicContent(text) {
     if (GROQ_API_KEY) {
         try {
             const res = await axios.post(GROQ_API_URL, {
-                model: 'llama3-8b-8192', // Fast model
+                model: 'llama3-8b-8192',
                 messages: [{ role: 'user', content: prompt }],
                 max_tokens: 150
             }, {
@@ -446,28 +395,29 @@ async function summarizeIslamicContent(text) {
         }
     }
 
-    return text; // Return original if all fail
+    return text;
 }
 
-// Exports (Keep existing names)
-module.exports = {
+const smartChat = async (prompt, systemPrompt = '') => {
+    if (!GROQ_API_KEY) return { success: false, error: 'API key missing' };
+    try {
+        const res = await axios.post(GROQ_API_URL, {
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+                { role: 'user', content: prompt }
+            ],
+        }, { headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` } });
+        return { success: true, content: res.data.choices[0]?.message?.content, model: 'Groq' };
+    } catch (e) {
+        return { success: false, error: 'Busy' };
+    }
+};
+
+export {
     generateAttendanceReport,
     processFreeTextToReport,
     summarizeIslamicContent,
     transcribeAudio,
-    smartChat: async (prompt, systemPrompt = '') => {
-        if (!GROQ_API_KEY) return { success: false, error: 'API key missing' };
-        try {
-            const res = await axios.post(GROQ_API_URL, {
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-                    { role: 'user', content: prompt }
-                ],
-            }, { headers: { 'Authorization': `Bearer ${GROQ_API_KEY}` } });
-            return { success: true, content: res.data.choices[0]?.message?.content, model: 'Groq' };
-        } catch (e) {
-            return { success: false, error: 'Busy' };
-        }
-    }
+    smartChat
 };

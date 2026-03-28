@@ -2,11 +2,11 @@
  * Command: !daftar
  * Register user to the bot
  */
-const { getUserByPhone } = require('../services/database');
-const { generateAuthUrl } = require('../services/secureAuth');
-const { getMessage } = require('../services/messageService');
+import { getUserByPhone } from '../services/database.js';
+import { generateAuthUrl } from '../services/secureAuth.js';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'daftar',
     description: 'Daftarkan akun ke bot',
 
@@ -34,7 +34,7 @@ module.exports = {
             }
         });
 
-        const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+        const { sendInteractiveMessage } = await import('../utils/interactiveMessage.js');
         const buttons = [
             {
                 name: 'cta_url',

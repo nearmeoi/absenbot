@@ -1,6 +1,6 @@
-const axios = require('axios');
-const chalk = require('chalk');
-const { summarizeIslamicContent } = require('./aiService');
+import axios from 'axios';
+import chalk from 'chalk';
+import { summarizeIslamicContent } from './aiService.js';
 
 // Default Location
 const DEFAULT_CITY = 'Kota Makassar';
@@ -236,7 +236,7 @@ async function getRandomDoa() {
     }
 }
 
-module.exports = {
+export {
     getPrayerTimes,
     getRandomAyat,
     getRandomHadith,

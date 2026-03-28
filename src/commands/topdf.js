@@ -1,7 +1,7 @@
-const { downloadMediaMessage } = require('wileys');
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
+import { downloadMediaMessage } from 'wileys';
+import fs from 'fs';
+import path from 'path';
+import { exec } from 'child_process';
 const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
     exec(cmd, opts, (err, stdout, stderr) => {
         if (err) return reject(err);
@@ -9,9 +9,9 @@ const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
     });
 });
 
-const { reportError } = require('../services/errorReporter');
+import { reportError } from '../services/errorReporter.js';
 
-module.exports = {
+export default {
     name: ['topdf', 'pdf'],
     description: 'Ubah dokumen Word (.docx/.doc) menjadi PDF dengan hasil presisi',
     async execute(sock, msg, context) {

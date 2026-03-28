@@ -1,15 +1,15 @@
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     name: 'unmark',
     description: 'Hapus tanda khusus pada user (Admin Only)',
     hidden: true,
 
     async execute(sock, msgObj, context) {
         const { sender, args } = context;
-        const { ADMIN_NUMBERS } = require('../config/constants');
+        const { ADMIN_NUMBERS } = await import('../config/constants.js');
 
         // Security: Admin Only
         const senderJid = msgObj.key.participant || msgObj.key.remoteJid;
@@ -32,7 +32,7 @@ module.exports = {
         }
 
         try {
-            const markedFile = path.join(__dirname, '../../data/marked_users.json');
+            const markedFile = path.join(process.cwd(), 'data/marked_users.json');
             if (!fs.existsSync(markedFile)) return;
 
             let data = JSON.parse(fs.readFileSync(markedFile, 'utf8'));

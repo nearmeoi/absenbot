@@ -2,11 +2,14 @@
  * Command: !dev
  * Developer/Admin commands (hidden from !help)
  */
-const { ADMIN_NUMBERS } = require('../config/constants');
-const { addHoliday, removeHoliday, isHoliday, getAllHolidays, addAllowedGroup, removeAllowedGroup, getAllowedGroups } = require('../config/holidays');
-const { getMessage } = require('../services/messageService');
+import { ADMIN_NUMBERS } from '../config/constants.js';
+import { addHoliday, removeHoliday, isHoliday, getAllHolidays, addAllowedGroup, removeAllowedGroup, getAllowedGroups } from '../config/holidays.js';
+import { getMessage } from '../services/messageService.js';
+import { exec } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     name: 'dev',
     description: 'Developer commands',
     hidden: true,
@@ -83,7 +86,6 @@ module.exports = {
         // !dev update
         if (subCmd === 'update') {
             await sock.sendMessage(senderNumber, { text: '🚀 Memulai update dari GitHub...' });
-            const { exec } = require('child_process');
             exec('git pull && npm install', (err, stdout, stderr) => {
                 if (err) {
                     sock.sendMessage(senderNumber, { text: `❌ Update Gagal: ${err.message}` });
@@ -98,9 +100,7 @@ module.exports = {
 
         // !dev clean
         if (subCmd === 'clean') {
-            const { AUTH_STATE_DIR } = require('../config/constants');
-            const fs = require('fs');
-            const path = require('path');
+            const { AUTH_STATE_DIR } = await import('../config/constants.js');
             const files = fs.readdirSync(AUTH_STATE_DIR);
             let count = 0;
             for (const file of files) {

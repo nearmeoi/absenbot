@@ -2,24 +2,54 @@
  * Message Handler - Slim Dispatcher
  * Routes incoming messages to appropriate command modules
  */
-const fs = require('fs');
-const path = require('path');
-const chalk = require('chalk');
-const util = require('util');
-const { getCommand, getCommandKeys } = require('../commands');
-const { findClosestMatch } = require('../utils/stringUtils');
-const { getUserByPhone, updateUserLid, getAllUsers, saveUser, updateUsers } = require('../services/database');
-const { prosesLoginDanAbsen, getRiwayat } = require('../services/magang');
-const { processFreeTextToReport } = require('../services/aiService');
-const { getDraft, setDraft, deleteDraft, formatDraftPreview } = require('../services/previewService');
-const { getUserState, clearUserState, setUserState } = require('../services/stateService');
-const botState = require('../services/botState');
-const { getMessage } = require('../services/messageService');
-const { BOT_PREFIX, VALIDATION } = require('../config/constants');
-const { parseDraftFromMessage, normalizeToStandard } = require('../utils/messageUtils');
-const { reportError } = require('../services/errorReporter');
-const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+import fs from 'node:fs';
+import path from 'node:path';
+import chalk from 'chalk';
+import util from 'node:util';
+import { getCommand, getCommandKeys } from '../commands/index.js';
+import { findClosestMatch } from '../utils/stringUtils.js';
+import { getUserByPhone, updateUserLid, getAllUsers, saveUser, updateUsers, getUserPassword } from '../services/database.js';
+import { prosesLoginDanAbsen, getRiwayat } from '../services/magang.js';
+import { processFreeTextToReport } from '../services/aiService.js';
+import { getDraft, setDraft, deleteDraft, formatDraftPreview } from '../services/previewService.js';
+import { getUserState, clearUserState, setUserState } from '../services/stateService.js';
+import * as botState from '../services/botState.js';
+import { getMessage } from '../services/messageService.js';
+import { BOT_PREFIX, VALIDATION } from '../config/constants.js';
+import { parseDraftFromMessage, normalizeToStandard } from '../utils/messageUtils.js';
+import { reportError } from '../services/errorReporter.js';
+import { sendInteractiveMessage } from '../utils/interactiveMessage.js';
 const DEBUG = process.env.DEBUG === 'true';
+
+// --- PRE-PROCESS MESSAGE CONTENT (defined once) ---
+function getMsgText(m) {
+    if (!m) return "";
+    if (m.viewOnceMessage?.message) m = m.viewOnceMessage.message;
+    if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message;
+    if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message;
+
+    // PRIORITIZE ID FROM INTERACTIVE BUTTONS
+    if (m.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson) {
+        try {
+            const params = JSON.parse(m.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
+            if (params.id) return params.id;
+        } catch (e) { }
+    }
+
+    if (m.conversation) return m.conversation;
+    if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
+    if (m.imageMessage?.caption) return m.imageMessage.caption;
+    if (m.videoMessage?.caption) return m.videoMessage.caption;
+
+    if (m.interactiveMessage?.body?.text) return m.interactiveMessage.body.text;
+    if (m.interactiveResponseMessage?.body?.text) return m.interactiveResponseMessage.body.text;
+
+    if (m.buttonsResponseMessage?.selectedButtonId) return m.buttonsResponseMessage.selectedButtonId;
+    if (m.listResponseMessage?.singleSelectReply?.selectedRowId) return m.listResponseMessage.singleSelectReply.selectedRowId;
+    if (m.templateButtonReplyMessage?.selectedId) return m.templateButtonReplyMessage.selectedId;
+
+    return "";
+}
 
 /**
  * Main message handler
@@ -35,36 +65,6 @@ const messageHandler = async (sock, msg) => {
         const isGroup = sender.endsWith("@g.us");
 
         if (botStatus === 'offline') return;
-
-        // --- PRE-PROCESS MESSAGE CONTENT ---
-        const getMsgText = (m) => {
-            if (!m) return "";
-            if (m.viewOnceMessage?.message) m = m.viewOnceMessage.message;
-            if (m.viewOnceMessageV2?.message) m = m.viewOnceMessageV2.message;
-            if (m.ephemeralMessage?.message) m = m.ephemeralMessage.message;
-
-            // PRIORITIZE ID FROM INTERACTIVE BUTTONS
-            if (m.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson) {
-                try {
-                    const params = JSON.parse(m.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
-                    if (params.id) return params.id;
-                } catch (e) { }
-            }
-
-            if (m.conversation) return m.conversation;
-            if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
-            if (m.imageMessage?.caption) return m.imageMessage.caption;
-            if (m.videoMessage?.caption) return m.videoMessage.caption;
-
-            if (m.interactiveMessage?.body?.text) return m.interactiveMessage.body.text;
-            if (m.interactiveResponseMessage?.body?.text) return m.interactiveResponseMessage.body.text;
-
-            if (m.buttonsResponseMessage?.selectedButtonId) return m.buttonsResponseMessage.selectedButtonId;
-            if (m.listResponseMessage?.singleSelectReply?.selectedRowId) return m.listResponseMessage.singleSelectReply.selectedRowId;
-            if (m.templateButtonReplyMessage?.selectedId) return m.templateButtonReplyMessage.selectedId;
-
-            return "";
-        };
 
         const textMessage = getMsgText(msgObj.message);
         const contextInfo = msgObj.message.extendedTextMessage?.contextInfo;
@@ -132,8 +132,9 @@ const messageHandler = async (sock, msg) => {
                 const draftData = state?.data?.draft || draft;
                 if (!draftData) return;
 
+                const password = getUserPassword(user);
                 const loginResult = await prosesLoginDanAbsen({
-                    email: user.email, password: user.password,
+                    email: user.email, password: password,
                     aktivitas: draftData.aktivitas, pembelajaran: draftData.pembelajaran, kendala: draftData.kendala
                 });
 
@@ -222,7 +223,7 @@ const messageHandler = async (sock, msg) => {
                     }
                 } else if (!isGroup || isReplyToBot || isReplyToDraft) {
                     if (!user) return;
-                    const history = await getRiwayat(user.email, user.password, 3);
+                    const history = await getRiwayat(user.email, getUserPassword(user), 3);
                     const aiResult = await processFreeTextToReport(textMessage, history.success ? history.logs : []);
 
                     if (aiResult.success) {
@@ -254,4 +255,4 @@ const messageHandler = async (sock, msg) => {
 };
 
 messageHandler.parseDraftFromMessage = parseDraftFromMessage;
-module.exports = messageHandler;
+export default messageHandler;

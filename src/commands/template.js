@@ -2,9 +2,9 @@
  * Command: !template
  * Sends an empty manual report template for copy-pasting
  */
-const { getMessage } = require('../services/messageService');
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'template',
     description: 'Kirim format laporan manual',
     async execute(sock, msgObj, context) {

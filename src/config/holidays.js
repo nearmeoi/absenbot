@@ -1,25 +1,19 @@
-/**
- * Holiday Management System
- * Manages custom holidays and checks if today is a holiday
- */
+import { fileURLToPath } from 'url';
+import fs from 'node:fs';
+import path from 'node:path';
+import chalk from 'chalk';
 
-const fs = require('fs');
-const path = require('path');
-const chalk = require('chalk');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const HOLIDAYS_FILE = path.join(__dirname, '../../data/holidays.json');
-const GROUPS_FILE = path.join(__dirname, '../../data/allowed_groups.json');
+const GROUPS_FILE = path.join(__dirname, '../../data/group_settings.json');
 
-// Ensure data directory exists
 const dataDir = path.join(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
 
-/**
- * Load holidays from file
- * @returns {Array<string>} Array of date strings (YYYY-MM-DD)
- */
 function loadHolidays() {
     if (!fs.existsSync(HOLIDAYS_FILE)) {
         fs.writeFileSync(HOLIDAYS_FILE, JSON.stringify([], null, 2));
@@ -34,24 +28,16 @@ function loadHolidays() {
     }
 }
 
-/**
- * Save holidays to file
- * @param {Array<string>} holidays 
- */
 function saveHolidays(holidays) {
     fs.writeFileSync(HOLIDAYS_FILE, JSON.stringify(holidays, null, 2));
     console.log(chalk.green(`[HOLIDAYS] Saved ${holidays.length} holidays`));
 }
 
-/**
- * Add a holiday date
- * @param {string} dateStr - Date in YYYY-MM-DD format
- */
 function addHoliday(dateStr) {
     const holidays = loadHolidays();
     if (!holidays.includes(dateStr)) {
         holidays.push(dateStr);
-        holidays.sort(); // Keep sorted
+        holidays.sort();
         saveHolidays(holidays);
         console.log(chalk.green(`[HOLIDAYS] Added: ${dateStr}`));
         return true;
@@ -59,10 +45,6 @@ function addHoliday(dateStr) {
     return false;
 }
 
-/**
- * Remove a holiday date
- * @param {string} dateStr - Date in YYYY-MM-DD format
- */
 function removeHoliday(dateStr) {
     const holidays = loadHolidays();
     const index = holidays.indexOf(dateStr);
@@ -75,45 +57,26 @@ function removeHoliday(dateStr) {
     return false;
 }
 
-/**
- * Check if a date is a holiday
- * @param {string} dateStr - Date in YYYY-MM-DD format (default: today)
- * @returns {boolean}
- */
 function isHoliday(dateStr = null) {
     if (!dateStr) {
         dateStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
     }
 
-    // Check weekend (Saturday = 6, Sunday = 0)
-    // IMPORTANT: new Date(dateStr) treats YYYY-MM-DD as UTC. 
-    // We want it to be treated as a local date for day calculation.
     const [y, m, d] = dateStr.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     const day = date.getDay();
     if (day === 0 || day === 6) {
-        return true; // Weekend
+        return true;
     }
 
-    // Check custom holidays
     const holidays = loadHolidays();
     return holidays.includes(dateStr);
 }
 
-/**
- * Get all holidays
- * @returns {Array<string>}
- */
 function getAllHolidays() {
     return loadHolidays();
 }
 
-// ==================== GROUP MANAGEMENT ====================
-
-/**
- * Load allowed groups from file
- * @returns {Array<string>} Array of group IDs
- */
 function loadAllowedGroups() {
     if (!fs.existsSync(GROUPS_FILE)) {
         fs.writeFileSync(GROUPS_FILE, JSON.stringify([], null, 2));
@@ -128,19 +91,11 @@ function loadAllowedGroups() {
     }
 }
 
-/**
- * Save allowed groups to file
- * @param {Array<string>} groups 
- */
 function saveAllowedGroups(groups) {
     fs.writeFileSync(GROUPS_FILE, JSON.stringify(groups, null, 2));
     console.log(chalk.green(`[GROUPS] Saved ${groups.length} groups`));
 }
 
-/**
- * Add a group to whitelist
- * @param {string} groupId 
- */
 function addAllowedGroup(groupId) {
     const groups = loadAllowedGroups();
     if (!groups.includes(groupId)) {
@@ -152,10 +107,6 @@ function addAllowedGroup(groupId) {
     return false;
 }
 
-/**
- * Remove a group from whitelist
- * @param {string} groupId 
- */
 function removeAllowedGroup(groupId) {
     const groups = loadAllowedGroups();
     const index = groups.indexOf(groupId);
@@ -168,25 +119,16 @@ function removeAllowedGroup(groupId) {
     return false;
 }
 
-/**
- * Check if a group is whitelisted
- * @param {string} groupId 
- * @returns {boolean}
- */
 function isAllowedGroup(groupId) {
     const groups = loadAllowedGroups();
     return groups.includes(groupId);
 }
 
-/**
- * Get all allowed groups
- * @returns {Array<string>}
- */
 function getAllowedGroups() {
     return loadAllowedGroups();
 }
 
-module.exports = {
+export {
     addHoliday,
     removeHoliday,
     isHoliday,

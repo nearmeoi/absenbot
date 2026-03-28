@@ -2,11 +2,11 @@
  * Command: !riwayat
  * Get attendance history
  */
-const { getUserByPhone } = require('../services/database');
-const { getRiwayat } = require('../services/magang');
-const { getMessage } = require('../services/messageService');
+import { getUserByPhone } from '../services/database.js';
+import { getRiwayat } from '../services/magang.js';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'riwayat',
     description: 'Lihat riwayat absensi',
 
@@ -50,7 +50,7 @@ module.exports = {
                 }
             });
 
-            const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+            const { sendInteractiveMessage } = await import('../utils/interactiveMessage.js');
             const targetJid = sender;
             
             const buttons = [

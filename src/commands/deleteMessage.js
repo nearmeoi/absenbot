@@ -2,7 +2,7 @@
  * Command: !delete / !del
  * Delete a message sent by the bot (must be a reply)
  */
-module.exports = {
+export default {
     name: ['delete', 'del'],
     description: 'Hapus pesan yang dikirim oleh bot',
     async execute(sock, msg, context) {

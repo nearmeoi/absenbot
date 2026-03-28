@@ -2,11 +2,11 @@
  * Command: !settemplate
  * Set custom attendance template
  */
-const { saveUserTemplate, getUserByPhone } = require('../services/database');
-const { getMessage } = require('../services/messageService');
-const { parseTagBasedReport } = require('../utils/messageUtils');
+import { saveUserTemplate, getUserByPhone } from '../services/database.js';
+import { getMessage } from '../services/messageService.js';
+import { parseTagBasedReport } from '../utils/messageUtils.js';
 
-module.exports = {
+export default {
     name: 'settemplate',
     description: 'Set template laporan harian otomatis',
 

@@ -1,8 +1,8 @@
-const { exec } = require('child_process');
-const path = require('path');
-const fs = require('fs');
-const util = require('util');
-const axios = require('axios');
+import { exec } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import util from 'util';
+import axios from 'axios';
 const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
     exec(cmd, opts, (err, stdout, stderr) => {
         if (err) return reject(err);
@@ -10,7 +10,7 @@ const execPromise = (cmd, opts) => new Promise((resolve, reject) => {
     });
 });
 
-module.exports = {
+export default {
     name: ['dl', 'download', 'ytdl'],
     description: 'Download media dari berbagai platform (TikTok, FB, IG, YT, dll)',
     async execute(sock, msg, context) {

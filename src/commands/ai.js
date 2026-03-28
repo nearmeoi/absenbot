@@ -3,16 +3,16 @@
  * AI Assistant powered by AI Neardev
  * Uses Conversation Memory Engine
  */
-const { smartChat } = require('../services/aiService');
-const MemoryEngine = require('../services/conversationManager');
-const { getMessage } = require('../services/messageService');
-const chalk = require('chalk');
+import { smartChat } from '../services/aiService.js';
+import * as MemoryEngine from '../services/conversationManager.js';
+import { getMessage } from '../services/messageService.js';
+import chalk from 'chalk';
 
 // Rate Limiting (Spam Protection)
 const cooldowns = new Map();
 const COOLDOWN_AMOUNT = 10000; // 10 seconds
 
-module.exports = {
+export default {
     name: 'ai',
     description: 'Tanya apa saja ke AI Assistant (dengan Memori & Konteks)',
     async execute(sock, msgObj, context) {

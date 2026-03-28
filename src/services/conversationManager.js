@@ -2,7 +2,7 @@
  * Conversation Memory Engine
  * Manages per-chat context, short-term history, and core memory.
  */
-const chalk = require('chalk');
+import chalk from 'chalk';
 
 // Storage: Key = remoteJid (string), Value = Session Object
 const sessions = new Map();
@@ -137,7 +137,7 @@ setInterval(() => {
     }
 }, CLEANUP_INTERVAL_MS);
 
-module.exports = {
+export {
     getSession,
     addMessage,
     buildContext,

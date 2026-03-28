@@ -3,7 +3,7 @@
  * Manages temporary attendance drafs shared between Handler and Scheduler
  */
 
-const chalk = require('chalk');
+import chalk from 'chalk';
 
 // In-memory cache: sender -> { aktivitas, pembelajaran, kendala, type, timestamp }
 // type: 'ai' or 'manual'
@@ -81,8 +81,8 @@ setInterval(cleanup, 60 * 60 * 1000);
  * @param {string} messageKey - Message template key (default: 'draft_preview')
  * @returns {string} Formatted preview text
  */
-function formatDraftPreview(reportData, messageKey = 'draft_preview') {
-    const { getMessage } = require('./messageService');
+async function formatDraftPreview(reportData, messageKey = 'draft_preview') {
+    const { getMessage } = await import('./messageService.js');
     return getMessage(messageKey)
         .replace('{aktivitas_len}', reportData.aktivitas.length)
         .replace('{aktivitas}', reportData.aktivitas)
@@ -92,10 +92,20 @@ function formatDraftPreview(reportData, messageKey = 'draft_preview') {
         .replace('{kendala}', reportData.kendala);
 }
 
-module.exports = {
+function getPendingPreviews() {
+    return pendingPreviews;
+}
+
+function clearExpiredDrafts() {
+    cleanup();
+}
+
+export {
     setDraft,
     getDraft,
     deleteDraft,
     formatDraftPreview,
-    pendingPreviews // Exposed for absolute control if needed
+    pendingPreviews,
+    getPendingPreviews,
+    clearExpiredDrafts
 };

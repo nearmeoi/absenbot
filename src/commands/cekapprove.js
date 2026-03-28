@@ -1,12 +1,14 @@
-const { getUserByPhone, getAllUsers } = require('../services/database');
-const { getDashboardStats, getRiwayat, detectCycleDay, getParticipantProfile, getUserProfile } = require('../services/magang');
-const { getMessage } = require('../services/messageService');
-const { isHoliday } = require('../config/holidays');
-const { ADMIN_NUMBERS } = require('../config/constants');
+import { getUserByPhone, getAllUsers } from '../services/database.js';
+import { getDashboardStats, getRiwayat, detectCycleDay, getParticipantProfile, getUserProfile } from '../services/magang.js';
+import { getMessage } from '../services/messageService.js';
+import { isHoliday } from '../config/holidays.js';
+import { ADMIN_NUMBERS } from '../config/constants.js';
+import fs from 'fs';
+import path from 'path';
 
 const processingUsers = new Set();
 
-module.exports = {
+export default {
     name: 'cekapprove',
     description: 'Cek status approval & ringkasan dashboard',
 
@@ -122,9 +124,7 @@ module.exports = {
                 cycleDay = await detectCycleDay(user.email, user.password);
 
                 // Save to DB for future use
-                const fs = require('fs');
-                const path = require('path');
-                const usersFile = path.join(__dirname, '../../users.json');
+                const usersFile = path.join(process.cwd(), 'users.json');
                 try {
                     const users = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
                     const uIdx = users.findIndex(u => u.email === user.email);
@@ -314,7 +314,7 @@ module.exports = {
             };
 
             // 5. Construct Message
-            const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+            const { sendInteractiveMessage } = await import('../utils/interactiveMessage.js');
             const formatDate = (d) => `${d.getDate()} ${d.toLocaleString('id-ID', { month: 'short' })} ${d.getFullYear()}`;
             const rangeStr = `${formatDate(startPeriod)} - ${formatDate(displayEndPeriod)}`;
             const batchNum = cycleDay === 16 ? '3' : (cycleDay === 24 ? '2' : '-');

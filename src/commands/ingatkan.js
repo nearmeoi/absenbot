@@ -2,11 +2,11 @@
  * Command: !ingatkan
  * Remind users who haven't submitted attendance
  */
-const { getAllUsers } = require('../services/database');
-const { cekStatusHarian } = require('../services/magang');
-const { getMessage } = require('../services/messageService');
+import { getAllUsers } from '../services/database.js';
+import { cekStatusHarian } from '../services/magang.js';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'ingatkan',
     description: 'Ingatkan user yang belum absen',
 

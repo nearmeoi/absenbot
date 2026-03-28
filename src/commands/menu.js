@@ -2,14 +2,14 @@
  * Command: !menu / !hai
  * Shows the main menu with bot information
  */
-const fs = require('fs');
-const path = require('path');
-const { getMessage } = require('../services/messageService');
-const { sendInteractiveMessage } = require('../utils/interactiveMessage');
+import fs from 'fs';
+import path from 'path';
+import { getMessage } from '../services/messageService.js';
+import { sendInteractiveMessage } from '../utils/interactiveMessage.js';
 
-const COVER_IMAGE = path.join(__dirname, '../../public/img/cover.png');
+const COVER_IMAGE = path.join(process.cwd(), 'public/img/cover.png');
 
-module.exports = {
+export default {
     name: ['menu', 'hai', 'help'],
     description: 'Tampilkan menu utama',
 
@@ -17,8 +17,8 @@ module.exports = {
         const { sender, senderNumber } = context;
 
         // 1. Check Status for Dynamic Button
-        const { getUserByPhone } = require('../services/database');
-        const { cekStatusHarian } = require('../services/magang');
+        const { getUserByPhone } = await import('../services/database.js');
+        const { cekStatusHarian } = await import('../services/magang.js');
         const user = getUserByPhone(senderNumber);
         
         let isAttended = false;
@@ -40,7 +40,7 @@ Asisten pintar absensi Kemnaker.
 
 _Silakan klik tombol di bawah:_`;
 
-        const { getAppUrl } = require('../services/messageService');
+        const { getAppUrl } = await import('../services/messageService.js');
         const userUrl = getAppUrl(senderNumber);
         const MONEV_REAL_URL = 'https://monev.maganghub.kemnaker.go.id/dashboard';
 

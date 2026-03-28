@@ -1,15 +1,15 @@
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     name: 'mark',
     description: 'Tandai user agar hanya menerima stiker saat memanggil bot (Admin Only)',
     hidden: true,
 
     async execute(sock, msgObj, context) {
         const { sender, args, isGroup } = context;
-        const { ADMIN_NUMBERS } = require('../config/constants');
+        const { ADMIN_NUMBERS } = await import('../config/constants.js');
 
         // Security: Admin Only
         const senderJid = msgObj.key.participant || msgObj.key.remoteJid;
@@ -35,7 +35,7 @@ module.exports = {
         }
 
         try {
-            const markedFile = path.join(__dirname, '../../data/marked_users.json');
+            const markedFile = path.join(process.cwd(), 'data/marked_users.json');
             let data = { marked_users: [] };
             
             if (fs.existsSync(markedFile)) {

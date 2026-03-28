@@ -3,7 +3,7 @@
  * Logs bot activities to memory for dashboard display
  */
 
-const chalk = require('chalk');
+import chalk from 'chalk';
 
 // In-memory circular buffer for logs (max 200 entries)
 const MAX_LOGS = 200;
@@ -121,7 +121,7 @@ function getStats() {
     };
 }
 
-module.exports = {
+export {
     log,
     getLogs,
     clearLogs,

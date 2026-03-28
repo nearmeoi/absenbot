@@ -2,10 +2,10 @@
  * Command: !all
  * Mention all group members (hidetag)
  */
-const chalk = require('chalk');
-const { getMessage } = require('../services/messageService');
+import chalk from 'chalk';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'all',
     description: 'Mention semua anggota grup',
 

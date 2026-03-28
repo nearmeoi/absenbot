@@ -1,5 +1,5 @@
-const chalk = require('chalk');
-const { ADMIN_NUMBERS } = require('../config/constants');
+import chalk from 'chalk';
+import { ADMIN_NUMBERS } from '../config/constants.js';
 
 let botSocket = null;
 const reportCache = new Map();
@@ -69,7 +69,7 @@ async function reportError(error, context = 'Unknown', metadata = {}) {
     }
 }
 
-module.exports = {
+export {
     initErrorReporter,
     reportError
 };

@@ -1,21 +1,22 @@
-const chalk = require("chalk");
-const fs = require('fs');
-const path = require('path');
-const cron = require('node-cron');
-const { GROUP_ID_FILE } = require('../config/constants');
-const { getAllUsers } = require('./database');
-const { cekStatusHarian, getRiwayat, prosesLoginDanAbsen, getDashboardStats, getAnnouncements } = require('./magang');
-const { generateAttendanceReport, processFreeTextToReport } = require('./aiService');
-const { getDraft, setDraft, deleteDraft } = require('./previewService');
-const { getAllowedGroups, isHoliday } = require('../config/holidays');
-const { parseTagBasedReport } = require('../utils/messageUtils');
+import chalk from 'chalk';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import cron from 'node-cron';
+import { GROUP_ID_FILE, ADMIN_NUMBERS } from '../config/constants.js';
+import { getAllUsers, getUserPassword } from './database.js';
+import { cekStatusHarian, getRiwayat, prosesLoginDanAbsen, getDashboardStats, getAnnouncements } from './magang.js';
+import { generateAttendanceReport, processFreeTextToReport } from './aiService.js';
+import { getDraft, setDraft, deleteDraft } from './previewService.js';
+import { getAllowedGroups, isHoliday } from '../config/holidays.js';
+import { parseTagBasedReport } from '../utils/messageUtils.js';
+import { loadGroupSettings } from './groupSettings.js';
+import { getMessage, updateMessage } from './messageService.js';
+import { isSchedulerEnabled } from './botState.js';
+import { generateWaveform } from '../utils/generateWaveform.js';
+import { getPrayerTimes, getRandomContent } from './ramadanService.js';
 
-const { loadGroupSettings } = require('./groupSettings');
-const { getMessage, updateMessage } = require('./messageService');
-const { isSchedulerEnabled } = require('./botState');
-const { generateWaveform } = require('../utils/generateWaveform');
-const { ADMIN_NUMBERS } = require('../config/constants');
-const { getPrayerTimes, getRandomContent } = require('./ramadanService');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Config path
 const SCHEDULE_CONFIG_FILE = path.join(__dirname, '../../data/scheduler_config.json');
@@ -216,7 +217,7 @@ async function parallelMap(items, mapper, limit = 3) {
         const p = Promise.resolve().then(() => mapper(item, items));
         results.push(p);
         if (limit <= items.length) {
-            const e = p.then(() => executing.splice(executing.indexOf(e), 1));
+            const e = p.finally(() => executing.splice(executing.indexOf(e), 1));
             executing.push(e);
             if (executing.length >= limit) {
                 await Promise.race(executing);
@@ -244,7 +245,7 @@ async function runEmergencyWarning(sock, task, timezone) {
         if (!isCriticalDay) return null;
 
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, getUserPassword(user));
             if (!status.success || !status.sudahAbsen) return user;
         } catch (e) { }
         return null;
@@ -275,7 +276,7 @@ async function runEmergencyWarning(sock, task, timezone) {
                             reportData = parsed;
                             source = "Template Anda";
                         } else {
-                            const history = await getRiwayat(user.email, user.password, 3);
+                            const history = await getRiwayat(user.email, getUserPassword(user), 3);
                             const res = await processFreeTextToReport(user.template, history.success ? history.logs : []);
                             if (res.success) {
                                 reportData = { aktivitas: res.aktivitas, pembelajaran: res.pembelajaran, kendala: res.kendala };
@@ -286,7 +287,7 @@ async function runEmergencyWarning(sock, task, timezone) {
 
                     // Fallback to AI from History
                     if (!reportData) {
-                        const riwayatResult = await getRiwayat(user.email, user.password, 3);
+                        const riwayatResult = await getRiwayat(user.email, getUserPassword(user), 3);
                         const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
                         if (aiResult.success) {
                             reportData = { aktivitas: aiResult.aktivitas, pembelajaran: aiResult.pembelajaran, kendala: aiResult.kendala };
@@ -424,7 +425,7 @@ async function runGroupHidetagJapri(sock, task, timezone) {
     const allUsers = getAllUsers();
     const pendingUsers = (await parallelMap(allUsers, async (user) => {
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, getUserPassword(user));
             if (!status.success || !status.sudahAbsen) {
                 return user;
             }
@@ -536,10 +537,10 @@ async function runDraftPush(sock, task, timezone) {
     const allUsers = getAllUsers();
     await parallelMap(allUsers, async (user) => {
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, getUserPassword(user));
             if (status.success && status.sudahAbsen) return;
 
-            const riwayatResult = await getRiwayat(user.email, user.password, 3);
+            const riwayatResult = await getRiwayat(user.email, getUserPassword(user), 3);
             const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
 
             if (aiResult.success) {
@@ -580,7 +581,7 @@ async function runEmergencySubmit(sock, task, timezone) {
         if (!isCriticalDay) return null;
 
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, getUserPassword(user));
             if (!status.success || !status.sudahAbsen) return user;
         } catch (e) { }
         return null;
@@ -637,7 +638,7 @@ async function executeAutoSubmit(sock, user) {
             if (manualParsed) {
                 finalReport = manualParsed;
             } else {
-                const history = await getRiwayat(user.email, user.password, 3);
+                const history = await getRiwayat(user.email, getUserPassword(user), 3);
                 const processResult = await processFreeTextToReport(user.template, history.success ? history.logs : []);
                 if (processResult.success) {
                     finalReport = {
@@ -651,7 +652,7 @@ async function executeAutoSubmit(sock, user) {
 
         // 2. Fallback: AI
         if (!finalReport) {
-            const riwayatResult = await getRiwayat(user.email, user.password, 3);
+            const riwayatResult = await getRiwayat(user.email, getUserPassword(user), 3);
             const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : []);
             if (aiResult.success) {
                 finalReport = {
@@ -665,7 +666,7 @@ async function executeAutoSubmit(sock, user) {
         if (finalReport) {
             const submitResult = await prosesLoginDanAbsen({
                 email: user.email,
-                password: user.password,
+                password: getUserPassword(user),
                 aktivitas: finalReport.aktivitas,
                 pembelajaran: finalReport.pembelajaran,
                 kendala: finalReport.kendala
@@ -702,7 +703,8 @@ async function runScheduledWebReports(sock, timezone) {
         const toProcess = scheduled.filter(s => s.date === today && s.status === 'pending');
 
         for (const report of toProcess) {
-            const user = (require('./database')).getUserByPhone(report.phone);
+            const { getUserByPhone } = await import('./database.js');
+            const user = getUserByPhone(report.phone);
             if (!user) {
                 report.status = 'failed';
                 report.error = 'User not found';
@@ -1049,7 +1051,7 @@ async function runTestScheduler(sock, taskId) {
     return { success: true };
 }
 
-module.exports = {
+export {
     initScheduler,
     setBotSocket,
     loadSchedules,
@@ -1060,8 +1062,8 @@ module.exports = {
     runScheduledWebReports,
     runSahurReminders, // Exported for manual testing if needed
     // Exports for compatibility if needed elsewhere
-    runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'),
-    runAfternoonReminder: async (sock) => runTestScheduler(sock, 'afternoon_reminder'),
-    runAutoReminder: async (sock, japri) => runTestScheduler(sock, japri ? 'evening_reminder_2' : 'evening_reminder_1'),
-    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit')
 };
+export const runMorningReminder = async (sock) => runTestScheduler(sock, 'morning_reminder');
+export const runAfternoonReminder = async (sock) => runTestScheduler(sock, 'afternoon_reminder');
+export const runAutoReminder = async (sock, japri) => runTestScheduler(sock, japri ? 'evening_reminder_2' : 'evening_reminder_1');
+export const runEmergencyAutoSubmit = async (sock) => runTestScheduler(sock, 'emergency_submit');

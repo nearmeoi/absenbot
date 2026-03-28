@@ -2,10 +2,10 @@
  * Command: !hapus
  * Delete user account from the bot
  */
-const { getUserByPhone, deleteUser } = require('../services/database');
-const { getMessage } = require('../services/messageService');
+import { getUserByPhone, deleteUser } from '../services/database.js';
+import { getMessage } from '../services/messageService.js';
 
-module.exports = {
+export default {
     name: 'hapus',
     description: 'Hapus akun dari bot',
 
