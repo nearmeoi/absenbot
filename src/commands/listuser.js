@@ -10,22 +10,46 @@ module.exports = {
     description: 'Lihat daftar user terdaftar',
 
     async execute(sock, msgObj, context) {
-        const { sender } = context;
-        const users = getAllUsers();
+        const { sender, isGroup } = context;
+        const allUsers = getAllUsers();
 
-        if (users.length === 0) {
+        if (allUsers.length === 0) {
             await sock.sendMessage(sender, { text: getMessage('group_list_empty') }, { quoted: msgObj });
             return;
         }
 
-        let userList = `*Daftar User Terdaftar (${users.length})*\n\n`;
-        const mentions = [];
+        let participantIds = [];
+        if (isGroup) {
+            try {
+                const metadata = await sock.groupMetadata(sender);
+                participantIds = metadata.participants.map(p => p.id);
+            } catch (e) {
+                console.error(`[LISTUSER] Gagal ambil metadata grup: ${e.message}`);
+            }
+        }
 
-        users.forEach((user, index) => {
+        let userList = isGroup ? `*Daftar User Terdaftar di Grup Ini*\n\n` : `*Daftar User Terdaftar (${allUsers.length})*\n\n`;
+        const mentions = [];
+        let count = 0;
+
+        allUsers.forEach((user) => {
             const phone = user.phone;
-            mentions.push(phone);
-            userList += `${index + 1}. @${phone.split('@')[0]}\n`;
+            const ids = user.identifiers || [phone];
+            if (user.lid && !ids.includes(user.lid)) ids.push(user.lid);
+
+            const matchedId = isGroup ? ids.find(id => participantIds.includes(id)) : phone;
+            
+            if (matchedId) {
+                count++;
+                mentions.push(matchedId);
+                userList += `${count}. @${phone.split('@')[0]}\n`;
+            }
         });
+
+        if (count === 0 && isGroup) {
+            await sock.sendMessage(sender, { text: "Tidak ada user terdaftar bot di grup ini." }, { quoted: msgObj });
+            return;
+        }
 
         await sock.sendMessage(sender, { text: userList, mentions }, { quoted: msgObj });
     }

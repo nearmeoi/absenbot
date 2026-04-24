@@ -14,7 +14,6 @@ const { loadGroupSettings } = require('./groupSettings');
 const { getMessage, updateMessage } = require('./messageService');
 const { isSchedulerEnabled } = require('./botState');
 const { generateWaveform } = require('../utils/generateWaveform');
-const { getPrayerTimes, getRandomContent } = require('./ramadanService');
 
 // Config path
 const SCHEDULE_CONFIG_FILE = path.join(__dirname, '../../data/scheduler_config.json');
@@ -23,7 +22,6 @@ const LAST_INFO_FILE = path.join(__dirname, '../../data/last_info_id.txt');
 // Global state
 let botSocket = null;
 const activeCrons = new Map(); // Store running cron tasks: 'id_timezone' -> task
-const ramadanCrons = new Map(); // Store dynamic Ramadan tasks for the day
 
 function setBotSocket(sock) {
     botSocket = sock;
@@ -240,17 +238,22 @@ async function runEmergencyWarning(sock, task, timezone) {
                 console.warn(chalk.yellow(`[EMERGENCY-WARNING] Failed to fetch group metadata: ${e.message}`));
             }
 
-            const matchedUsers = pendingCriticalUsers.map(u => {
+            const matchedUsers = [];
+            for (const u of pendingCriticalUsers) {
                 const ids = u.identifiers || [u.phone];
                 if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
-                const matchedId = ids.find(id => participantIds.includes(id)) || u.phone;
-                return { ...u, mentionJid: matchedId };
-            });
+                const matchedId = ids.find(id => participantIds.includes(id));
+                if (matchedId) {
+                    matchedUsers.push({ ...u, mentionJid: matchedId });
+                }
+            }
 
-            const mentionedText = matchedUsers.map(u => `@${u.mentionJid.split('@')[0]}`).join(' ');
-            const mentions = matchedUsers.map(u => u.mentionJid);
-            const warningMsg = `🚨 *PENGINGAT DEADLINE (DEADLINE 17:00)* 🚨\n\nHalo ${mentionedText}\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya sudah mengirimkan *Draf Laporan* ke Chat Pribadi Anda.\n\nSilakan cek DM dan balas *ya* untuk mengirim. Jika sampai jam 16:30 tetap belum absen, saya akan mengirimkannya secara *OTOMATIS* demi mengamankan upah Anda.`;
-            await sock.sendMessage(groupId, { text: warningMsg, mentions });
+            if (matchedUsers.length > 0) {
+                const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+                const mentions = matchedUsers.map(u => u.mentionJid);
+                const warningMsg = `🚨 *PENGINGAT DEADLINE (DEADLINE 17:00)* 🚨\n\nHalo ${mentionedText}\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya sudah mengirimkan *Draf Laporan* ke Chat Pribadi Anda.\n\nSilakan cek DM dan balas *ya* untuk mengirim. Jika sampai jam 16:30 tetap belum absen, saya akan mengirimkannya secara *OTOMATIS* demi mengamankan upah Anda.`;
+                await sock.sendMessage(groupId, { text: warningMsg, mentions });
+            }
         }
 
         for (const user of pendingCriticalUsers) {
@@ -423,7 +426,7 @@ async function runGroupHidetagJapri(sock, task, timezone) {
 
                     const mentions = groupPendingUsers.map(u => u.mentionJid);
                     const mentionedText = groupPendingUsers.map(u => `@${u.mentionJid.split('@')[0]}`).join(' ');
-                    let messageText = getMessage('REMINDER_GROUP_TARGETED');
+                    let messageText = getMessage(task.messageKey || 'REMINDER_GROUP_TARGETED');
                     if (messageText) {
                         messageText = messageText.replace('{users}', mentionedText);
                         console.log(chalk.cyan(`[SCHEDULER] Sending targeted reminder to group ${groupId} (${groupPendingUsers.length} targets)`));
@@ -562,17 +565,22 @@ async function runEmergencySubmit(sock, task, timezone) {
                 console.warn(chalk.yellow(`[CRITICAL] Failed to fetch group metadata: ${e.message}`));
             }
 
-            const matchedUsers = pendingCriticalUsers.map(u => {
+            const matchedUsers = [];
+            for (const u of pendingCriticalUsers) {
                 const ids = u.identifiers || [u.phone];
                 if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
-                const matchedId = ids.find(id => participantIds.includes(id)) || u.phone;
-                return { ...u, mentionJid: matchedId };
-            });
+                const matchedId = ids.find(id => participantIds.includes(id));
+                if (matchedId) {
+                    matchedUsers.push({ ...u, mentionJid: matchedId });
+                }
+            }
 
-            const mentionedText = matchedUsers.map(u => `@${u.mentionJid.split('@')[0]}`).join(' ');
-            const mentions = matchedUsers.map(u => u.mentionJid);
-            const warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
-            await sock.sendMessage(groupId, { text: warningMsg, mentions });
+            if (matchedUsers.length > 0) {
+                const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+                const mentions = matchedUsers.map(u => u.mentionJid);
+                const warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
+                await sock.sendMessage(groupId, { text: warningMsg, mentions });
+            }
         }
         for (const user of pendingCriticalUsers) {
             try {
@@ -689,6 +697,9 @@ function scheduleTask(task, timezone) {
         else if (task.type === 'draft_push') runDraftPush(sock, task, timezone);
         else if (task.type === 'emergency_submit') runEmergencySubmit(sock, task, timezone);
         else if (task.type === 'emergency_warning') runEmergencyWarning(sock, task, timezone);
+        else if (task.type === 'batch2_special') runBatch2Special(sock, task, timezone);
+        else if (task.type === 'nightly_reminder') runNightlyReminder(sock, task, timezone);
+        else if (task.type === 'nightly_reminder_draft') runNightlyReminderDraft(sock, task, timezone);
     }, { timezone: timezone });
     const key = `${task.id}_${timezone}`;
     activeCrons.set(key, job);
@@ -710,75 +721,11 @@ function reloadScheduler() {
         schedules.forEach(task => { if (task.enabled) scheduleTask(task, tz); });
     });
 
-    const webJob = cron.schedule('0 15 * * 1-5', () => { if (botSocket) runScheduledWebReports(botSocket, 'Asia/Makassar'); }, { timezone: 'Asia/Makassar' });
+    const webJob = cron.schedule('0 16 * * 1-5', () => { if (botSocket) runScheduledWebReports(botSocket, 'Asia/Makassar'); }, { timezone: 'Asia/Makassar' });
     activeCrons.set('global_web_reports', webJob);
 
     const infoCheckJob = cron.schedule('0 7 * * *', () => { if (botSocket) runCheckInfo(botSocket); }, { timezone: 'Asia/Makassar' });
     activeCrons.set('global_info_check', infoCheckJob);
-
-    const ramadanJob = cron.schedule('5 0 * * *', () => { if (botSocket) scheduleRamadanForToday(botSocket); }, { timezone: 'Asia/Makassar' });
-    activeCrons.set('global_ramadan_refresh', ramadanJob);
-
-    if (botSocket) scheduleRamadanForToday(botSocket);
-}
-
-async function scheduleRamadanForToday(sock) {
-    if (!sock) return;
-    for (const [key, job] of ramadanCrons.entries()) { job.stop(); ramadanCrons.delete(key); }
-    try {
-        const settings = loadGroupSettings();
-        const enabledGroups = Object.entries(settings).filter(([_, c]) => c.schedulerEnabled);
-        const citySchedules = new Map();
-        for (const [groupId, config] of enabledGroups) {
-            let groupCity = config.city;
-            if (!groupCity) {
-                try {
-                    const metadata = await sock.groupMetadata(groupId);
-                    const groupName = metadata.subject.toLowerCase();
-                    if (groupName.includes('jakarta')) groupCity = 'Jakarta';
-                    else if (groupName.includes('makassar')) groupCity = 'Makassar';
-                } catch (e) {}
-            }
-            if (!groupCity) {
-                const tz = config.timezone || 'Asia/Makassar';
-                if (tz === 'Asia/Jakarta') groupCity = 'Jakarta';
-                else groupCity = 'Makassar';
-            }
-            if (!citySchedules.has(groupCity)) {
-                const res = await getPrayerTimes(groupCity);
-                if (res.success) citySchedules.set(groupCity, res);
-                else continue;
-            }
-            const scheduleData = citySchedules.get(groupCity);
-            const t = scheduleData.timings;
-            const timezone = config.timezone || 'Asia/Makassar';
-            const tasks = [
-                { name: `Sahur_${groupId}`, time: '03:00', msg: '🥣 *Waktunya Sahur!* Jangan lupa makan dan niat ya.' },
-                { name: `Imsak_${groupId}`, time: t.Imsak, msg: '⚠️ *Waktu Imsak!* Segera selesaikan makan sahur Anda. 10 menit lagi Subuh.' },
-                { name: `Subuh_${groupId}`, time: t.Fajr, msg: `🕌 *Waktu Subuh* telah tiba untuk wilayah *${groupCity}* dan sekitarnya.` },
-                { name: `Dzuhur_${groupId}`, time: t.Dhuhr, msg: '☀️ *Waktu Dzuhur* telah tiba. Selamat menunaikan ibadah sholat.' },
-                { name: `Ashar_${groupId}`, time: t.Asr, msg: '🌤️ *Waktu Ashar* telah tiba. Rehat sejenak untuk sholat.' },
-                { name: `Maghrib_${groupId}`, time: t.Maghrib, msg: '🌇 *Alhamdulillah Maghrib!* Selamat Berbuka Puasa. 🍵' },
-                { name: `Isya_${groupId}`, time: t.Isha, msg: '🌙 *Waktu Isya* telah tiba. Jangan lupa Tarawih ya! 🤲' }
-            ];
-            tasks.forEach(task => {
-                const [h, m] = task.time.split(':');
-                const cronTime = `${m} ${h} * * *`;
-                const job = cron.schedule(cronTime, async () => {
-                    let finalMsg = task.msg;
-                    if (task.name.startsWith('Sahur') || task.name.startsWith('Maghrib')) {
-                        const contentRes = await getRandomContent();
-                        if (contentRes.success) {
-                            const c = contentRes.content;
-                            finalMsg += contentRes.type === 'ayat' ? `\n\n📖 *QS. ${c.surah}: ${c.ayat}*\n"${c.terjemahan}"` : `\n\n📜 *Hadits Riwayat ${c.perawi}*\n"${c.terjemahan}"`;
-                        }
-                    }
-                    try { await sock.sendMessage(groupId, { text: finalMsg }); } catch (e) {}
-                }, { timezone: timezone });
-                ramadanCrons.set(task.name, job);
-            });
-        }
-    } catch (e) { console.error(chalk.red('[RAMADAN] Error scheduling:'), e.message); }
 }
 
 function initScheduler(sock) {
@@ -797,7 +744,190 @@ async function runTestScheduler(sock, taskId) {
     else if (task.type === 'group_tag_all') await runGroupTagAll(sock, task, tz);
     else if (task.type === 'draft_push') await runDraftPush(sock, task, tz);
     else if (task.type === 'emergency_submit') await runEmergencySubmit(sock, task, tz);
+    else if (task.type === 'batch2_special') await runBatch2Special(sock, task, tz);
+    else if (task.type === 'nightly_reminder') await runNightlyReminder(sock, task, tz);
+    else if (task.type === 'nightly_reminder_draft') await runNightlyReminderDraft(sock, task, tz);
     return { success: true };
+}
+
+async function runBatch2Special(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Batch 2 Special: ${task.id} (${timezone})`));
+    if (!isSchedulerEnabled()) return;
+
+    // Only run on April 24, 2026
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+    const dateStr = now.toLocaleString("en-CA", { timeZone: timezone }).split(',')[0];
+    if (dateStr !== '2026-04-24') {
+        console.log(chalk.yellow(`[SCHEDULER] Not April 24 (${dateStr}). Skipping Batch 2 Special.`));
+        return;
+    }
+
+    const settings = loadGroupSettings();
+    const enabledGroups = Object.entries(settings).filter(([_, c]) => {
+        const groupTz = c.timezone || 'Asia/Makassar';
+        return c.schedulerEnabled && groupTz === timezone && !shouldSkipGroup(c, timezone);
+    });
+
+    const allUsers = getAllUsers();
+    const notAbsen = [];
+    for (const user of allUsers) {
+        try {
+            const status = await cekStatusHarian(user.email, user.password, 1);
+            if (status.success && !status.sudahAbsen) {
+                notAbsen.push(user);
+            }
+        } catch (e) {}
+    }
+
+    if (notAbsen.length === 0) return;
+
+    for (const [groupId, _] of enabledGroups) {
+        try {
+            let participantIds = [];
+            try {
+                const metadata = await sock.groupMetadata(groupId);
+                participantIds = metadata.participants.map(p => p.id);
+            } catch (e) {
+                console.warn(chalk.yellow(`[BATCH2] Failed to fetch metadata for ${groupId}: ${e.message}`));
+                continue;
+            }
+
+            const matchedUsers = [];
+            for (const u of notAbsen) {
+                const ids = u.identifiers || [u.phone];
+                if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
+                const matchedId = ids.find(id => participantIds.includes(id));
+                if (matchedId) {
+                    matchedUsers.push({ ...u, mentionJid: matchedId });
+                }
+            }
+
+            if (matchedUsers.length === 0) continue;
+
+            const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+            const mentions = matchedUsers.map(u => u.mentionJid);
+            let msgText = getMessage(task.messageKey || 'BATCH2_APRIL24');
+            msgText = msgText.replace('{users}', mentionedText).trim();
+
+            await sock.sendMessage(groupId, { text: msgText, mentions });
+            await new Promise(r => setTimeout(r, 2000));
+        } catch (e) {
+            console.error(chalk.red(`[SCHEDULER] Failed Batch 2 broadcast to ${groupId}:`), e.message);
+        }
+    }
+}
+
+async function runNightlyReminder(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Nightly Reminder: ${task.id} (${timezone})`));
+    if (!isSchedulerEnabled()) return;
+    
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
+    const dateStr = now.toLocaleString("en-CA", { timeZone: timezone }).split(',')[0];
+    
+    // Logic:
+    // 23 April (Tonight): Use REMINDER_1900_A
+    // 24 April: Handled by Batch 2 Special (SKIP HERE)
+    // 25 April onwards: Use REMINDER_1900_B / 2130
+    
+    if (dateStr === '2026-04-24') return; 
+
+    const settings = loadGroupSettings();
+    const enabledGroups = Object.entries(settings).filter(([_, c]) => {
+        const groupTz = c.timezone || 'Asia/Makassar';
+        return c.schedulerEnabled && groupTz === timezone && !shouldSkipGroup(c, timezone);
+    });
+
+    const allUsers = getAllUsers();
+    const notAbsen = [];
+    for (const user of allUsers) {
+        try {
+            const status = await cekStatusHarian(user.email, user.password, 1);
+            if (status.success && !status.sudahAbsen) {
+                notAbsen.push(user);
+            }
+        } catch (e) {}
+    }
+
+    if (notAbsen.length === 0) return;
+
+    let messageKey = task.messageKey;
+    // Map time to specific message key if not provided
+    if (!messageKey || messageKey === 'REMINDER_1900') {
+        const hour = now.getHours();
+        if (hour === 19) {
+            messageKey = (dateStr <= '2026-04-23') ? 'REMINDER_1900_A' : 'REMINDER_1900_B';
+        } else if (hour === 21) {
+            messageKey = 'REMINDER_2130';
+        }
+    }
+
+    const baseMsgText = getMessage(messageKey);
+
+    for (const [groupId, _] of enabledGroups) {
+        try {
+            let participantIds = [];
+            try {
+                const metadata = await sock.groupMetadata(groupId);
+                participantIds = metadata.participants.map(p => p.id);
+            } catch (e) {
+                console.warn(chalk.yellow(`[NIGHTLY] Failed to fetch metadata for ${groupId}: ${e.message}`));
+                continue;
+            }
+
+            const matchedUsers = [];
+            for (const u of notAbsen) {
+                const ids = u.identifiers || [u.phone];
+                if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
+                const matchedId = ids.find(id => participantIds.includes(id));
+                if (matchedId) {
+                    matchedUsers.push({ ...u, mentionJid: matchedId });
+                }
+            }
+
+            if (matchedUsers.length === 0) continue;
+
+            const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+            const mentions = matchedUsers.map(u => u.mentionJid);
+            let msgText = baseMsgText.replace('{users}', mentionedText);
+
+            await sock.sendMessage(groupId, { text: msgText, mentions });
+            await new Promise(r => setTimeout(r, 2000));
+        } catch (e) {
+            console.error(chalk.red(`[SCHEDULER] Failed nightly broadcast to ${groupId}:`), e.message);
+        }
+    }
+}
+
+async function runNightlyReminderDraft(sock, task, timezone) {
+    console.log(chalk.magenta(`[SCHEDULER] Running Nightly Reminder Draft: ${task.id} (${timezone})`));
+    if (!isSchedulerEnabled()) return;
+
+    const allUsers = getAllUsers();
+    for (const user of allUsers) {
+        try {
+            const status = await cekStatusHarian(user.email, user.password, 1);
+            if (status.success && !status.sudahAbsen) {
+                // Generate Draft
+                const riwayatResult = await getRiwayat(user.email, user.password, 7);
+                const aiResult = await generateAttendanceReport(riwayatResult.success ? riwayatResult.logs : [], user.context);
+                
+                if (aiResult.success) {
+                    let msg = getMessage('REMINDER_2300');
+                    const phone = (user.phone || user.identifiers[0]).split('@')[0];
+                    msg = msg.replace('{user}', phone)
+                             .replace('{aktivitas}', aiResult.aktivitas)
+                             .replace('{pembelajaran}', aiResult.pembelajaran)
+                             .replace('{kendala}', aiResult.kendala);
+                    
+                    const jid = (user.phone || user.identifiers[0]).includes('@') ? (user.phone || user.identifiers[0]) : `${user.phone || user.identifiers[0]}@s.whatsapp.net`;
+                    await sock.sendMessage(jid, { text: msg, mentions: [jid] });
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            }
+        } catch (e) {
+            console.error(`[SCHEDULER] Failed nightly draft to ${user.email}:`, e.message);
+        }
+    }
 }
 
 module.exports = {
@@ -813,5 +943,8 @@ module.exports = {
     runMorningReminder: async (sock) => runTestScheduler(sock, 'morning_reminder'),
     runAfternoonReminder: async (sock) => runTestScheduler(sock, 'afternoon_reminder'),
     runAutoReminder: async (sock, japri) => runTestScheduler(sock, japri ? 'evening_reminder_2' : 'evening_reminder_1'),
-    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit')
+    runEmergencyAutoSubmit: async (sock) => runTestScheduler(sock, 'emergency_submit'),
+    runBatch2Special,
+    runNightlyReminder,
+    runNightlyReminderDraft
 };

@@ -1,0 +1,9 @@
+{
+  "BATCH2_LAST_DAY": "Halo ini hari terakhir batch 2, pastikan absen hari ini ya, dan juga untuk besok! Makasih telah menggunakan bot selama ini, i'll miss u guys :)",
+  "BATCH2_APRIL24": "Halo man teman, jangan lupa absen sebelum jam 5 ya! takutnya udah ga bsa absen setelah itu, karena telah diajukan! Makasih telah menggunakan bot selama ini, i'll miss u guys. oiya yang belum absen nih: {users}",
+  "REMINDER_1900_A": "Halo man teman, {users} belum absen nih, lesgoo absen! jangan sampai lupa absen disisa waktu ini, see ya!",
+  "REMINDER_1900_B": "Yok, bulan terakhir! absen dlu {users} biar ga lupa, makasih selama ini guys!",
+  "REMINDER_2130": "Lah kalian belum absen? {users} absen dlu gasih, udah mau jam berapa ini! masa sisa sebulan lupa sih!",
+  "REMINDER_2300": "Halo @{user} kamu belum absen nih, segera absen ya! nih ku buatin draft:\n\nUraian aktivitas:\n{aktivitas}\n\nPembelajaran:\n{pembelajaran}\n\nKendala:\n{kendala}\n",
+  "EVENING_REMINDER_TARGETED": "Halo selamat malam teman-teman, disisa waktu ini, jangan lupa absen ya! hari ini yang belum absen ada {users}, semangat terus teman-teman semoga takdir selalu membawa kita ke hal-hal yang baik!"
+}

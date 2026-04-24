@@ -244,7 +244,7 @@ const AttendanceAppContent = () => {
             if (res.data.success) {
                 setIsScheduled(nextState);
                 if (nextState) {
-                    toast.success('Jadwal UPDATE BERHASIL! (Jam 15:00)');
+                    toast.success('Jadwal UPDATE BERHASIL! (Jam 16:00)');
                 } else {
                     toast('Jadwal Otomatis DIBATALKAN', { icon: '🛑' });
                 }
@@ -471,10 +471,10 @@ const AttendanceAppContent = () => {
                         <div className="flex-1 pr-4">
                             <span className="font-bold text-sm block uppercase tracking-tight flex items-center gap-2">
                                 <CalendarClock size={16} />
-                                Jadwal Otomatis (15:00)
+                                Jadwal Otomatis (16:00)
                             </span>
                             <span className="text-[10px] text-gray-600 block leading-tight mt-0.5 ml-6">
-                                {isScheduled ? 'Bot akan mengirim laporan otomatis jam 3 sore.' : 'Aktifkan agar laporan terkirim otomatis nanti.'}
+                                {isScheduled ? 'Bot akan mengirim laporan otomatis jam 4 sore.' : 'Aktifkan agar laporan terkirim otomatis nanti.'}
                             </span>
                         </div>
                         {/* Visual Switch */}

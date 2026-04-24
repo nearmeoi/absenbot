@@ -253,7 +253,7 @@ router.post('/api/schedule', async (req, res) => {
             pembelajaran,
             kendala,
             status: 'pending',
-            scheduledTime: '15:00',
+            scheduledTime: '16:00',
             createdAt: new Date().toISOString()
         };
 
@@ -264,7 +264,7 @@ router.post('/api/schedule', async (req, res) => {
         }
 
         fs.writeFileSync(SCHEDULED_REPORTS_FILE, JSON.stringify(scheduled, null, 2));
-        res.json({ success: true, message: 'Jadwal otomatis diaktifkan (Jam 15:00)' });
+        res.json({ success: true, message: 'Jadwal otomatis diaktifkan (Jam 16:00)' });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
