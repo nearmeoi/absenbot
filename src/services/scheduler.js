@@ -156,7 +156,9 @@ function isWeekendOrHoliday(timezone) {
     const tzDate = new Date(tzString);
     const day = tzDate.getDay();
     if (day === 0 || day === 6) return true;
-    const dateStr = tzDate.toISOString().split('T')[0];
+    
+    // Fix: get date string in the target timezone
+    const dateStr = now.toLocaleString("en-CA", { timeZone: timezone }).split(',')[0];
     return isHoliday(dateStr);
 }
 
@@ -221,7 +223,7 @@ async function runEmergencyWarning(sock, task, timezone) {
             if (!isCriticalDay) return null;
         }
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, user.password, 3, timezone);
             if (status.success && !status.sudahAbsen) return user;
         } catch (e) { }
         return null;
@@ -240,6 +242,9 @@ async function runEmergencyWarning(sock, task, timezone) {
 
             const matchedUsers = [];
             for (const u of pendingCriticalUsers) {
+                // Filter out entries that look like file paths
+                if (u.phone && (u.phone.includes('/') || u.phone.includes('\\') || u.phone.endsWith('.json'))) continue;
+
                 const ids = u.identifiers || [u.phone];
                 if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
                 const matchedId = ids.find(id => participantIds.includes(id));
@@ -249,7 +254,11 @@ async function runEmergencyWarning(sock, task, timezone) {
             }
 
             if (matchedUsers.length > 0) {
-                const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+                const mentionedText = matchedUsers.map(u => {
+                    const name = u.name || u.phone.split('@')[0];
+                    const phone = u.phone.split('@')[0];
+                    return `@${phone} (${name})`;
+                }).join(' ');
                 const mentions = matchedUsers.map(u => u.mentionJid);
                 const warningMsg = `🚨 *PENGINGAT DEADLINE (DEADLINE 17:00)* 🚨\n\nHalo ${mentionedText}\n\nHari ini adalah batas akhir absen untuk periode Anda. Saya sudah mengirimkan *Draf Laporan* ke Chat Pribadi Anda.\n\nSilakan cek DM dan balas *ya* untuk mengirim. Jika sampai jam 16:30 tetap belum absen, saya akan mengirimkannya secara *OTOMATIS* demi mengamankan upah Anda.`;
                 await sock.sendMessage(groupId, { text: warningMsg, mentions });
@@ -385,7 +394,7 @@ async function runGroupHidetagJapri(sock, task, timezone) {
     const allUsers = getAllUsers();
     const pendingUsers = (await parallelMap(allUsers, async (user) => {
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, user.password, 3, timezone);
             if (status.success && !status.sudahAbsen) return user;
         } catch (e) {
             console.error(`[SCHEDULER] Error checking status for ${user.email}:`, e.message);
@@ -407,12 +416,22 @@ async function runGroupHidetagJapri(sock, task, timezone) {
                     try {
                         const metadata = await sock.groupMetadata(groupId);
                         const participantIds = metadata.participants.map(p => p.id);
-                        
                         groupPendingUsers = [];
                         for (const u of pendingUsers) {
-                            const ids = u.identifiers || [u.phone];
-                            if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
-                            
+                            // Filter out entries that look like file paths
+                            const isPath = (str) => str && (str.includes('/') || str.includes('\\') || str.endsWith('.json') || str.includes('SesiWA') || str.includes('sessions'));
+                            if (isPath(u.phone) || isPath(u.lid)) continue;
+
+                            // Prioritize LID for matching if it exists
+                            const ids = [];
+                            if (u.lid) ids.push(u.lid);
+                            if (u.phone) ids.push(u.phone);
+                            if (u.identifiers && Array.isArray(u.identifiers)) {
+                                u.identifiers.forEach(id => {
+                                    if (!ids.includes(id)) ids.push(id);
+                                });
+                            }
+
                             const matchedId = ids.find(id => participantIds.includes(id));
                             if (matchedId) {
                                 groupPendingUsers.push({ ...u, mentionJid: matchedId });
@@ -425,7 +444,10 @@ async function runGroupHidetagJapri(sock, task, timezone) {
                     if (groupPendingUsers.length === 0) continue;
 
                     const mentions = groupPendingUsers.map(u => u.mentionJid);
-                    const mentionedText = groupPendingUsers.map(u => `@${u.mentionJid.split('@')[0]}`).join(' ');
+                    const mentionedText = groupPendingUsers.map(u => {
+                        const idToUse = u.mentionJid || u.lid || u.phone;
+                        return `@${idToUse.split('@')[0]}`;
+                    }).join(' ');
                     let messageText = getMessage(task.messageKey || 'REMINDER_GROUP_TARGETED');
                     if (messageText) {
                         messageText = messageText.replace('{users}', mentionedText);
@@ -494,7 +516,7 @@ async function runDraftPush(sock, task, timezone) {
     
     await parallelMap(allUsers, async (user) => {
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, user.password, 3, timezone);
             
             // Fix: If status check fails (success: false), DO NOT proceed to avoid false positives
             if (!status.success) {
@@ -547,7 +569,7 @@ async function runEmergencySubmit(sock, task, timezone) {
             if (!isCriticalDay) return null;
         }
         try {
-            const status = await cekStatusHarian(user.email, user.password);
+            const status = await cekStatusHarian(user.email, user.password, 3, timezone);
             if (status.success && !status.sudahAbsen) return user;
         } catch (e) { }
         return null;
@@ -567,6 +589,9 @@ async function runEmergencySubmit(sock, task, timezone) {
 
             const matchedUsers = [];
             for (const u of pendingCriticalUsers) {
+                // Filter out entries that look like file paths
+                if (u.phone && (u.phone.includes('/') || u.phone.includes('\\') || u.phone.endsWith('.json'))) continue;
+
                 const ids = u.identifiers || [u.phone];
                 if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
                 const matchedId = ids.find(id => participantIds.includes(id));
@@ -576,7 +601,11 @@ async function runEmergencySubmit(sock, task, timezone) {
             }
 
             if (matchedUsers.length > 0) {
-                const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+                const mentionedText = matchedUsers.map(u => {
+                    const name = u.name || u.phone.split('@')[0];
+                    const phone = u.phone.split('@')[0];
+                    return `@${phone} (${name})`;
+                }).join(' ');
                 const mentions = matchedUsers.map(u => u.mentionJid);
                 const warningMsg = `⚠️ *DEADLINE ABSENSI (JAM 17:00)* ⚠️\n\nHalo ${mentionedText}\n\nSistem mendeteksi Anda belum absen. Karena hari ini deadline pengolahan upah, *Bot akan melakukan absen otomatis sekarang* untuk mengamankan upah Anda.\n\n_Mohon jangan mengisi manual di web saat proses ini berjalan._`;
                 await sock.sendMessage(groupId, { text: warningMsg, mentions });
@@ -772,7 +801,7 @@ async function runBatch2Special(sock, task, timezone) {
     const notAbsen = [];
     for (const user of allUsers) {
         try {
-            const status = await cekStatusHarian(user.email, user.password, 1);
+            const status = await cekStatusHarian(user.email, user.password, 1, timezone);
             if (status.success && !status.sudahAbsen) {
                 notAbsen.push(user);
             }
@@ -794,6 +823,9 @@ async function runBatch2Special(sock, task, timezone) {
 
             const matchedUsers = [];
             for (const u of notAbsen) {
+                // Filter out entries that look like file paths
+                if (u.phone && (u.phone.includes('/') || u.phone.includes('\\') || u.phone.endsWith('.json'))) continue;
+
                 const ids = u.identifiers || [u.phone];
                 if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
                 const matchedId = ids.find(id => participantIds.includes(id));
@@ -804,7 +836,7 @@ async function runBatch2Special(sock, task, timezone) {
 
             if (matchedUsers.length === 0) continue;
 
-            const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+            const mentionedText = matchedUsers.map(u => `@${(u.mentionJid || u.phone).split('@')[0]}`).join(' ');
             const mentions = matchedUsers.map(u => u.mentionJid);
             let msgText = getMessage(task.messageKey || 'BATCH2_APRIL24');
             msgText = msgText.replace('{users}', mentionedText).trim();
@@ -820,6 +852,7 @@ async function runBatch2Special(sock, task, timezone) {
 async function runNightlyReminder(sock, task, timezone) {
     console.log(chalk.magenta(`[SCHEDULER] Running Nightly Reminder: ${task.id} (${timezone})`));
     if (!isSchedulerEnabled()) return;
+    if (isWeekendOrHoliday(timezone)) return;
     
     const now = new Date(new Date().toLocaleString("en-US", { timeZone: timezone }));
     const dateStr = now.toLocaleString("en-CA", { timeZone: timezone }).split(',')[0];
@@ -841,7 +874,7 @@ async function runNightlyReminder(sock, task, timezone) {
     const notAbsen = [];
     for (const user of allUsers) {
         try {
-            const status = await cekStatusHarian(user.email, user.password, 1);
+            const status = await cekStatusHarian(user.email, user.password, 1, timezone);
             if (status.success && !status.sudahAbsen) {
                 notAbsen.push(user);
             }
@@ -856,7 +889,7 @@ async function runNightlyReminder(sock, task, timezone) {
         const hour = now.getHours();
         if (hour === 19) {
             messageKey = (dateStr <= '2026-04-23') ? 'REMINDER_1900_A' : 'REMINDER_1900_B';
-        } else if (hour === 21) {
+        } else if (hour >= 21) {
             messageKey = 'REMINDER_2130';
         }
     }
@@ -876,17 +909,35 @@ async function runNightlyReminder(sock, task, timezone) {
 
             const matchedUsers = [];
             for (const u of notAbsen) {
-                const ids = u.identifiers || [u.phone];
-                if (u.lid && !ids.includes(u.lid)) ids.push(u.lid);
+                // Filter out entries that look like file paths
+                const isPath = (str) => str && (str.includes('/') || str.includes('\\') || str.endsWith('.json') || str.includes('SesiWA') || str.includes('sessions'));
+                if (isPath(u.phone) || isPath(u.lid)) continue;
+                
+                // Prioritize LID for matching if it exists
+                const ids = [];
+                if (u.lid) ids.push(u.lid);
+                if (u.phone) ids.push(u.phone);
+                if (u.identifiers && Array.isArray(u.identifiers)) {
+                    u.identifiers.forEach(id => {
+                        if (!ids.includes(id)) ids.push(id);
+                    });
+                }
+
                 const matchedId = ids.find(id => participantIds.includes(id));
                 if (matchedId) {
+                    // Always try to use LID for the mention if the user has one and it's in the group
+                    // or just use the matchedId which is verified to be in the group
                     matchedUsers.push({ ...u, mentionJid: matchedId });
                 }
             }
 
             if (matchedUsers.length === 0) continue;
 
-            const mentionedText = matchedUsers.map(u => `@${u.phone.split('@')[0]}`).join(' ');
+            const mentionedText = matchedUsers.map(u => {
+                const idToUse = u.mentionJid || u.lid || u.phone;
+                return `@${idToUse.split('@')[0]}`;
+            }).join(' ');
+            
             const mentions = matchedUsers.map(u => u.mentionJid);
             let msgText = baseMsgText.replace('{users}', mentionedText);
 
@@ -901,11 +952,13 @@ async function runNightlyReminder(sock, task, timezone) {
 async function runNightlyReminderDraft(sock, task, timezone) {
     console.log(chalk.magenta(`[SCHEDULER] Running Nightly Reminder Draft: ${task.id} (${timezone})`));
     if (!isSchedulerEnabled()) return;
+    if (timezone !== 'Asia/Makassar') return; // Run only once to avoid duplicate messages
+    if (isWeekendOrHoliday(timezone)) return;
 
     const allUsers = getAllUsers();
     for (const user of allUsers) {
         try {
-            const status = await cekStatusHarian(user.email, user.password, 1);
+            const status = await cekStatusHarian(user.email, user.password, 1, timezone);
             if (status.success && !status.sudahAbsen) {
                 // Generate Draft
                 const riwayatResult = await getRiwayat(user.email, user.password, 7);
@@ -913,15 +966,13 @@ async function runNightlyReminderDraft(sock, task, timezone) {
                 
                 if (aiResult.success) {
                     let msg = getMessage('REMINDER_2300');
-                    const phone = (user.phone || user.identifiers[0]).split('@')[0];
-                    msg = msg.replace('{user}', phone)
+                    msg = msg.replace('{nama_users}', user.name || 'Teman')
                              .replace('{aktivitas}', aiResult.aktivitas)
                              .replace('{pembelajaran}', aiResult.pembelajaran)
                              .replace('{kendala}', aiResult.kendala);
-                    
+
                     const jid = (user.phone || user.identifiers[0]).includes('@') ? (user.phone || user.identifiers[0]) : `${user.phone || user.identifiers[0]}@s.whatsapp.net`;
-                    await sock.sendMessage(jid, { text: msg, mentions: [jid] });
-                    await new Promise(r => setTimeout(r, 2000));
+                    await sock.sendMessage(jid, { text: msg, mentions: [jid] });                    await new Promise(r => setTimeout(r, 2000));
                 }
             }
         } catch (e) {

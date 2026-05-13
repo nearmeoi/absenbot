@@ -2,6 +2,7 @@ const chalk = require('chalk');
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const { USERS_FILE, CHROMIUM_PATH, PUPPETEER_ARGS, PUPPETEER_HEADLESS } = require('../config/constants');
+const { getAllUsers, perbaruiUser } = require('./database');
 
 async function launchBrowser() {
     return await puppeteer.launch({
@@ -117,7 +118,7 @@ async function scrapeNamePuppeteer(user) {
 async function scrapeAndSaveUser(user) {
     const realName = await scrapeNamePuppeteer(user);
     if (realName) {
-        const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+        const users = getAllUsers();
         const index = users.findIndex(u => u.email === user.email);
         
         if (index !== -1) {
@@ -133,7 +134,7 @@ async function scrapeAndSaveUser(user) {
             }
             users[index].slug = finalSlug;
 
-            fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+            await perbaruiUser(users);
             console.log(chalk.green(`[PUPPETEER] Updated user ${user.email} with name "${realName}" and slug "${finalSlug}"`));
             return true;
         }

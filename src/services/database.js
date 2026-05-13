@@ -31,7 +31,37 @@ const muatUser = () => {
         }
 
         const data = fs.readFileSync(USERS_FILE, "utf8");
-        cacheUser = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        
+        // Validasi data: Pastikan tidak ada path file yang masuk sebagai phone/lid
+        cacheUser = parsed.filter(u => {
+            if (!u.email) return false;
+            // Jika phone/lid mengandung path atau ekstensi file, abaikan
+            const isPath = (str) => {
+                if (!str) return false;
+                const s = str.toLowerCase();
+                return s.includes('/') || s.includes('\\') || s.endsWith('.json') || 
+                       s.includes('sesiwa') || s.includes('sessions') || 
+                       s.includes('sender-key') || s.includes('device-list');
+            };
+
+            if (isPath(u.phone)) {
+                console.warn(`[DATABASE] Menghapus user dengan phone tidak valid: ${u.phone}`);
+                return false;
+            }
+            if (isPath(u.lid)) {
+                console.warn(`[DATABASE] Menghapus user dengan LID tidak valid: ${u.lid}`);
+                return false;
+            }
+            if (u.identifiers && Array.isArray(u.identifiers)) {
+                if (u.identifiers.some(id => isPath(id))) {
+                    console.warn(`[DATABASE] Menghapus user dengan identifiers tidak valid: ${u.email}`);
+                    return false;
+                }
+            }
+            return true;
+        });
+
         return [...cacheUser];
     } catch (e) {
         console.error('[DATABASE] Gagal memuat:', e.message);
@@ -104,6 +134,12 @@ const semuaUser = () => {
 
 // Simpan atau update user
 const simpanUser = (nomorHP, email, password) => {
+    // Validasi input: Jangan simpan jika nomorHP terlihat seperti path file
+    if (!nomorHP || nomorHP.includes('/') || nomorHP.includes('\\')) {
+        console.error(`[DATABASE] Mencoba menyimpan nomor HP tidak valid: ${nomorHP}`);
+        return false;
+    }
+
     const users = muatUser();
 
     // Normalisasi phone
@@ -159,6 +195,12 @@ const simpanUser = (nomorHP, email, password) => {
 };
 
 const updateLidUser = (nomorAsli, lid) => {
+    // Validasi input
+    if (!lid || lid.includes('/') || lid.includes('\\')) {
+        console.error(`[DATABASE] Mencoba update LID tidak valid: ${lid}`);
+        return false;
+    }
+
     const users = muatUser();
     const hpNormal = normalisasiHP(nomorAsli);
     const idx = users.findIndex(u => normalisasiHP(u.phone) === hpNormal);

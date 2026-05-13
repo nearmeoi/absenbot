@@ -386,12 +386,11 @@ async function cekKredensial(email, password) {
     return await puppeteerLogin(email, password, true);
 }
 
-async function cekStatusHarian(email, password, retries = 3) {
+async function cekStatusHarian(email, password, retries = 3, timezone = 'Asia/Makassar') {
     let lastError = null;
-    
+
     for (let i = 0; i < retries; i++) {
-        const apiResult = await apiService.checkAttendanceStatus(email);
-        
+        const apiResult = await apiService.checkAttendanceStatus(email, timezone);        
         // If successful or explicitly confirmed already attended, return immediately
         if (apiResult.success) return apiResult;
 

@@ -287,8 +287,8 @@ async function directLogin(email, password) {
     }
 }
 
-async function checkAttendanceStatus(email) {
-    console.log(chalk.cyan(`[API] Checking attendance status for ${email}...`));
+async function checkAttendanceStatus(email, timezone = 'Asia/Makassar') {
+    console.log(chalk.cyan(`[API] Checking attendance status for ${email} (TZ: ${timezone})...`));
     const session = loadSession(email);
     if (!session) return { success: false, needsLogin: true, pesan: "Session tidak ditemukan" };
 
@@ -309,7 +309,7 @@ async function checkAttendanceStatus(email) {
         const logs = response.data?.data;
         if (!Array.isArray(logs)) return { success: false, needsLogin: true, pesan: "Format response tidak valid" };
 
-        const today = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
+        const today = new Date().toLocaleString('en-CA', { timeZone: timezone }).split(',')[0];
         const todayLog = logs.find(log => log.date === today);
 
         if (todayLog) {
@@ -326,9 +326,9 @@ async function checkAttendanceStatus(email) {
         }
 
         if (participantId) {
-            const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Makassar' }));
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleString('en-CA', { timeZone: 'Asia/Makassar' }).split(',')[0];
+            const now = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleString('en-CA', { timeZone: timezone }).split(',')[0];
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleString('en-CA', { timeZone: timezone }).split(',')[0];
             const attendancesUrl = `${API_BASE_URL}/api/attendances?participant_id=${participantId}&start_date=${startOfMonth}&end_date=${endOfMonth}`;
 
             try {

@@ -36,6 +36,15 @@
     "enabled": true
   },
   {
+    "id": "test_tagging",
+    "time": "21:50",
+    "days": "0-6",
+    "type": "nightly_reminder",
+    "messageKey": "REMINDER_2130",
+    "description": "Test Tagging Fix",
+    "enabled": true
+  },
+  {
     "id": "evening_reminder_2100",
     "time": "21:00",
     "days": "0-6",

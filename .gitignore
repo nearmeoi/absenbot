@@ -40,3 +40,4 @@ debug_*
 kemnaker.css
 data/push_subscriptions.json
 data/scheduled_reports.json
+sync-deploy.sh
